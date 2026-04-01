@@ -104,15 +104,16 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={FileText} label="Total de Petições" value={total} sub="criadas" accent="bg-blue-50 text-blue-600" />
-        <StatCard icon={PackageCheck} label="Prontas p/ Protocolo" value={completed} sub="aprovadas" accent="bg-green-50 text-green-600" />
-        <StatCard icon={AlertTriangle} label="Revisão Necessária" value={needsRevision} sub="pendentes" accent="bg-red-50 text-red-600" />
-        <StatCard icon={Clock} label="Aguardando Aprovação" value={awaiting} sub="geradas" accent="bg-amber-50 text-amber-600" />
+        <StatCard icon={FileText} label="Total de Petições" value={total} sub="criadas" accent="bg-blue-50 text-blue-600" to="/peticoes" />
+        <StatCard icon={PackageCheck} label="Prontas p/ Protocolo" value={completed} sub="aprovadas" accent="bg-green-50 text-green-600" to="/peticoes" />
+        <StatCard icon={AlertTriangle} label="Revisão Necessária" value={needsRevision} sub="pendentes" accent="bg-red-50 text-red-600" to="/peticoes" />
+        <StatCard icon={Clock} label="Aguardando Aprovação" value={awaiting} sub="geradas" accent="bg-amber-50 text-amber-600" to="/peticoes" />
       </div>
 
       {/* Value Banner */}
       {totalValue > 0 && (
-        <div className="rounded-2xl border bg-card p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+        <Link to="/peticoes" className="block">
+        <div className="rounded-2xl border bg-card p-6 flex flex-col sm:flex-row sm:items-center gap-6 hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center gap-4 flex-1">
             <div className="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center shrink-0">
               <DollarSign className="w-7 h-7 text-accent" />
@@ -133,12 +134,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </Link>
       )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Monthly trend */}
-        <Card className="p-6 lg:col-span-2">
+        <Link to="/peticoes" className="lg:col-span-2 block">
+        <Card className="p-6 h-full hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-semibold text-foreground">Petições por Mês</h3>
@@ -168,9 +171,11 @@ export default function Dashboard() {
             <EmptyChart message="Nenhum dado disponível" />
           )}
         </Card>
+        </Link>
 
         {/* Status Pie */}
-        <Card className="p-6">
+        <Link to="/peticoes" className="block">
+        <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
           <div className="mb-6">
             <h3 className="font-semibold text-foreground">Status das Petições</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Distribuição atual</p>
@@ -203,11 +208,13 @@ export default function Dashboard() {
             <EmptyChart message="Nenhuma petição criada" />
           )}
         </Card>
+        </Link>
       </div>
 
       {/* Case type bar + quick actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-6 lg:col-span-2">
+        <Link to="/peticoes" className="lg:col-span-2 block">
+        <Card className="p-6 h-full hover:shadow-md transition-shadow cursor-pointer">
           <div className="mb-6">
             <h3 className="font-semibold text-foreground">Petições por Área</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Tipos de ação jurídica</p>
@@ -226,6 +233,7 @@ export default function Dashboard() {
             <EmptyChart message="Nenhuma petição criada" />
           )}
         </Card>
+        </Link>
 
         {/* Quick Actions */}
         <Card className="p-6 flex flex-col gap-3">
@@ -251,16 +259,18 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, accent }) {
+function StatCard({ icon: Icon, label, value, sub, accent, to }) {
   return (
-    <Card className="p-5 hover:shadow-md transition-shadow">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accent}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-sm font-medium text-foreground/80 mt-0.5">{label}</p>
-      <p className="text-xs text-muted-foreground">{sub}</p>
-    </Card>
+    <Link to={to || "/peticoes"} className="block">
+      <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer group">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accent}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <p className="text-2xl font-bold text-foreground">{value}</p>
+        <p className="text-sm font-medium text-foreground/80 mt-0.5">{label}</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1">{sub} <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" /></p>
+      </Card>
+    </Link>
   );
 }
 
