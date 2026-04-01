@@ -6,14 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
+
+const CASE_TYPE_LABELS = {
+  trabalhista: "Trabalhista",
+  civel: "Cível",
+  previdenciario: "Previdenciário",
+  consumidor: "Consumidor",
+  outro: "Outro",
+};
 
 export default function Templates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showDialog, setShowDialog] = useState(false);
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [viewTemplate, setViewTemplate] = useState(null);
+  const [editTemplate, setEditTemplate] = useState(null);
 
   const loadTemplates = async () => {
     const data = await base44.entities.PetitionTemplate.list("-created_date");
@@ -51,24 +61,9 @@ export default function Templates() {
           <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Modelos de Petição</h1>
           <p className="text-muted-foreground mt-1">Gerencie seus modelos e templates</p>
         </div>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" /> Novo Modelo
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Novo Modelo de Petição</DialogTitle>
-            </DialogHeader>
-            <NewTemplateForm
-              onSuccess={() => {
-                setShowDialog(false);
-                loadTemplates();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => setShowNewDialog(true)}>
+          <Plus className="w-4 h-4" /> Novo Modelo
+        </Button>
       </div>
 
       {templates.length === 0 ? (
@@ -86,157 +81,214 @@ export default function Templates() {
                   <FileText className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => handleToggle(t.id, t.is_active)}
-                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                    title={t.is_active ? "Desativar" : "Ativar"}
-                  >
-                    {t.is_active ? (
-                      <ToggleRight className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-5 h-5 text-muted-foreground" />
-                    )}
+                  <button onClick={() => setViewTemplate(t)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Visualizar">
+                    <Eye className="w-4 h-4 text-muted-foreground" />
                   </button>
-                  <button
-                    onClick={() => handleDelete(t.id)}
-                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                  >
+                  <button onClick={() => setEditTemplate(t)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Editar">
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <button onClick={() => handleToggle(t.id, t.is_active)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t.is_active ? "Desativar" : "Ativar"}>
+                    {t.is_active ? <ToggleRight className="w-5 h-5 text-green-600" /> : <ToggleLeft className="w-5 h-5 text-muted-foreground" />}
+                  </button>
+                  <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
               <h3 className="font-semibold text-foreground">{t.name}</h3>
-              <p className="text-sm text-muted-foreground mt-1 capitalize">{t.case_type}</p>
-              {t.description && (
-                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{t.description}</p>
-              )}
+              <p className="text-sm text-muted-foreground mt-1">{CASE_TYPE_LABELS[t.case_type] || t.case_type}</p>
+              {t.description && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{t.description}</p>}
               {t.file_name && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
                   <FileText className="w-3.5 h-3.5" />
                   <span className="truncate">{t.file_name}</span>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-3">
-                Criado em {new Date(t.created_date).toLocaleDateString("pt-BR")}
-              </p>
+              <p className="text-xs text-muted-foreground mt-3">Criado em {new Date(t.created_date).toLocaleDateString("pt-BR")}</p>
             </Card>
           ))}
         </div>
       )}
+
+      {/* New Template Dialog */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Modelo de Petição</DialogTitle>
+          </DialogHeader>
+          <TemplateForm
+            onSuccess={() => { setShowNewDialog(false); loadTemplates(); }}
+            onCancel={() => setShowNewDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={!!viewTemplate} onOpenChange={() => setViewTemplate(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewTemplate?.name}</DialogTitle>
+          </DialogHeader>
+          {viewTemplate && (
+            <div className="space-y-4">
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                <span><strong>Tipo:</strong> {CASE_TYPE_LABELS[viewTemplate.case_type]}</span>
+                <span><strong>Status:</strong> {viewTemplate.is_active ? "Ativo" : "Inativo"}</span>
+              </div>
+              {viewTemplate.description && (
+                <div>
+                  <p className="text-sm font-medium mb-1">Descrição</p>
+                  <p className="text-sm text-muted-foreground">{viewTemplate.description}</p>
+                </div>
+              )}
+              {viewTemplate.file_name && (
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-sm">{viewTemplate.file_name}</span>
+                  {viewTemplate.file_url && (
+                    <a href={viewTemplate.file_url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-primary hover:underline">
+                      Baixar arquivo
+                    </a>
+                  )}
+                </div>
+              )}
+              {viewTemplate.content && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Conteúdo extraído</p>
+                  <div className="bg-muted/30 rounded-xl p-4 text-sm whitespace-pre-wrap max-h-96 overflow-y-auto font-mono text-xs leading-relaxed">
+                    {viewTemplate.content}
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setViewTemplate(null)}>Fechar</Button>
+                <Button onClick={() => { setEditTemplate(viewTemplate); setViewTemplate(null); }} className="gap-2">
+                  <Pencil className="w-4 h-4" /> Editar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTemplate} onOpenChange={() => setEditTemplate(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Modelo</DialogTitle>
+          </DialogHeader>
+          {editTemplate && (
+            <TemplateForm
+              initialData={editTemplate}
+              onSuccess={() => { setEditTemplate(null); loadTemplates(); }}
+              onCancel={() => setEditTemplate(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function NewTemplateForm({ onSuccess }) {
+function TemplateForm({ initialData, onSuccess, onCancel }) {
+  const isEdit = !!initialData;
   const [form, setForm] = useState({
-    name: "",
-    case_type: "trabalhista",
-    description: "",
+    name: initialData?.name || "",
+    case_type: initialData?.case_type || "trabalhista",
+    description: initialData?.description || "",
+    content: initialData?.content || "",
   });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
 
   const handleSave = async () => {
-    if (!form.name) {
-      toast.error("Nome é obrigatório");
-      return;
-    }
-
+    if (!form.name) { toast.error("Nome é obrigatório"); return; }
     setSaving(true);
-    let fileUrl = "";
-    let fileName = "";
-    let content = "";
+
+    let fileUrl = initialData?.file_url || "";
+    let fileName = initialData?.file_name || "";
+    let content = form.content;
 
     if (file) {
-      const uploadToast = toast.loading("Enviando arquivo...");
+      const t = toast.loading("Enviando arquivo...");
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        fileUrl = file_url;
+        const result = await base44.integrations.Core.UploadFile({ file });
+        fileUrl = result.file_url;
         fileName = file.name;
-        toast.dismiss(uploadToast);
+        toast.dismiss(t);
+        toast.success("Arquivo enviado!");
       } catch (err) {
-        toast.dismiss(uploadToast);
+        toast.dismiss(t);
         toast.error("Erro ao enviar arquivo: " + err.message);
         setSaving(false);
         return;
       }
 
-      // Try to extract text content
-      if (file.size < 5 * 1024 * 1024) { // skip only very large files
+      // Try to extract content from file
+      if (!content && file.size < 5 * 1024 * 1024) {
         try {
           const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
             file_url: fileUrl,
             json_schema: {
               type: "object",
               properties: {
-                content: { type: "string", description: "O conteúdo completo do documento" },
+                content: { type: "string", description: "O conteúdo completo do documento de petição" },
               },
             },
           });
           if (extracted.status === "success" && extracted.output?.content) {
             content = extracted.output.content;
           }
-        } catch (e) {
-          // Content extraction failed, not critical
-        }
+        } catch (e) { /* not critical */ }
       }
     }
 
-    await base44.entities.PetitionTemplate.create({
-      ...form,
-      file_url: fileUrl,
-      file_name: fileName,
-      content,
-      is_active: true,
-    });
+    const data = { ...form, file_url: fileUrl, file_name: fileName, content };
 
-    toast.success("Modelo criado com sucesso!");
+    if (isEdit) {
+      await base44.entities.PetitionTemplate.update(initialData.id, data);
+      toast.success("Modelo atualizado!");
+    } else {
+      await base44.entities.PetitionTemplate.create({ ...data, is_active: true });
+      toast.success("Modelo criado com sucesso!");
+    }
+
     setSaving(false);
     onSuccess();
   };
 
   return (
     <div className="space-y-4">
-      <div>
-        <Label>Nome do Modelo *</Label>
-        <Input
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="Ex: Petição Trabalhista Padrão"
-          className="mt-1.5"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2">
+          <Label>Nome do Modelo *</Label>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Petição Trabalhista Padrão" className="mt-1.5" />
+        </div>
+        <div>
+          <Label>Tipo de Ação</Label>
+          <Select value={form.case_type} onValueChange={(v) => setForm({ ...form, case_type: v })}>
+            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="trabalhista">Trabalhista</SelectItem>
+              <SelectItem value="civel">Cível</SelectItem>
+              <SelectItem value="previdenciario">Previdenciário</SelectItem>
+              <SelectItem value="consumidor">Consumidor</SelectItem>
+              <SelectItem value="outro">Outro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Descrição</Label>
+          <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Breve descrição..." className="mt-1.5" />
+        </div>
       </div>
 
       <div>
-        <Label>Tipo de Ação</Label>
-        <Select value={form.case_type} onValueChange={(v) => setForm({ ...form, case_type: v })}>
-          <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="trabalhista">Trabalhista</SelectItem>
-            <SelectItem value="civel">Cível</SelectItem>
-            <SelectItem value="previdenciario">Previdenciário</SelectItem>
-            <SelectItem value="consumidor">Consumidor</SelectItem>
-            <SelectItem value="outro">Outro</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label>Descrição</Label>
-        <Textarea
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Descreva o modelo..."
-          className="mt-1.5"
-        />
-      </div>
-
-      <div>
-        <Label>Arquivo do Modelo (opcional)</Label>
+        <Label>Arquivo do Modelo (PDF, DOCX, TXT)</Label>
         <div
           onClick={() => fileRef.current?.click()}
-          className="mt-1.5 border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+          className="mt-1.5 border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
         >
           {file ? (
             <div className="flex items-center justify-center gap-2">
@@ -246,26 +298,41 @@ function NewTemplateForm({ onSuccess }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
+          ) : initialData?.file_name ? (
+            <div className="text-sm text-muted-foreground">
+              <FileText className="w-5 h-5 mx-auto mb-1 text-primary" />
+              <span className="font-medium">{initialData.file_name}</span>
+              <p className="text-xs mt-1">Clique para substituir</p>
+            </div>
           ) : (
             <>
               <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Clique para enviar o modelo</p>
+              <p className="text-sm font-medium">Clique para enviar o modelo</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT — até 5MB</p>
             </>
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.txt"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="hidden"
-          />
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
         </div>
       </div>
 
-      <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-        {saving ? "Salvando..." : "Criar Modelo"}
-      </Button>
+      <div>
+        <Label>Conteúdo do Modelo (texto)</Label>
+        <p className="text-xs text-muted-foreground mb-1.5">Cole ou edite o texto da petição diretamente aqui. Se enviar um arquivo, o conteúdo será extraído automaticamente.</p>
+        <Textarea
+          value={form.content}
+          onChange={(e) => setForm({ ...form, content: e.target.value })}
+          placeholder="Cole aqui o texto do modelo de petição..."
+          className="min-h-[200px] font-mono text-xs"
+        />
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <Button variant="outline" onClick={onCancel} className="flex-1">Cancelar</Button>
+        <Button onClick={handleSave} disabled={saving} className="flex-1 gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          {saving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Modelo"}
+        </Button>
+      </div>
     </div>
   );
 }
