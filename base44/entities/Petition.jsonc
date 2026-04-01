@@ -12,7 +12,8 @@
         "rascunho",
         "em_geracao",
         "concluida",
-        "revisao"
+        "revisao_necessaria",
+        "pronto_para_protocolo"
       ],
       "default": "rascunho",
       "description": "Status da peti\u00e7\u00e3o"
@@ -38,105 +39,83 @@
       "description": "Rito processual"
     },
     "claimant_name": {
-      "type": "string",
-      "description": "Nome do reclamante"
+      "type": "string"
     },
     "claimant_cpf": {
-      "type": "string",
-      "description": "CPF do reclamante"
+      "type": "string"
     },
     "claimant_address": {
-      "type": "string",
-      "description": "Endere\u00e7o do reclamante"
+      "type": "string"
     },
     "claimant_role": {
-      "type": "string",
-      "description": "Fun\u00e7\u00e3o/cargo do reclamante"
+      "type": "string"
     },
     "defendant_name": {
-      "type": "string",
-      "description": "Nome do reclamado"
+      "type": "string"
     },
     "defendant_cnpj": {
-      "type": "string",
-      "description": "CNPJ do reclamado"
+      "type": "string"
     },
     "defendant_address": {
-      "type": "string",
-      "description": "Endere\u00e7o do reclamado"
+      "type": "string"
     },
     "contract_start": {
       "type": "string",
-      "format": "date",
-      "description": "Data de in\u00edcio do contrato"
+      "format": "date"
     },
     "contract_end": {
       "type": "string",
-      "format": "date",
-      "description": "Data de t\u00e9rmino do contrato"
+      "format": "date"
     },
     "salary": {
-      "type": "number",
-      "description": "Sal\u00e1rio base"
+      "type": "number"
     },
     "work_schedule": {
-      "type": "string",
-      "description": "Descri\u00e7\u00e3o da jornada de trabalho"
+      "type": "string"
     },
     "irregularities": {
-      "type": "string",
-      "description": "Descri\u00e7\u00e3o detalhada das irregularidades"
+      "type": "string"
     },
     "additional_facts": {
-      "type": "string",
-      "description": "Fatos adicionais relevantes"
+      "type": "string"
     },
     "claims": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Lista de pedidos"
+      }
     },
     "estimated_value": {
-      "type": "number",
-      "description": "Valor estimado da causa"
+      "type": "number"
     },
     "generated_content": {
-      "type": "string",
-      "description": "Conte\u00fado da peti\u00e7\u00e3o gerada"
+      "type": "string"
     },
     "template_used": {
-      "type": "string",
-      "description": "ID do modelo utilizado"
+      "type": "string"
     },
     "document_urls": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "URLs dos documentos anexados"
+      }
     },
     "document_names": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Nomes dos documentos anexados"
+      }
     },
     "jurisdiction": {
-      "type": "string",
-      "description": "Vara/Comarca competente"
+      "type": "string"
     },
     "free_justice": {
       "type": "boolean",
-      "default": true,
-      "description": "Solicitar justi\u00e7a gratuita"
+      "default": true
     },
     "digital_court": {
       "type": "boolean",
-      "default": true,
-      "description": "Ju\u00edzo 100% digital"
+      "default": true
     }
   },
   "required": [

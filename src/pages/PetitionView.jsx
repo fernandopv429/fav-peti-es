@@ -60,9 +60,14 @@ export default function PetitionView() {
           <button onClick={handleCopy} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-transparent text-sm hover:bg-muted transition-colors">
             <Copy className="w-4 h-4" /> Copiar
           </button>
-          {petition.status === "revisao" && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-100 text-amber-700 text-sm font-medium">
-              <Clock className="w-4 h-4" /> Revisão Pendente
+          {petition.status === "revisao_necessaria" && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-red-100 text-red-700 text-sm font-medium">
+              <Clock className="w-4 h-4" /> Revisão Necessária
+            </span>
+          )}
+          {petition.status === "pronto_para_protocolo" && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-100 text-green-700 text-sm font-medium">
+              <Clock className="w-4 h-4" /> Pronto para Protocolo
             </span>
           )}
           {(petition.status === "concluida" || petition.status === "revisao") && (

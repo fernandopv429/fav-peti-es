@@ -12,15 +12,17 @@ import { toast } from "sonner";
 const STATUS_BADGE = {
   rascunho: "bg-muted text-muted-foreground",
   em_geracao: "bg-amber-100 text-amber-700",
-  concluida: "bg-green-100 text-green-700",
-  revisao: "bg-purple-100 text-purple-700",
+  concluida: "bg-blue-100 text-blue-700",
+  revisao_necessaria: "bg-red-100 text-red-700",
+  pronto_para_protocolo: "bg-green-100 text-green-700",
 };
 
 const STATUS_LABELS = {
   rascunho: "Rascunho",
   em_geracao: "Em Geração",
-  concluida: "Concluída",
-  revisao: "Em Revisão",
+  concluida: "Aguardando Revisão",
+  revisao_necessaria: "Revisão Necessária",
+  pronto_para_protocolo: "Pronto para Protocolo",
 };
 
 const CASE_LABELS = {
@@ -105,8 +107,9 @@ export default function PetitionsList() {
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="rascunho">Rascunho</SelectItem>
             <SelectItem value="em_geracao">Em Geração</SelectItem>
-            <SelectItem value="concluida">Concluída</SelectItem>
-            <SelectItem value="revisao">Em Revisão</SelectItem>
+            <SelectItem value="concluida">Aguardando Revisão</SelectItem>
+            <SelectItem value="revisao_necessaria">Revisão Necessária</SelectItem>
+            <SelectItem value="pronto_para_protocolo">Pronto para Protocolo</SelectItem>
           </SelectContent>
         </Select>
       </div>

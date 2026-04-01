@@ -11,15 +11,17 @@ import TopTemplates from "../components/dashboard/TopTemplates";
 const STATUS_COLORS = {
   rascunho: "hsl(220, 9%, 46%)",
   em_geracao: "hsl(38, 92%, 50%)",
-  concluida: "hsl(160, 60%, 45%)",
-  revisao: "hsl(280, 65%, 60%)",
+  concluida: "hsl(210, 70%, 55%)",
+  revisao_necessaria: "hsl(0, 84%, 60%)",
+  pronto_para_protocolo: "hsl(160, 60%, 45%)",
 };
 
 const STATUS_LABELS = {
   rascunho: "Rascunho",
   em_geracao: "Em Geração",
-  concluida: "Concluída",
-  revisao: "Em Revisão",
+  concluida: "Aguardando Revisão",
+  revisao_necessaria: "Revisão Necessária",
+  pronto_para_protocolo: "Pronto para Protocolo",
 };
 
 export default function Dashboard() {
