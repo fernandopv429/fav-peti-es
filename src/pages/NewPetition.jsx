@@ -75,6 +75,8 @@ export default function NewPetition() {
     // Extract document content if available
     let documentContext = "";
     if (form.document_urls.length > 0) {
+      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+    }
 
     const prompt = `### PAPEL (ROLE)
 Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos. Você não deve usar formato de LISTAS, deve escrever todos os tópicos de forma altamente detalhada.
