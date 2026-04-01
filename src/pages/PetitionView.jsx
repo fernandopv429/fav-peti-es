@@ -1,0 +1,170 @@
+import { useState, useEffect, useRef } from "react";
+import { base44 } from "@/api/base44Client";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Download, FileText, Loader2, Printer, Copy, Edit2 } from "lucide-react";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+
+export default function PetitionView() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [petition, setPetition] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef(null);
+
+  useEffect(() => {
+    base44.entities.Petition.filter({ id }).then((data) => {
+      setPetition(data[0]);
+      setLoading(false);
+    });
+  }, [id]);
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const content = petition.generated_content || "";
+      const lines = content.split("\n");
+      
+      const pageWidth = 210;
+      const marginLeft = 30;
+      const marginRight = 20;
+      const maxWidth = pageWidth - marginLeft - marginRight;
+      let y = 30;
+
+      doc.setFont("helvetica", "normal");
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          y += 6;
+          if (y > 275) { doc.addPage(); y = 25; }
+          continue;
+        }
+
+        // Check if it's a heading (all caps or starts with **)
+        const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
+        const isBold = trimmed.startsWith("**") || isHeading;
+        const cleanText = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
+
+        if (isBold || isHeading) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+        }
+
+        const splitLines = doc.splitTextToSize(cleanText, maxWidth);
+        for (const sl of splitLines) {
+          if (y > 275) { doc.addPage(); y = 25; }
+          doc.text(sl, marginLeft, y);
+          y += 7;
+        }
+      }
+
+      doc.save(`${petition.title || "peticao"}.pdf`);
+      toast.success("PDF exportado com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao exportar PDF");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(petition.generated_content || "");
+    toast.success("Conteúdo copiado!");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!petition) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-muted-foreground">Petição não encontrada</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-3">
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </button>
+          <h1 className="text-2xl lg:text-3xl font-playfair font-bold">{petition.title}</h1>
+          <p className="text-muted-foreground mt-1">
+            {petition.claimant_name} vs {petition.defendant_name} • {new Date(petition.created_date).toLocaleDateString("pt-BR")}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleCopy} className="gap-2">
+            <Copy className="w-4 h-4" /> Copiar
+          </Button>
+          <Button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Baixar PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Info cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <InfoCard label="Tipo" value={petition.case_type} />
+        <InfoCard label="Rito" value={petition.rite} />
+        <InfoCard label="Salário" value={petition.salary ? `R$ ${petition.salary.toLocaleString("pt-BR")}` : "N/A"} />
+        <InfoCard label="Documentos" value={`${petition.document_urls?.length || 0} arquivo(s)`} />
+      </div>
+
+      {/* Content */}
+      <Card className="p-8 lg:p-12" ref={contentRef}>
+        {petition.generated_content ? (
+          <div className="prose prose-slate max-w-none petition-content">
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="text-sm leading-7 mb-4 text-justify">{children}</p>,
+                h1: ({ children }) => <h1 className="text-xl font-bold mt-8 mb-4 uppercase">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-bold mt-6 mb-3 uppercase">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2 uppercase">{children}</h3>,
+                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+              }}
+            >
+              {petition.generated_content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="w-12 h-12 mx-auto mb-4 opacity-40" />
+            <p>Conteúdo da petição não disponível</p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }) {
+  return (
+    <Card className="p-3 text-center">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold mt-0.5 capitalize">{value}</p>
+    </Card>
+  );
+}

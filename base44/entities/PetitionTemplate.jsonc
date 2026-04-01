@@ -1,0 +1,46 @@
+{
+  "name": "PetitionTemplate",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do modelo"
+    },
+    "case_type": {
+      "type": "string",
+      "enum": [
+        "trabalhista",
+        "civel",
+        "previdenciario",
+        "consumidor",
+        "outro"
+      ],
+      "description": "Tipo de a\u00e7\u00e3o"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o do modelo"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL do arquivo do modelo"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Nome do arquivo"
+    },
+    "content": {
+      "type": "string",
+      "description": "Conte\u00fado extra\u00eddo do modelo"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o modelo est\u00e1 ativo"
+    }
+  },
+  "required": [
+    "name",
+    "case_type"
+  ]
+}

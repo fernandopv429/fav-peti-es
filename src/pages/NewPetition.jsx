@@ -1,0 +1,470 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Upload, X, FileText, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import DocumentUploader from "../components/petition/DocumentUploader";
+import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
+
+const STEPS = ["Dados das Partes", "Detalhes do Caso", "Documentos", "Revisão e Geração"];
+
+export default function NewPetition() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const [form, setForm] = useState({
+    title: "",
+    case_type: "trabalhista",
+    rite: "ordinario",
+    claimant_name: "",
+    claimant_cpf: "",
+    claimant_address: "",
+    claimant_role: "",
+    defendant_name: "",
+    defendant_cnpj: "",
+    defendant_address: "",
+    contract_start: "",
+    contract_end: "",
+    salary: "",
+    work_schedule: "",
+    irregularities: "",
+    additional_facts: "",
+    jurisdiction: "",
+    free_justice: true,
+    digital_court: true,
+    template_used: "",
+    document_urls: [],
+    document_names: [],
+  });
+
+  useEffect(() => {
+    base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates);
+  }, []);
+
+  const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+
+    // Build the prompt
+    let templateContent = "";
+    if (form.template_used) {
+      const tmpl = templates.find((t) => t.id === form.template_used);
+      if (tmpl?.content) {
+        templateContent = `\n\nUSE O SEGUINTE MODELO COMO BASE DE FORMATAÇÃO E ESTILO:\n${tmpl.content}`;
+      }
+    }
+
+    // Extract document content if available
+    let documentContext = "";
+    if (form.document_urls.length > 0) {
+      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+    }
+
+    const prompt = `### PAPEL (ROLE)
+Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos. Você não deve usar formato de LISTAS, deve escrever todos os tópicos de forma altamente detalhada.
+
+### TAREFA/ATIVIDADE
+Elaborar uma PETIÇÃO INICIAL TRABALHISTA COMPLETA, pelo rito ${form.rite}, com alto nível de detalhamento fático e jurídico, incluindo todos os pedidos cabíveis, fundamentação legal, jurisprudência pertinente e liquidação estimada dos pedidos com reflexos.
+
+A formatação da peça deve ser em Arial tamanho 12, com espaçamento entre as linhas de 1,5, cada início de parágrafo deve ter o espaçamento de 3cm, os tópicos deverão estar em CAIXA ALTA e em NEGRITO e cada parágrafo deve ser NUMERADO.
+
+### DADOS DO CASO
+
+**Reclamante:** ${form.claimant_name}
+CPF: ${form.claimant_cpf}
+Endereço: ${form.claimant_address}
+Função: ${form.claimant_role}
+
+**Reclamado:** ${form.defendant_name}
+CNPJ: ${form.defendant_cnpj}
+Endereço: ${form.defendant_address}
+
+**Contrato de Trabalho:**
+Início: ${form.contract_start}
+Término: ${form.contract_end || "Contrato vigente"}
+Salário: R$ ${form.salary}
+
+**Jornada de Trabalho:** ${form.work_schedule}
+
+**Irregularidades:** ${form.irregularities}
+
+**Fatos Adicionais:** ${form.additional_facts}
+
+**Jurisdição:** ${form.jurisdiction}
+**Justiça Gratuita:** ${form.free_justice ? "Sim" : "Não"}
+**Juízo 100% Digital:** ${form.digital_court ? "Sim" : "Não"}
+
+### FORMATO DE SAÍDA
+A petição deve seguir EXATAMENTE a seguinte estrutura:
+1. Endereçamento formal
+2. Qualificação completa das partes
+3. Competência
+4. Justiça gratuita
+5. Juízo 100% digital
+6. Contrato de trabalho
+7. Jornada de trabalho (detalhada e estratégica)
+8. Tópicos jurídicos individualizados (com títulos em caixa alta)
+9. Fundamentação jurídica com legislação + jurisprudência
+10. Seção completa de PEDIDOS enumerados com valores estimados e reflexos discriminados
+11. Requerimentos finais
+12. Valor da causa
+13. Fechamento formal
+
+A redação deve ser contínua, sem simplificações, com alto nível técnico.${templateContent}${documentContext}`;
+
+    try {
+      const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        file_urls: fileUrls,
+        model: "claude_sonnet_4_6",
+      });
+
+      // Create petition record
+      const petition = await base44.entities.Petition.create({
+        ...form,
+        salary: form.salary ? parseFloat(form.salary) : undefined,
+        status: "concluida",
+        generated_content: result,
+      });
+
+      toast.success("Petição gerada com sucesso!");
+      navigate(`/peticoes/${petition.id}`);
+    } catch (err) {
+      toast.error("Erro ao gerar petição: " + err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const canProceed = () => {
+    if (step === 0) return form.claimant_name && form.defendant_name && form.title;
+    if (step === 1) return form.irregularities;
+    return true;
+  };
+
+  return (
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
+          <ArrowLeft className="w-4 h-4" /> Voltar
+        </button>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Nova Petição</h1>
+        <p className="text-muted-foreground mt-1">Preencha os dados para gerar sua petição inicial</p>
+      </div>
+
+      {/* Step indicator */}
+      <PetitionStepIndicator steps={STEPS} currentStep={step} />
+
+      {/* Step content */}
+      <Card className="p-6 lg:p-8">
+        {step === 0 && (
+          <StepParties form={form} updateForm={updateForm} />
+        )}
+        {step === 1 && (
+          <StepDetails form={form} updateForm={updateForm} templates={templates} />
+        )}
+        {step === 2 && (
+          <DocumentUploader form={form} updateForm={updateForm} />
+        )}
+        {step === 3 && (
+          <StepReview form={form} generating={generating} onGenerate={handleGenerate} />
+        )}
+      </Card>
+
+      {/* Navigation */}
+      <div className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={() => setStep((s) => s - 1)}
+          disabled={step === 0}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Anterior
+        </Button>
+
+        {step < 3 ? (
+          <Button
+            onClick={() => setStep((s) => s + 1)}
+            disabled={!canProceed()}
+            className="gap-2"
+          >
+            Próximo <ArrowRight className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" /> Gerar Petição
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StepParties({ form, updateForm }) {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold mb-1">Informações Gerais</h3>
+        <p className="text-sm text-muted-foreground mb-4">Dados básicos da petição</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Label>Título da Petição *</Label>
+            <Input value={form.title} onChange={(e) => updateForm("title", e.target.value)} placeholder="Ex: Reclamatória Trabalhista - João vs Empresa X" className="mt-1.5" />
+          </div>
+          <div>
+            <Label>Tipo de Ação</Label>
+            <Select value={form.case_type} onValueChange={(v) => updateForm("case_type", v)}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="trabalhista">Trabalhista</SelectItem>
+                <SelectItem value="civel">Cível</SelectItem>
+                <SelectItem value="previdenciario">Previdenciário</SelectItem>
+                <SelectItem value="consumidor">Consumidor</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Rito</Label>
+            <Select value={form.rite} onValueChange={(v) => updateForm("rite", v)}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ordinario">Ordinário</SelectItem>
+                <SelectItem value="sumarissimo">Sumaríssimo</SelectItem>
+                <SelectItem value="sumario">Sumário</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Jurisdição / Vara</Label>
+            <Input value={form.jurisdiction} onChange={(e) => updateForm("jurisdiction", e.target.value)} placeholder="Ex: 1ª Vara do Trabalho de São Paulo" className="mt-1.5" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-1">Reclamante</h3>
+        <p className="text-sm text-muted-foreground mb-4">Dados do trabalhador</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Nome Completo *</Label>
+            <Input value={form.claimant_name} onChange={(e) => updateForm("claimant_name", e.target.value)} placeholder="Nome completo" className="mt-1.5" />
+          </div>
+          <div>
+            <Label>CPF</Label>
+            <Input value={form.claimant_cpf} onChange={(e) => updateForm("claimant_cpf", e.target.value)} placeholder="000.000.000-00" className="mt-1.5" />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Endereço</Label>
+            <Input value={form.claimant_address} onChange={(e) => updateForm("claimant_address", e.target.value)} placeholder="Endereço completo" className="mt-1.5" />
+          </div>
+          <div>
+            <Label>Função / Cargo</Label>
+            <Input value={form.claimant_role} onChange={(e) => updateForm("claimant_role", e.target.value)} placeholder="Ex: Vigilante patrimonial" className="mt-1.5" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-1">Reclamado</h3>
+        <p className="text-sm text-muted-foreground mb-4">Dados da empresa</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Razão Social *</Label>
+            <Input value={form.defendant_name} onChange={(e) => updateForm("defendant_name", e.target.value)} placeholder="Nome da empresa" className="mt-1.5" />
+          </div>
+          <div>
+            <Label>CNPJ</Label>
+            <Input value={form.defendant_cnpj} onChange={(e) => updateForm("defendant_cnpj", e.target.value)} placeholder="00.000.000/0000-00" className="mt-1.5" />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Endereço</Label>
+            <Input value={form.defendant_address} onChange={(e) => updateForm("defendant_address", e.target.value)} placeholder="Endereço completo" className="mt-1.5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepDetails({ form, updateForm, templates }) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-1">Contrato de Trabalho</h3>
+        <p className="text-sm text-muted-foreground mb-4">Detalhes do vínculo empregatício</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label>Data de Admissão</Label>
+            <Input type="date" value={form.contract_start} onChange={(e) => updateForm("contract_start", e.target.value)} className="mt-1.5" />
+          </div>
+          <div>
+            <Label>Data de Demissão</Label>
+            <Input type="date" value={form.contract_end} onChange={(e) => updateForm("contract_end", e.target.value)} className="mt-1.5" />
+          </div>
+          <div>
+            <Label>Salário Base (R$)</Label>
+            <Input type="number" value={form.salary} onChange={(e) => updateForm("salary", e.target.value)} placeholder="0,00" className="mt-1.5" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <Label>Jornada de Trabalho</Label>
+        <Textarea
+          value={form.work_schedule}
+          onChange={(e) => updateForm("work_schedule", e.target.value)}
+          placeholder="Descreva a jornada detalhadamente. Ex: Escala 12x36, das 06:00 às 18:00, com entrada 30min antes e saída 30min depois..."
+          className="mt-1.5 min-h-[120px]"
+        />
+      </div>
+
+      <div>
+        <Label>Irregularidades *</Label>
+        <Textarea
+          value={form.irregularities}
+          onChange={(e) => updateForm("irregularities", e.target.value)}
+          placeholder="Descreva todas as irregularidades: horas extras não pagas, intervalo suprimido, folgas trabalhadas, pagamentos por fora, etc."
+          className="mt-1.5 min-h-[160px]"
+        />
+      </div>
+
+      <div>
+        <Label>Fatos Adicionais</Label>
+        <Textarea
+          value={form.additional_facts}
+          onChange={(e) => updateForm("additional_facts", e.target.value)}
+          placeholder="Quaisquer fatos adicionais relevantes para a petição..."
+          className="mt-1.5 min-h-[100px]"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex items-center justify-between p-4 rounded-xl border">
+          <div>
+            <Label>Justiça Gratuita</Label>
+            <p className="text-xs text-muted-foreground">Solicitar benefício da justiça gratuita</p>
+          </div>
+          <Switch checked={form.free_justice} onCheckedChange={(v) => updateForm("free_justice", v)} />
+        </div>
+        <div className="flex items-center justify-between p-4 rounded-xl border">
+          <div>
+            <Label>Juízo 100% Digital</Label>
+            <p className="text-xs text-muted-foreground">Tramitação digital</p>
+          </div>
+          <Switch checked={form.digital_court} onCheckedChange={(v) => updateForm("digital_court", v)} />
+        </div>
+      </div>
+
+      {templates.length > 0 && (
+        <div>
+          <Label>Modelo de Referência (opcional)</Label>
+          <Select value={form.template_used} onValueChange={(v) => updateForm("template_used", v)}>
+            <SelectTrigger className="mt-1.5"><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
+            <SelectContent>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepReview({ form, generating }) {
+  return (
+    <div className="space-y-6">
+      <div className="text-center py-4">
+        <Sparkles className="w-12 h-12 mx-auto text-accent mb-3" />
+        <h3 className="text-xl font-semibold">Revisão Final</h3>
+        <p className="text-muted-foreground mt-1">Confira os dados antes de gerar a petição</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ReviewSection title="Reclamante">
+          <ReviewItem label="Nome" value={form.claimant_name} />
+          <ReviewItem label="CPF" value={form.claimant_cpf} />
+          <ReviewItem label="Função" value={form.claimant_role} />
+        </ReviewSection>
+
+        <ReviewSection title="Reclamado">
+          <ReviewItem label="Empresa" value={form.defendant_name} />
+          <ReviewItem label="CNPJ" value={form.defendant_cnpj} />
+        </ReviewSection>
+
+        <ReviewSection title="Contrato">
+          <ReviewItem label="Admissão" value={form.contract_start} />
+          <ReviewItem label="Demissão" value={form.contract_end || "Vigente"} />
+          <ReviewItem label="Salário" value={form.salary ? `R$ ${form.salary}` : ""} />
+        </ReviewSection>
+
+        <ReviewSection title="Configurações">
+          <ReviewItem label="Tipo" value={form.case_type} />
+          <ReviewItem label="Rito" value={form.rite} />
+          <ReviewItem label="Justiça Gratuita" value={form.free_justice ? "Sim" : "Não"} />
+          <ReviewItem label="Documentos" value={`${form.document_urls.length} arquivo(s)`} />
+        </ReviewSection>
+      </div>
+
+      <div className="p-4 rounded-xl bg-muted/50">
+        <h4 className="font-medium text-sm mb-2">Irregularidades</h4>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{form.irregularities || "Não informadas"}</p>
+      </div>
+
+      {generating && (
+        <div className="text-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent mb-3" />
+          <p className="text-muted-foreground">Gerando sua petição com IA...</p>
+          <p className="text-xs text-muted-foreground mt-1">Isso pode levar alguns minutos. Modelo Claude Sonnet (usa mais créditos para maior qualidade)</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewSection({ title, children }) {
+  return (
+    <div className="p-4 rounded-xl border">
+      <h4 className="font-medium text-sm text-primary mb-3">{title}</h4>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function ReviewItem({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
+    </div>
+  );
+}

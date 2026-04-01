@@ -1,0 +1,148 @@
+{
+  "name": "Petition",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da peti\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "em_geracao",
+        "concluida",
+        "revisao"
+      ],
+      "default": "rascunho",
+      "description": "Status da peti\u00e7\u00e3o"
+    },
+    "case_type": {
+      "type": "string",
+      "enum": [
+        "trabalhista",
+        "civel",
+        "previdenciario",
+        "consumidor",
+        "outro"
+      ],
+      "description": "Tipo de a\u00e7\u00e3o"
+    },
+    "rite": {
+      "type": "string",
+      "enum": [
+        "ordinario",
+        "sumarissimo",
+        "sumario"
+      ],
+      "description": "Rito processual"
+    },
+    "claimant_name": {
+      "type": "string",
+      "description": "Nome do reclamante"
+    },
+    "claimant_cpf": {
+      "type": "string",
+      "description": "CPF do reclamante"
+    },
+    "claimant_address": {
+      "type": "string",
+      "description": "Endere\u00e7o do reclamante"
+    },
+    "claimant_role": {
+      "type": "string",
+      "description": "Fun\u00e7\u00e3o/cargo do reclamante"
+    },
+    "defendant_name": {
+      "type": "string",
+      "description": "Nome do reclamado"
+    },
+    "defendant_cnpj": {
+      "type": "string",
+      "description": "CNPJ do reclamado"
+    },
+    "defendant_address": {
+      "type": "string",
+      "description": "Endere\u00e7o do reclamado"
+    },
+    "contract_start": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio do contrato"
+    },
+    "contract_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de t\u00e9rmino do contrato"
+    },
+    "salary": {
+      "type": "number",
+      "description": "Sal\u00e1rio base"
+    },
+    "work_schedule": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da jornada de trabalho"
+    },
+    "irregularities": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada das irregularidades"
+    },
+    "additional_facts": {
+      "type": "string",
+      "description": "Fatos adicionais relevantes"
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de pedidos"
+    },
+    "estimated_value": {
+      "type": "number",
+      "description": "Valor estimado da causa"
+    },
+    "generated_content": {
+      "type": "string",
+      "description": "Conte\u00fado da peti\u00e7\u00e3o gerada"
+    },
+    "template_used": {
+      "type": "string",
+      "description": "ID do modelo utilizado"
+    },
+    "document_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs dos documentos anexados"
+    },
+    "document_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Nomes dos documentos anexados"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Vara/Comarca competente"
+    },
+    "free_justice": {
+      "type": "boolean",
+      "default": true,
+      "description": "Solicitar justi\u00e7a gratuita"
+    },
+    "digital_court": {
+      "type": "boolean",
+      "default": true,
+      "description": "Ju\u00edzo 100% digital"
+    }
+  },
+  "required": [
+    "title",
+    "case_type",
+    "claimant_name",
+    "defendant_name"
+  ]
+}
