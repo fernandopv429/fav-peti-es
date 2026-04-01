@@ -149,12 +149,21 @@ function NewTemplateForm({ onSuccess }) {
     let content = "";
 
     if (file) {
+      const uploadToast = toast.loading("Enviando arquivo...");
       try {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         fileUrl = file_url;
         fileName = file.name;
+        toast.dismiss(uploadToast);
+      } catch (err) {
+        toast.dismiss(uploadToast);
+        toast.error("Erro ao enviar arquivo: " + err.message);
+        setSaving(false);
+        return;
+      }
 
-        // Try to extract content from the file
+      // Try to extract text content
+      if (file.size < 5 * 1024 * 1024) { // skip only very large files
         try {
           const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
             file_url: fileUrl,
@@ -171,10 +180,6 @@ function NewTemplateForm({ onSuccess }) {
         } catch (e) {
           // Content extraction failed, not critical
         }
-      } catch (err) {
-        toast.error("Erro ao enviar arquivo");
-        setSaving(false);
-        return;
       }
     }
 
