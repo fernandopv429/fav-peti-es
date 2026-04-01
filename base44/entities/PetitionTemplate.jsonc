@@ -33,6 +33,18 @@
       "type": "string",
       "description": "Conte\u00fado extra\u00eddo do modelo"
     },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags para organiza\u00e7\u00e3o e filtragem"
+    },
+    "use_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de vezes utilizado em peti\u00e7\u00f5es"
+    },
     "is_active": {
       "type": "boolean",
       "default": true,

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { FileText, FilePlus, CheckCircle, Clock, TrendingUp, Scale, DollarSign, AlertCircle } from "lucide-react";
+import { FileText, FilePlus, CheckCircle, Clock, TrendingUp, Scale, DollarSign, AlertCircle, FolderOpen } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { Link } from "react-router-dom";
 import DashboardStatCard from "../components/dashboard/DashboardStatCard";
 import RecentPetitions from "../components/dashboard/RecentPetitions";
+import TopTemplates from "../components/dashboard/TopTemplates";
 
 const STATUS_COLORS = {
   rascunho: "hsl(220, 9%, 46%)",
@@ -30,7 +31,7 @@ export default function Dashboard() {
     async function load() {
       const [p, t] = await Promise.all([
         base44.entities.Petition.list(),
-        base44.entities.PetitionTemplate.list(),
+        base44.entities.PetitionTemplate.list("-use_count", 10),
       ]);
       setPetitions(p);
       setTemplates(t);
@@ -182,8 +183,13 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Petitions */}
-      <RecentPetitions petitions={petitions} />
+      {/* Templates stats + Recent Petitions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <RecentPetitions petitions={petitions} />
+        </div>
+        <TopTemplates templates={templates} />
+      </div>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight, Eye, Pencil } from "lucide-react";
+import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight, Eye, Pencil, Tag, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const CASE_TYPE_LABELS = {
@@ -24,6 +24,9 @@ export default function Templates() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [viewTemplate, setViewTemplate] = useState(null);
   const [editTemplate, setEditTemplate] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCaseType, setFilterCaseType] = useState("all");
+  const [filterTag, setFilterTag] = useState("");
 
   const loadTemplates = async () => {
     const data = await base44.entities.PetitionTemplate.list("-created_date");
@@ -46,6 +49,16 @@ export default function Templates() {
     toast.success(currentState ? "Modelo desativado" : "Modelo ativado");
   };
 
+  // Collect all unique tags across templates
+  const allTags = [...new Set(templates.flatMap(t => t.tags || []))].sort();
+
+  const filtered = templates.filter(t => {
+    const matchesSearch = !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCaseType = filterCaseType === "all" || t.case_type === filterCaseType;
+    const matchesTag = !filterTag || (t.tags || []).includes(filterTag);
+    return matchesSearch && matchesCaseType && matchesTag;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -66,15 +79,58 @@ export default function Templates() {
         </Button>
       </div>
 
+      {/* Search and filters */}
+      {templates.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar modelos..."
+              className="w-full pl-9 pr-3 h-9 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <select
+            value={filterCaseType}
+            onChange={e => setFilterCaseType(e.target.value)}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="all">Todas as áreas</option>
+            <option value="trabalhista">Trabalhista</option>
+            <option value="civel">Cível</option>
+            <option value="previdenciario">Previdenciário</option>
+            <option value="consumidor">Consumidor</option>
+            <option value="outro">Outro</option>
+          </select>
+          {allTags.length > 0 && (
+            <select
+              value={filterTag}
+              onChange={e => setFilterTag(e.target.value)}
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Todas as tags</option>
+              {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+            </select>
+          )}
+        </div>
+      )}
+
       {templates.length === 0 ? (
         <Card className="p-12 text-center">
           <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
           <h3 className="font-semibold text-lg">Nenhum modelo cadastrado</h3>
           <p className="text-muted-foreground mt-1">Adicione modelos para usar como referência nas petições</p>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Search className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
+          <h3 className="font-semibold text-lg">Nenhum modelo encontrado</h3>
+          <p className="text-muted-foreground mt-1">Tente outros filtros</p>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templates.map((t) => (
+          {filtered.map((t) => (
             <Card key={t.id} className={`p-5 transition-all hover:shadow-md ${!t.is_active ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between mb-3">
                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -102,6 +158,15 @@ export default function Templates() {
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
                   <FileText className="w-3.5 h-3.5" />
                   <span className="truncate">{t.file_name}</span>
+                </div>
+              )}
+              {(t.tags || []).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {(t.tags || []).map(tag => (
+                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">
+                      <Tag className="w-2.5 h-2.5" />{tag}
+                    </span>
+                  ))}
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-3">Criado em {new Date(t.created_date).toLocaleDateString("pt-BR")}</p>
@@ -197,7 +262,19 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
     case_type: initialData?.case_type || "trabalhista",
     description: initialData?.description || "",
     content: initialData?.content || "",
+    tags: initialData?.tags || [],
   });
+  const [tagInput, setTagInput] = useState("");
+
+  const addTag = (e) => {
+    if (e.key === "Enter" && tagInput.trim()) {
+      e.preventDefault();
+      const tag = tagInput.trim().toLowerCase();
+      if (!form.tags.includes(tag)) setForm(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+      setTagInput("");
+    }
+  };
+  const removeTag = (tag) => setForm(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
@@ -314,6 +391,26 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
           )}
           <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
         </div>
+      </div>
+
+      <div>
+        <Label>Tags</Label>
+        <p className="text-xs text-muted-foreground mb-1.5">Digite uma tag e pressione Enter (ex: horas-extras, dano-moral, rescisão)</p>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {form.tags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary">
+              <Tag className="w-3 h-3" />{tag}
+              <button onClick={() => removeTag(tag)} className="hover:text-destructive ml-1"><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+        </div>
+        <input
+          value={tagInput}
+          onChange={e => setTagInput(e.target.value)}
+          onKeyDown={addTag}
+          placeholder="Adicionar tag..."
+          className="w-full h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        />
       </div>
 
       <div>
