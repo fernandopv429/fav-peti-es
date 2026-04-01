@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileText, Loader2, Printer, Copy, Edit2 } from "lucide-react";
+import { ArrowLeft, Copy, Clock, FileText } from "lucide-react";
+import ExportButtons from "../components/petition/ExportButtons";
+import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -12,8 +14,6 @@ export default function PetitionView() {
   const navigate = useNavigate();
   const [petition, setPetition] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const contentRef = useRef(null);
 
   useEffect(() => {
     base44.entities.Petition.filter({ id }).then((data) => {
@@ -21,60 +21,6 @@ export default function PetitionView() {
       setLoading(false);
     });
   }, [id]);
-
-  const handleExportPDF = async () => {
-    setExporting(true);
-    try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const content = petition.generated_content || "";
-      const lines = content.split("\n");
-      
-      const pageWidth = 210;
-      const marginLeft = 30;
-      const marginRight = 20;
-      const maxWidth = pageWidth - marginLeft - marginRight;
-      let y = 30;
-
-      doc.setFont("helvetica", "normal");
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          y += 6;
-          if (y > 275) { doc.addPage(); y = 25; }
-          continue;
-        }
-
-        // Check if it's a heading (all caps or starts with **)
-        const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
-        const isBold = trimmed.startsWith("**") || isHeading;
-        const cleanText = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
-
-        if (isBold || isHeading) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(12);
-        } else {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(12);
-        }
-
-        const splitLines = doc.splitTextToSize(cleanText, maxWidth);
-        for (const sl of splitLines) {
-          if (y > 275) { doc.addPage(); y = 25; }
-          doc.text(sl, marginLeft, y);
-          y += 7;
-        }
-      }
-
-      doc.save(`${petition.title || "peticao"}.pdf`);
-      toast.success("PDF exportado com sucesso!");
-    } catch (err) {
-      toast.error("Erro ao exportar PDF");
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(petition.generated_content || "");
@@ -111,17 +57,17 @@ export default function PetitionView() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleCopy} className="gap-2">
+          <button onClick={handleCopy} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-transparent text-sm hover:bg-muted transition-colors">
             <Copy className="w-4 h-4" /> Copiar
-          </Button>
-          <Button
-            onClick={handleExportPDF}
-            disabled={exporting}
-            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-          >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Baixar PDF
-          </Button>
+          </button>
+          {petition.status === "revisao" && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-100 text-amber-700 text-sm font-medium">
+              <Clock className="w-4 h-4" /> Revisão Pendente
+            </span>
+          )}
+          {(petition.status === "concluida" || petition.status === "revisao") && (
+            <ExportButtons petition={petition} />
+          )}
         </div>
       </div>
 
@@ -134,7 +80,7 @@ export default function PetitionView() {
       </div>
 
       {/* Content */}
-      <Card className="p-8 lg:p-12" ref={contentRef}>
+      <Card className="p-8 lg:p-12">
         {petition.generated_content ? (
           <div className="prose prose-slate max-w-none petition-content">
             <ReactMarkdown
@@ -156,6 +102,12 @@ export default function PetitionView() {
           </div>
         )}
       </Card>
+
+      {/* Review Section */}
+      <ReviewSectionPanel
+        petition={petition}
+        onStatusChange={(newStatus) => setPetition(prev => ({ ...prev, status: newStatus }))}
+      />
     </div>
   );
 }

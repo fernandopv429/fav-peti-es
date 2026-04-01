@@ -11,6 +11,7 @@ import NewPetition from './pages/NewPetition';
 import PetitionsList from './pages/PetitionsList';
 import PetitionView from './pages/PetitionView';
 import Templates from './pages/Templates';
+import Precedents from './pages/Precedents';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,6 +45,7 @@ const AuthenticatedApp = () => {
         <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
         <Route path="/modelos" element={<Templates />} />
+        <Route path="/precedentes" element={<Precedents />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

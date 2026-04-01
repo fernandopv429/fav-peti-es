@@ -58,6 +58,16 @@ export default function NewPetition() {
   const handleGenerate = async () => {
     setGenerating(true);
 
+    // Load active precedents
+    let precedentsContext = "";
+    try {
+      const precs = await base44.entities.Precedent.filter({ is_active: true });
+      if (precs.length > 0) {
+        precedentsContext = `\n\n### PRECEDENTES E JURISPRUD\u00caNCIAS DO ADVOGADO\nUtilize OBRIGATORIAMENTE os seguintes precedentes na fundamenta\u00e7\u00e3o jur\u00eddica da peti\u00e7\u00e3o:\n\n` +
+          precs.map(p => `**${p.title}** (${p.source}${p.reference ? ` - ${p.reference}` : ""})\n${p.content}`).join("\n\n");
+      }
+    } catch (e) { /* ignore */ }
+
     // Build the prompt
     let templateContent = "";
     if (form.template_used) {
@@ -131,7 +141,7 @@ A petição deve seguir EXATAMENTE a seguinte estrutura:
 12. Valor da causa
 13. Fechamento formal
 
-A redação deve ser contínua, sem simplificações, com alto nível técnico.${templateContent}${documentContext}`;
+A redação deve ser contínua, sem simplificações, com alto nível técnico.${templateContent}${documentContext}${precedentsContext}`;
 
     try {
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;

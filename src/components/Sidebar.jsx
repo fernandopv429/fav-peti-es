@@ -6,7 +6,8 @@ import {
   FolderOpen,
   Scale,
   X,
-  LogOut
+  LogOut,
+  BookMarked
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
@@ -15,6 +16,7 @@ const navItems = [
   { label: "Nova Petição", icon: FilePlus, path: "/nova-peticao" },
   { label: "Minhas Petições", icon: FileText, path: "/peticoes" },
   { label: "Modelos", icon: FolderOpen, path: "/modelos" },
+  { label: "Precedentes", icon: BookMarked, path: "/precedentes" },
 ];
 
 export default function Sidebar({ onClose }) {

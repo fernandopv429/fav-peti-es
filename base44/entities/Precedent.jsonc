@@ -1,0 +1,52 @@
+{
+  "name": "Precedent",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo do precedente/jurisprud\u00eancia"
+    },
+    "source": {
+      "type": "string",
+      "description": "Tribunal/\u00d3rg\u00e3o (ex: TST, TRT-2)"
+    },
+    "reference": {
+      "type": "string",
+      "description": "N\u00famero do ac\u00f3rd\u00e3o ou s\u00famula"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "horas_extras",
+        "verbas_rescis\u00f3rias",
+        "dano_moral",
+        "equipara\u00e7\u00e3o_salarial",
+        "assedio",
+        "intervalo",
+        "outro"
+      ],
+      "description": "Categoria tem\u00e1tica"
+    },
+    "content": {
+      "type": "string",
+      "description": "Ementa ou texto do precedente"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags para busca"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "title",
+    "source",
+    "content",
+    "category"
+  ]
+}

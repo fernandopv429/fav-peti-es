@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { FileText, FilePlus, CheckCircle, Clock, TrendingUp, Scale } from "lucide-react";
+import { FileText, FilePlus, CheckCircle, Clock, TrendingUp, Scale, DollarSign, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from "recharts";
 import { Link } from "react-router-dom";
 import DashboardStatCard from "../components/dashboard/DashboardStatCard";
@@ -50,7 +50,9 @@ export default function Dashboard() {
   const total = petitions.length;
   const completed = petitions.filter((p) => p.status === "concluida").length;
   const inProgress = petitions.filter((p) => p.status === "em_geracao").length;
-  const drafts = petitions.filter((p) => p.status === "rascunho").length;
+  const pendingReview = petitions.filter((p) => p.status === "revisao").length;
+  const totalValue = petitions.reduce((acc, p) => acc + (p.estimated_value || p.salary * 12 || 0), 0);
+  const fmtCurrency = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   const statusData = Object.entries(STATUS_LABELS).map(([key, label]) => ({
     name: label,
@@ -89,9 +91,28 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardStatCard icon={FileText} label="Total de Petições" value={total} color="text-primary" />
         <DashboardStatCard icon={CheckCircle} label="Concluídas" value={completed} color="text-green-600" />
-        <DashboardStatCard icon={Clock} label="Em Geração" value={inProgress} color="text-accent" />
+        <DashboardStatCard icon={AlertCircle} label="Revisão Pendente" value={pendingReview} color="text-amber-500" />
         <DashboardStatCard icon={Scale} label="Modelos" value={templates.length} color="text-purple-600" />
       </div>
+
+      {/* Value highlight */}
+      {totalValue > 0 && (
+        <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-sm opacity-70">Valor Total Acumulado das Causas</p>
+            <p className="text-3xl font-bold mt-1">{fmtCurrency(totalValue)}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs opacity-70">Média por petição</p>
+              <p className="text-lg font-semibold">{total > 0 ? fmtCurrency(totalValue / total) : "R$ 0"}</p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+              <DollarSign className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

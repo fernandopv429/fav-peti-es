@@ -1,0 +1,30 @@
+{
+  "name": "PetitionReview",
+  "type": "object",
+  "properties": {
+    "petition_id": {
+      "type": "string",
+      "description": "ID da peti\u00e7\u00e3o"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Coment\u00e1rio ou anota\u00e7\u00e3o"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "comentario",
+        "edicao",
+        "aprovacao",
+        "rejeicao"
+      ],
+      "default": "comentario",
+      "description": "Tipo de entrada no hist\u00f3rico"
+    }
+  },
+  "required": [
+    "petition_id",
+    "comment",
+    "type"
+  ]
+}
