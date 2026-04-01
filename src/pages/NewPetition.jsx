@@ -11,9 +11,10 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Upload, X, FileText, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
+import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
 
-const STEPS = ["Dados das Partes", "Detalhes do Caso", "Documentos", "Revisão e Geração"];
+const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Revisão e Geração"];
 
 export default function NewPetition() {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ export default function NewPetition() {
     template_used: "",
     document_urls: [],
     document_names: [],
+    calculations: null,
   });
 
   useEffect(() => {
@@ -65,11 +67,14 @@ export default function NewPetition() {
       }
     }
 
+    // Calculations context
+    const calculationsContext = form.calculations?.formatted
+      ? `\n\n${form.calculations.formatted}`
+      : "";
+
     // Extract document content if available
     let documentContext = "";
     if (form.document_urls.length > 0) {
-      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
-    }
 
     const prompt = `### PAPEL (ROLE)
 Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos. Você não deve usar formato de LISTAS, deve escrever todos os tópicos de forma altamente detalhada.
@@ -103,7 +108,10 @@ Salário: R$ ${form.salary}
 
 **Jurisdição:** ${form.jurisdiction}
 **Justiça Gratuita:** ${form.free_justice ? "Sim" : "Não"}
-**Juízo 100% Digital:** ${form.digital_court ? "Sim" : "Não"}
+**Juízo 100% Digital:** ${form.digital_court ? "Sim" : "Não"}${calculationsContext}
+
+### INSTRUÇÃO SOBRE OS CÁLCULOS
+Utilize OBRIGATORIAMENTE os valores da memória de cálculo acima na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita.
 
 ### FORMATO DE SAÍDA
 A petição deve seguir EXATAMENTE a seguinte estrutura:
@@ -155,6 +163,8 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
     return true;
   };
 
+  const isLastStep = step === STEPS.length - 1;
+
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -178,9 +188,12 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
           <StepDetails form={form} updateForm={updateForm} templates={templates} />
         )}
         {step === 2 && (
-          <DocumentUploader form={form} updateForm={updateForm} />
+          <LaborCalculator form={form} updateForm={updateForm} />
         )}
         {step === 3 && (
+          <DocumentUploader form={form} updateForm={updateForm} />
+        )}
+        {step === 4 && (
           <StepReview form={form} generating={generating} onGenerate={handleGenerate} />
         )}
       </Card>
@@ -196,7 +209,7 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
           <ArrowLeft className="w-4 h-4" /> Anterior
         </Button>
 
-        {step < 3 ? (
+        {!isLastStep ? (
           <Button
             onClick={() => setStep((s) => s + 1)}
             disabled={!canProceed()}
@@ -211,13 +224,9 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
             className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
           >
             {generating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
-              </>
+              <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
             ) : (
-              <>
-                <Sparkles className="w-4 h-4" /> Gerar Petição
-              </>
+              <><Sparkles className="w-4 h-4" /> Gerar Petição</>
             )}
           </Button>
         )}
