@@ -238,7 +238,8 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
             },
           });
           if (extracted.status === "success" && extracted.output?.content) {
-            content = extracted.output.content;
+            // Truncate to avoid entity size limits (content is used as style reference only)
+            content = extracted.output.content.slice(0, 8000);
           }
         } catch (e) { /* not critical */ }
       }
@@ -320,7 +321,7 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
         <p className="text-xs text-muted-foreground mb-1.5">Cole ou edite o texto da petição diretamente aqui. Se enviar um arquivo, o conteúdo será extraído automaticamente.</p>
         <Textarea
           value={form.content}
-          onChange={(e) => setForm({ ...form, content: e.target.value })}
+          onChange={(e) => setForm({ ...form, content: e.target.value.slice(0, 8000) })}
           placeholder="Cole aqui o texto do modelo de petição..."
           className="min-h-[200px] font-mono text-xs"
         />
