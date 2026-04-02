@@ -13,17 +13,28 @@ export default function PetitionView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [petition, setPetition] = useState(null);
+  const [petitionContent, setPetitionContent] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Petition.filter({ id }).then((data) => {
-      setPetition(data[0]);
+    base44.entities.Petition.filter({ id }).then(async (data) => {
+      const p = data[0];
+      setPetition(p);
+      if (p?.generated_content) {
+        if (p.generated_content.startsWith("http")) {
+          const res = await fetch(p.generated_content);
+          const text = await res.text();
+          setPetitionContent(text);
+        } else {
+          setPetitionContent(p.generated_content);
+        }
+      }
       setLoading(false);
     });
   }, [id]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(petition.generated_content || "");
+    navigator.clipboard.writeText(petitionContent || "");
     toast.success("Conteúdo copiado!");
   };
 
@@ -70,8 +81,8 @@ export default function PetitionView() {
               <Clock className="w-4 h-4" /> Pronto para Protocolo
             </span>
           )}
-          {petition.generated_content && (
-            <ExportButtons petition={petition} />
+          {petitionContent && (
+            <ExportButtons petition={{...petition, generated_content: petitionContent}} />
           )}
         </div>
       </div>
@@ -86,7 +97,7 @@ export default function PetitionView() {
 
       {/* Content */}
       <Card className="p-8 lg:p-12">
-        {petition.generated_content ? (
+        {petitionContent ? (
           <div className="prose prose-slate max-w-none petition-content">
             <ReactMarkdown
               components={{
@@ -97,7 +108,7 @@ export default function PetitionView() {
                 strong: ({ children }) => <strong className="font-bold">{children}</strong>,
               }}
             >
-              {petition.generated_content}
+              {petitionContent}
             </ReactMarkdown>
           </div>
         ) : (

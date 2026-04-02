@@ -212,11 +212,17 @@ A resposta será considerada excelente se:
       ]);
 
       setGeneratingStep("Salvando petição...");
+
+      // Upload content as file to avoid field size limit
+      const blob = new Blob([result], { type: "text/plain" });
+      const file = new File([blob], "peticao.txt", { type: "text/plain" });
+      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
+
       const petition = await base44.entities.Petition.create({
         ...form,
         salary: form.salary ? parseFloat(form.salary) : undefined,
         status: "concluida",
-        generated_content: result,
+        generated_content: contentUrl,
       });
 
       toast.success("Petição gerada com sucesso!");
