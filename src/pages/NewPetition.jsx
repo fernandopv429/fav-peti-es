@@ -16,14 +16,14 @@ import PetitionStepIndicator from "../components/petition/PetitionStepIndicator"
 
 const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Revisão e Geração"];
 
-export default function NewPetition() {
-  const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [templates, setTemplates] = useState([]);
-  const [generating, setGenerating] = useState(false);
-  const [generatingStep, setGeneratingStep] = useState("");
+const FORM_STORAGE_KEY = "juris_new_petition_form";
 
-  const [form, setForm] = useState({
+function getInitialForm() {
+  try {
+    const saved = localStorage.getItem(FORM_STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return {
     title: "",
     case_type: "trabalhista",
     rite: "ordinario",
@@ -48,13 +48,27 @@ export default function NewPetition() {
     document_names: [],
     calculations: null,
     extra_defendants: [],
-  });
+  };
+}
+
+export default function NewPetition() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
+  const [templates, setTemplates] = useState([]);
+  const [generating, setGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState("");
+
+  const [form, setForm] = useState(getInitialForm);
 
   useEffect(() => {
     base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates);
   }, []);
 
-  const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const updateForm = (field, value) => setForm((prev) => {
+    const next = { ...prev, [field]: value };
+    try { localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
+    return next;
+  });
 
   const buildPrompt = (form, templates, precedentsContext, calculationsContext, documentContext) => {
     let templateContent = "";
@@ -252,6 +266,7 @@ A resposta será considerada excelente se:
         generated_content: contentUrl,
       });
 
+      try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (e) {}
       toast.success("Petição gerada com sucesso!");
       navigate(`/peticoes/${petition.id}`);
     } catch (err) {
