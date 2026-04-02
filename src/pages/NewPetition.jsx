@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Upload, X, FileText, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
@@ -20,7 +20,6 @@ export default function NewPetition() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatingStep, setGeneratingStep] = useState("");
 
@@ -56,21 +55,7 @@ export default function NewPetition() {
 
   const updateForm = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setGeneratingStep("Carregando precedentes e modelos...");
-
-    // Load active precedents
-    let precedentsContext = "";
-    try {
-      const precs = await base44.entities.Precedent.filter({ is_active: true });
-      if (precs.length > 0) {
-        precedentsContext = `\n\n### PRECEDENTES E JURISPRUD\u00caNCIAS DO ADVOGADO\nUtilize OBRIGATORIAMENTE os seguintes precedentes na fundamenta\u00e7\u00e3o jur\u00eddica da peti\u00e7\u00e3o:\n\n` +
-          precs.map(p => `**${p.title}** (${p.source}${p.reference ? ` - ${p.reference}` : ""})\n${p.content}`).join("\n\n");
-      }
-    } catch (e) { /* ignore */ }
-
-    // Build the prompt
+  const buildPrompt = (form, templates, precedentsContext, calculationsContext, documentContext) => {
     let templateContent = "";
     if (form.template_used) {
       const tmpl = templates.find((t) => t.id === form.template_used);
@@ -79,26 +64,19 @@ export default function NewPetition() {
       }
     }
 
-    // Calculations context
-    const calculationsContext = form.calculations?.formatted
-      ? `\n\n${form.calculations.formatted}`
-      : "";
+    return `### PAPEL (ROLE)
+Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos, você não deve usar formato LISTAS, você deve escrever todos os tópicos de forma altamente detalhada.
 
-    // Extract document content if available
-    let documentContext = "";
-    if (form.document_urls.length > 0) {
-      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
-    }
-
-    const prompt = `### PAPEL (ROLE)
-Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos. Você não deve usar formato de LISTAS, deve escrever todos os tópicos de forma altamente detalhada.
+---
 
 ### TAREFA/ATIVIDADE
 Elaborar uma PETIÇÃO INICIAL TRABALHISTA COMPLETA, pelo rito ${form.rite}, com alto nível de detalhamento fático e jurídico, incluindo todos os pedidos cabíveis, fundamentação legal, jurisprudência pertinente e liquidação estimada dos pedidos com reflexos.
 
 A formatação da peça deve ser em Arial tamanho 12, com espaçamento entre as linhas de 1,5, cada início de parágrafo deve ter o espaçamento de 3cm, os tópicos deverão estar em CAIXA ALTA e em NEGRITO e cada parágrafo deve ser NUMERADO.
 
-### DADOS DO CASO
+---
+
+### CONTEXTO
 
 **Reclamante:** ${form.claimant_name}
 CPF: ${form.claimant_cpf}
@@ -124,11 +102,38 @@ Salário: R$ ${form.salary}
 **Justiça Gratuita:** ${form.free_justice ? "Sim" : "Não"}
 **Juízo 100% Digital:** ${form.digital_court ? "Sim" : "Não"}${calculationsContext}
 
+---
+
+### RACIOCÍNIO
+
+A petição deve obrigatoriamente:
+
+- Descrever de forma rica, detalhada e estratégica a jornada real de trabalho
+- Demonstrar fraude na jornada, com base em: extrapolação habitual, trabalho em folgas e supressão de intervalo
+- Estruturar as seguintes teses principais:
+  1. Descaracterização da escala (quando aplicável)
+  2. Horas extras além da 8ª diária e 44ª semanal
+  3. Pagamento dos minutos que antecedem e sucedem a jornada
+  4. Intervalo intrajornada suprimido (art. 71 CLT)
+  5. Reflexos em DSR, férias + 1/3, 13º, FGTS + 40%
+  6. Integração de valores pagos "por fora"
+  7. Eventual aplicação de CCT
+- Utilizar fundamentos: CLT (arts. 58, 59, 71, 818), Súmulas do TST (85, 338, 444) e jurisprudência atual pertinente
+- Incluir estratégias processuais: impugnação de cartões de ponto, pedido de exibição de documentos, produção de prova testemunhal
+- Aplicar linguagem técnica, persuasiva, com trechos enfáticos em CAIXA ALTA quando estratégico
+- Realizar validação interna: verificar coerência dos pedidos, garantir compatibilidade entre fatos, fundamentos e pedidos, evitar contradições
+
+---
+
 ### INSTRUÇÃO SOBRE OS CÁLCULOS
-Utilize OBRIGATORIAMENTE os valores da memória de cálculo acima na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita.
+Utilize OBRIGATORIAMENTE os valores da memória de cálculo abaixo na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita.
+
+---
 
 ### FORMATO DE SAÍDA
+
 A petição deve seguir EXATAMENTE a seguinte estrutura:
+
 1. Endereçamento formal
 2. Qualificação completa das partes
 3. Competência
@@ -136,14 +141,58 @@ A petição deve seguir EXATAMENTE a seguinte estrutura:
 5. Juízo 100% digital
 6. Contrato de trabalho
 7. Jornada de trabalho (detalhada e estratégica)
-8. Tópicos jurídicos individualizados (com títulos em caixa alta)
+8. Tópicos jurídicos individualizados (com títulos em CAIXA ALTA e NEGRITO), incluindo:
+   - HORAS EXTRAS
+   - DESCARACTERIZAÇÃO DA JORNADA
+   - INTERVALO INTRAJORNADA
+   - MINUTOS RESIDUAIS
+   - DSR
+   - INTEGRAÇÃO DE VALORES EXTRAFOLHA
+   - (outros pertinentes ao caso)
 9. Fundamentação jurídica com legislação + jurisprudência
-10. Seção completa de PEDIDOS enumerados com valores estimados e reflexos discriminados
+10. Seção completa de PEDIDOS: enumerados (a, b, c...), com valores estimados e reflexos discriminados
 11. Requerimentos finais
 12. Valor da causa
 13. Fechamento formal
 
-A redação deve ser contínua, sem simplificações, com alto nível técnico.${templateContent}${documentContext}${precedentsContext}`;
+A redação deve ser contínua, sem simplificações, com alto nível técnico.
+
+---
+
+### CONDIÇÕES FINAIS
+
+A resposta será considerada excelente se:
+- Reproduzir fielmente o estilo combativo e detalhado de petições profissionais
+- Apresentar profundidade jurídica e estratégica
+- Contiver todos os pedidos possíveis para o caso
+- Estiver pronta para protocolo com mínima ou nenhuma edição
+- Demonstrar coerência absoluta entre fatos, fundamentos e pedidos
+- Maximizar o potencial de procedência da ação${templateContent}${documentContext}${precedentsContext}`;
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGeneratingStep("Carregando precedentes e modelos...");
+
+    let precedentsContext = "";
+    try {
+      const precs = await base44.entities.Precedent.filter({ is_active: true });
+      if (precs.length > 0) {
+        precedentsContext = `\n\n### PRECEDENTES E JURISPRUDÊNCIAS DO ADVOGADO\nUtilize OBRIGATORIAMENTE os seguintes precedentes na fundamentação jurídica da petição:\n\n` +
+          precs.map(p => `**${p.title}** (${p.source}${p.reference ? ` - ${p.reference}` : ""})\n${p.content}`).join("\n\n");
+      }
+    } catch (e) { /* ignore */ }
+
+    const calculationsContext = form.calculations?.formatted
+      ? `\n\n${form.calculations.formatted}`
+      : "";
+
+    let documentContext = "";
+    if (form.document_urls.length > 0) {
+      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+    }
+
+    const prompt = buildPrompt(form, templates, precedentsContext, calculationsContext, documentContext);
 
     try {
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
@@ -162,7 +211,7 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
         timeoutPromise,
       ]);
 
-      // Create petition record
+      setGeneratingStep("Salvando petição...");
       const petition = await base44.entities.Petition.create({
         ...form,
         salary: form.salary ? parseFloat(form.salary) : undefined,
@@ -170,7 +219,6 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
         generated_content: result,
       });
 
-      setGeneratingStep("Salvando petição...");
       toast.success("Petição gerada com sucesso!");
       navigate(`/peticoes/${petition.id}`);
     } catch (err) {
@@ -192,7 +240,6 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
           <ArrowLeft className="w-4 h-4" /> Voltar
@@ -201,29 +248,16 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
         <p className="text-muted-foreground mt-1">Preencha os dados para gerar sua petição inicial</p>
       </div>
 
-      {/* Step indicator */}
       <PetitionStepIndicator steps={STEPS} currentStep={step} />
 
-      {/* Step content */}
       <Card className="p-6 lg:p-8">
-        {step === 0 && (
-          <StepParties form={form} updateForm={updateForm} />
-        )}
-        {step === 1 && (
-          <StepDetails form={form} updateForm={updateForm} templates={templates} />
-        )}
-        {step === 2 && (
-          <LaborCalculator form={form} updateForm={updateForm} />
-        )}
-        {step === 3 && (
-          <DocumentUploader form={form} updateForm={updateForm} />
-        )}
-        {step === 4 && (
-          <StepReview form={form} generating={generating} generatingStep={generatingStep} onGenerate={handleGenerate} />
-        )}
+        {step === 0 && <StepParties form={form} updateForm={updateForm} />}
+        {step === 1 && <StepDetails form={form} updateForm={updateForm} templates={templates} />}
+        {step === 2 && <LaborCalculator form={form} updateForm={updateForm} />}
+        {step === 3 && <DocumentUploader form={form} updateForm={updateForm} />}
+        {step === 4 && <StepReview form={form} generating={generating} generatingStep={generatingStep} onGenerate={handleGenerate} />}
       </Card>
 
-      {/* Navigation */}
       <div className="flex justify-between">
         <Button
           variant="outline"
@@ -235,11 +269,7 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
         </Button>
 
         {!isLastStep ? (
-          <Button
-            onClick={() => setStep((s) => s + 1)}
-            disabled={!canProceed()}
-            className="gap-2"
-          >
+          <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed()} className="gap-2">
             Próximo <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
