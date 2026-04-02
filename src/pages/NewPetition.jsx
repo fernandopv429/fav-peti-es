@@ -57,15 +57,29 @@ export default function NewPetition() {
 
   const buildPrompt = (form, templates, precedentsContext, calculationsContext, documentContext) => {
     let templateContent = "";
+    let templateStyleInstruction = "";
     if (form.template_used) {
       const tmpl = templates.find((t) => t.id === form.template_used);
       if (tmpl?.content) {
-        templateContent = `\n\nUSE O SEGUINTE MODELO COMO BASE DE FORMATAÇÃO E ESTILO:\n${tmpl.content}`;
+        templateStyleInstruction = `
+
+⚠️ INSTRUÇÃO CRÍTICA — MODELO PADRÃO SELECIONADO:
+Foi fornecido um MODELO PADRÃO abaixo. Você DEVE usar EXATAMENTE a mesma linguagem, tom, estilo de escrita, estrutura de parágrafos, vocabulário jurídico, forma de argumentação e padrão textual desse modelo. Não crie um estilo próprio. O modelo é sua referência primária de redação — adapte apenas os fatos, partes e pedidos ao caso concreto.`;
+        templateContent = `
+
+---
+### MODELO PADRÃO — REPLIQUE ESTA LINGUAGEM E ESTILO
+
+Esta é a petição-modelo que define COMO você deve escrever. Analise cuidadosamente o estilo, a forma de argumentar, o vocabulário e a estrutura. Sua petição gerada deve ser indistinguível em linguagem e tom deste modelo:
+
+${tmpl.content}
+
+--- FIM DO MODELO PADRÃO ---`;
       }
     }
 
     return `### PAPEL (ROLE)
-Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos, você não deve usar formato LISTAS, você deve escrever todos os tópicos de forma altamente detalhada.
+Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos, você não deve usar formato LISTAS, você deve escrever todos os tópicos de forma altamente detalhada.${templateStyleInstruction}
 
 ---
 
