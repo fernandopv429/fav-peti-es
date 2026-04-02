@@ -117,7 +117,7 @@ export default function ReviewSection({ petition, onStatusChange }) {
             </Button>
           )}
           {canReturnToRevision && (
-            <Button variant="outline" size="sm" onClick={handleReturnToRevision} className="gap-2 border-amber-200 text-amber-600 hover:bg-amber-50">
+            <Button variant="outline" size="sm" onClick={handleReturnToReview} className="gap-2 border-amber-200 text-amber-600 hover:bg-amber-50">
               <AlertTriangle className="w-3.5 h-3.5" /> Retornar para Revisão
             </Button>
           )}
