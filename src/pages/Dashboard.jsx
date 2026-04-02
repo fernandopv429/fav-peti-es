@@ -1,18 +1,25 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
-import { FileText, FilePlus, CheckCircle, TrendingUp, Scale, DollarSign, AlertTriangle, PackageCheck, Clock, ArrowRight, Sparkles } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
+import {
+  FileText, FilePlus, CheckCircle, TrendingUp, Scale, DollarSign,
+  AlertTriangle, PackageCheck, Clock, ArrowRight, Sparkles, Activity,
+  BarChart2, BookOpen, Zap, ChevronUp, ChevronDown, Calendar
+} from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
+} from "recharts";
 import { Link } from "react-router-dom";
 import RecentPetitions from "../components/dashboard/RecentPetitions";
 import TopTemplates from "../components/dashboard/TopTemplates";
 
 const STATUS_COLORS = {
-  rascunho: "hsl(220, 9%, 46%)",
-  em_geracao: "hsl(38, 92%, 50%)",
-  concluida: "hsl(210, 70%, 55%)",
-  revisao_necessaria: "hsl(0, 84%, 60%)",
-  pronto_para_protocolo: "hsl(160, 60%, 45%)",
+  rascunho: "#94a3b8",
+  em_geracao: "#f59e0b",
+  concluida: "#3b82f6",
+  revisao_necessaria: "#ef4444",
+  pronto_para_protocolo: "#10b981",
 };
 
 const STATUS_LABELS = {
@@ -21,6 +28,14 @@ const STATUS_LABELS = {
   concluida: "Aguard. Revisão",
   revisao_necessaria: "Revisão Necessária",
   pronto_para_protocolo: "Pronto p/ Protocolo",
+};
+
+const CASE_COLORS = {
+  trabalhista: "#6366f1",
+  civel: "#0ea5e9",
+  previdenciario: "#8b5cf6",
+  consumidor: "#f59e0b",
+  outro: "#64748b",
 };
 
 export default function Dashboard() {
@@ -46,8 +61,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-full min-h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-muted border-t-amber-500 rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Carregando dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -56,6 +74,7 @@ export default function Dashboard() {
   const completed = petitions.filter((p) => p.status === "pronto_para_protocolo").length;
   const needsRevision = petitions.filter((p) => p.status === "revisao_necessaria").length;
   const awaiting = petitions.filter((p) => p.status === "concluida").length;
+  const drafts = petitions.filter((p) => p.status === "rascunho").length;
   const totalValue = petitions.reduce((acc, p) => acc + (p.estimated_value || (p.salary ? p.salary * 12 : 0)), 0);
   const fmtCurrency = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
@@ -69,137 +88,213 @@ export default function Dashboard() {
     .map((type) => ({
       name: type.charAt(0).toUpperCase() + type.slice(1),
       total: petitions.filter((p) => p.case_type === type).length,
+      color: CASE_COLORS[type],
     }))
     .filter((d) => d.total > 0);
 
   const monthlyData = getMonthlyData(petitions);
   const greeting = getGreeting(user?.full_name);
 
+  // Weekly data (last 7 days)
+  const weeklyData = getWeeklyData(petitions);
+
+  // Completion rate
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
   return (
-    <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground p-8">
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl p-8" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e293b 100%)" }}>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
-            <p className="text-primary-foreground/60 text-sm font-medium mb-1">Bem-vindo de volta</p>
-            <h1 className="text-2xl lg:text-3xl font-playfair font-bold">{greeting}</h1>
-            <p className="text-primary-foreground/70 mt-1.5 text-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-white/50 text-xs font-medium uppercase tracking-widest">Sistema Ativo</span>
+            </div>
+            <h1 className="text-3xl lg:text-4xl font-playfair font-bold text-white">{greeting}</h1>
+            <p className="text-white/50 mt-2 text-sm max-w-md">
               {total === 0
-                ? "Comece criando sua primeira petição."
-                : `Você tem ${needsRevision > 0 ? `${needsRevision} petição(ões) aguardando revisão e ` : ""}${awaiting > 0 ? `${awaiting} aguardando aprovação` : total + " petições no total"}.`}
+                ? "Comece criando sua primeira petição com IA."
+                : `${total} petição(ões) no sistema${needsRevision > 0 ? ` · ${needsRevision} aguardando revisão` : ""}${completed > 0 ? ` · ${completed} prontas para protocolo` : ""}`}
             </p>
           </div>
-          <Link
-            to="/nova-peticao"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl font-medium transition-all border border-white/20 shrink-0"
-          >
-            <FilePlus className="w-4 h-4" /> Nova Petição
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              to="/nova-peticao"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all text-sm shrink-0 text-slate-900"
+              style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
+            >
+              <Sparkles className="w-4 h-4" /> Gerar com IA
+            </Link>
+            <Link
+              to="/peticoes"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all text-sm text-white/80 hover:text-white border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 shrink-0"
+            >
+              <FileText className="w-4 h-4" /> Ver Petições
+            </Link>
+          </div>
         </div>
-        {/* Decorative circles */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
-        <div className="absolute -bottom-6 -right-4 w-24 h-24 rounded-full bg-white/5" />
-        <div className="absolute top-4 right-32 w-12 h-12 rounded-full bg-accent/20" />
+        {/* Decorative */}
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-10" style={{ background: "radial-gradient(circle, #f59e0b, transparent)" }} />
+        <div className="absolute -bottom-8 right-1/3 w-32 h-32 rounded-full opacity-5" style={{ background: "radial-gradient(circle, #3b82f6, transparent)" }} />
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={FileText} label="Total de Petições" value={total} sub="criadas" accent="bg-blue-50 text-blue-600" to="/peticoes" />
-        <StatCard icon={PackageCheck} label="Prontas p/ Protocolo" value={completed} sub="aprovadas" accent="bg-green-50 text-green-600" to="/peticoes" />
-        <StatCard icon={AlertTriangle} label="Revisão Necessária" value={needsRevision} sub="pendentes" accent="bg-red-50 text-red-600" to="/peticoes" />
-        <StatCard icon={Clock} label="Aguardando Aprovação" value={awaiting} sub="geradas" accent="bg-amber-50 text-amber-600" to="/peticoes" />
+        <KpiCard
+          icon={FileText} label="Total" value={total} sub="petições criadas"
+          iconBg="bg-blue-500/10" iconColor="text-blue-500" to="/peticoes"
+          trend={total > 0 ? "+100%" : null}
+        />
+        <KpiCard
+          icon={PackageCheck} label="Prontas" value={completed} sub="para protocolo"
+          iconBg="bg-emerald-500/10" iconColor="text-emerald-500" to="/peticoes"
+          highlight={completed > 0}
+        />
+        <KpiCard
+          icon={AlertTriangle} label="Revisão" value={needsRevision} sub="necessária"
+          iconBg="bg-red-500/10" iconColor="text-red-500" to="/peticoes"
+          alert={needsRevision > 0}
+        />
+        <KpiCard
+          icon={Clock} label="Aguardando" value={awaiting} sub="aprovação"
+          iconBg="bg-amber-500/10" iconColor="text-amber-500" to="/peticoes"
+        />
       </div>
 
-      {/* Value Banner */}
-      {totalValue > 0 && (
-        <Link to="/peticoes" className="block">
-        <div className="rounded-2xl border bg-card p-6 flex flex-col sm:flex-row sm:items-center gap-6 hover:shadow-md transition-shadow cursor-pointer">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="w-14 h-14 rounded-2xl bg-accent/15 flex items-center justify-center shrink-0">
-              <DollarSign className="w-7 h-7 text-accent" />
+      {/* Value + Stats Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Total Value */}
+        <Link to="/peticoes" className="lg:col-span-2 block">
+          <div className="h-full rounded-2xl border bg-card p-6 hover:shadow-lg transition-all group">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Valor Acumulado das Causas</p>
+                <p className="text-4xl font-bold mt-2 text-foreground">{fmtCurrency(totalValue)}</p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-amber-500" />
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Valor total acumulado das causas</p>
-              <p className="text-3xl font-bold text-foreground mt-0.5">{fmtCurrency(totalValue)}</p>
+            <div className="flex gap-6 pt-4 border-t border-border">
+              <div>
+                <p className="text-xs text-muted-foreground">Média por petição</p>
+                <p className="text-lg font-bold mt-0.5">{total > 0 ? fmtCurrency(totalValue / total) : "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Taxa de conclusão</p>
+                <p className="text-lg font-bold mt-0.5 text-emerald-600">{completionRate}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Rascunhos ativos</p>
+                <p className="text-lg font-bold mt-0.5">{drafts}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Modelos ativos</p>
+                <p className="text-lg font-bold mt-0.5">{templates.filter(t => t.is_active).length}</p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-8 sm:border-l sm:pl-6">
-            <div>
-              <p className="text-xs text-muted-foreground">Média por petição</p>
-              <p className="text-xl font-semibold">{total > 0 ? fmtCurrency(totalValue / total) : "—"}</p>
+        </Link>
+
+        {/* Completion Ring */}
+        <div className="rounded-2xl border bg-card p-6 flex flex-col items-center justify-center">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-4">Progresso Geral</p>
+          <div className="relative w-32 h-32">
+            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--muted))" strokeWidth="10" />
+              <circle
+                cx="50" cy="50" r="40" fill="none"
+                stroke="#10b981" strokeWidth="10"
+                strokeDasharray={`${completionRate * 2.513} 251.3`}
+                strokeLinecap="round"
+                className="transition-all duration-700"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold text-foreground">{completionRate}%</span>
+              <span className="text-xs text-muted-foreground">concluído</span>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Modelos ativos</p>
-              <p className="text-xl font-semibold">{templates.filter(t => t.is_active).length}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-4 w-full">
+            <div className="text-center p-2 rounded-xl bg-muted/50">
+              <p className="text-sm font-bold text-emerald-600">{completed}</p>
+              <p className="text-xs text-muted-foreground">Prontas</p>
+            </div>
+            <div className="text-center p-2 rounded-xl bg-muted/50">
+              <p className="text-sm font-bold text-amber-600">{total - completed}</p>
+              <p className="text-xs text-muted-foreground">Em andamento</p>
             </div>
           </div>
         </div>
-        </Link>
-      )}
+      </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Monthly trend */}
-        <Link to="/peticoes" className="lg:col-span-2 block">
-        <Card className="p-6 h-full hover:shadow-md transition-shadow cursor-pointer">
+        {/* Monthly Area Chart */}
+        <Card className="lg:col-span-2 p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-semibold text-foreground">Petições por Mês</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Últimos 12 meses</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Volume nos últimos 12 meses</p>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
-              <TrendingUp className="w-3 h-3" /> Tendência
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full font-medium">
+              <TrendingUp className="w-3 h-3" /> Ativo
             </div>
           </div>
           {monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={monthlyData}>
+              <AreaChart data={monthlyData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
                 <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
-                <Area type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#colorTotal)" dot={{ r: 4, fill: "hsl(var(--primary))" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))", fontSize: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }} />
+                <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2.5} fill="url(#areaGrad)" dot={{ r: 4, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyChart message="Nenhum dado disponível" />
+            <EmptyChart message="Nenhum dado disponível ainda" />
           )}
         </Card>
-        </Link>
 
-        {/* Status Pie */}
-        <Link to="/peticoes" className="block">
-        <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer">
-          <div className="mb-6">
-            <h3 className="font-semibold text-foreground">Status das Petições</h3>
+        {/* Status Donut */}
+        <Card className="p-6">
+          <div className="mb-4">
+            <h3 className="font-semibold text-foreground">Status</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Distribuição atual</p>
           </div>
           {statusData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
                     {statusData.map((entry, i) => (
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
+                  <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
+              <div className="space-y-2 mt-3">
                 {statusData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between text-xs">
+                  <div key={d.name} className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                      <span className="text-muted-foreground truncate max-w-[130px]">{d.name}</span>
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                      <span className="text-muted-foreground truncate max-w-[110px]">{d.name}</span>
                     </div>
-                    <span className="font-semibold">{d.value}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(d.value / total) * 100}%`, backgroundColor: d.color }} />
+                      </div>
+                      <span className="font-bold w-4 text-right">{d.value}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -208,43 +303,56 @@ export default function Dashboard() {
             <EmptyChart message="Nenhuma petição criada" />
           )}
         </Card>
-        </Link>
       </div>
 
-      {/* Case type bar + quick actions */}
+      {/* Area Type + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Link to="/peticoes" className="lg:col-span-2 block">
-        <Card className="p-6 h-full hover:shadow-md transition-shadow cursor-pointer">
+        <Card className="lg:col-span-2 p-6">
           <div className="mb-6">
-            <h3 className="font-semibold text-foreground">Petições por Área</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Tipos de ação jurídica</p>
+            <h3 className="font-semibold text-foreground">Petições por Área Jurídica</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Volume por tipo de ação</p>
           </div>
           {caseTypeData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={caseTypeData} barSize={32}>
+              <BarChart data={caseTypeData} barSize={36} margin={{ left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
-                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))", fontSize: 12 }} cursor={{ fill: "hsl(var(--muted))", radius: 6 }} />
+                <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+                  {caseTypeData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
             <EmptyChart message="Nenhuma petição criada" />
           )}
         </Card>
-        </Link>
 
         {/* Quick Actions */}
-        <Card className="p-6 flex flex-col gap-3">
-          <div className="mb-2">
+        <Card className="p-6 flex flex-col">
+          <div className="mb-4">
             <h3 className="font-semibold text-foreground">Ações Rápidas</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Acesse as principais funções</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Acesso direto às funções</p>
           </div>
-          <QuickAction to="/nova-peticao" icon={FilePlus} label="Nova Petição" desc="Gerar com IA" color="bg-primary/10 text-primary" />
-          <QuickAction to="/peticoes" icon={FileText} label="Minhas Petições" desc="Ver histórico completo" color="bg-blue-50 text-blue-600" />
-          <QuickAction to="/modelos" icon={Scale} label="Modelos" desc="Gerenciar templates" color="bg-purple-50 text-purple-600" />
-          <QuickAction to="/precedentes" icon={Sparkles} label="Precedentes" desc="Jurisprudência" color="bg-amber-50 text-amber-600" />
+          <div className="flex flex-col gap-2 flex-1">
+            <QuickAction to="/nova-peticao" icon={Sparkles} label="Nova Petição com IA" desc="Gerar automaticamente" color="bg-amber-500/10 text-amber-600" />
+            <QuickAction to="/peticoes" icon={FileText} label="Minhas Petições" desc="Ver histórico completo" color="bg-blue-500/10 text-blue-600" />
+            <QuickAction to="/modelos" icon={BookOpen} label="Modelos" desc="Gerenciar templates" color="bg-purple-500/10 text-purple-600" />
+            <QuickAction to="/precedentes" icon={Scale} label="Precedentes" desc="Banco de jurisprudência" color="bg-emerald-500/10 text-emerald-600" />
+          </div>
+          {needsRevision > 0 && (
+            <Link to="/peticoes" className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold">{needsRevision} revisão(ões) pendente(s)</p>
+                <p className="text-xs opacity-70">Clique para ver</p>
+              </div>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          )}
         </Card>
       </div>
 
@@ -259,16 +367,26 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, accent, to }) {
+function KpiCard({ icon: Icon, label, value, sub, iconBg, iconColor, to, highlight, alert, trend }) {
   return (
-    <Link to={to || "/peticoes"} className="block">
-      <Card className="p-5 hover:shadow-md transition-shadow cursor-pointer group">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accent}`}>
-          <Icon className="w-5 h-5" />
+    <Link to={to || "/peticoes"} className="block group">
+      <Card className={`p-5 hover:shadow-lg transition-all cursor-pointer border ${alert && value > 0 ? "border-red-200 bg-red-50/30" : highlight && value > 0 ? "border-emerald-200 bg-emerald-50/30" : ""}`}>
+        <div className="flex items-start justify-between mb-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
+            <Icon className={`w-5 h-5 ${iconColor}`} />
+          </div>
+          {trend && (
+            <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+              <ChevronUp className="w-3 h-3" />{trend}
+            </span>
+          )}
         </div>
-        <p className="text-2xl font-bold text-foreground">{value}</p>
+        <p className="text-3xl font-bold text-foreground">{value}</p>
         <p className="text-sm font-medium text-foreground/80 mt-0.5">{label}</p>
-        <p className="text-xs text-muted-foreground flex items-center gap-1">{sub} <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" /></p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+          {sub}
+          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity ml-auto" />
+        </p>
       </Card>
     </Link>
   );
@@ -276,7 +394,7 @@ function StatCard({ icon: Icon, label, value, sub, accent, to }) {
 
 function QuickAction({ to, icon: Icon, label, desc, color }) {
   return (
-    <Link to={to} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors group">
+    <Link to={to} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors group border border-transparent hover:border-border">
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
         <Icon className="w-4 h-4" />
       </div>
@@ -291,8 +409,9 @@ function QuickAction({ to, icon: Icon, label, desc, color }) {
 
 function EmptyChart({ message }) {
   return (
-    <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-      {message}
+    <div className="h-[200px] flex flex-col items-center justify-center gap-2 text-muted-foreground">
+      <BarChart2 className="w-8 h-8 opacity-30" />
+      <p className="text-sm">{message}</p>
     </div>
   );
 }
@@ -307,6 +426,23 @@ function getMonthlyData(petitions) {
     months[key].total++;
   });
   return Object.values(months).slice(-12);
+}
+
+function getWeeklyData(petitions) {
+  const days = {};
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split("T")[0];
+    const label = d.toLocaleDateString("pt-BR", { weekday: "short" });
+    days[key] = { day: label, total: 0 };
+  }
+  petitions.forEach((p) => {
+    const key = new Date(p.created_date).toISOString().split("T")[0];
+    if (days[key]) days[key].total++;
+  });
+  return Object.values(days);
 }
 
 function getGreeting(name) {
