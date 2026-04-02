@@ -70,7 +70,7 @@ export default function PetitionView() {
               <Clock className="w-4 h-4" /> Pronto para Protocolo
             </span>
           )}
-          {(petition.status === "concluida" || petition.status === "revisao") && (
+          {petition.generated_content && (
             <ExportButtons petition={petition} />
           )}
         </div>
