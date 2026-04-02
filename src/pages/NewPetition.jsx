@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
@@ -57,12 +57,10 @@ export default function NewPetition() {
   const [templates, setTemplates] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [generatingStep, setGeneratingStep] = useState("");
-
-  const [form, setForm] = useState(getInitialForm);
-
-  useEffect(() => {
-    base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates);
-  }, []);
+  const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [savedPetitionId, setSavedPetitionId] = useState(null);
+  const [generatedContent, setGeneratedContent] = useState(null);
+  const [generateError, setGenerateError] = useState(null);
 
   const updateForm = (field, value) => setForm((prev) => {
     const next = { ...prev, [field]: value };
@@ -211,9 +209,54 @@ A resposta será considerada excelente se:
 - Maximizar o potencial de procedência da ação${templateContent}${documentContext}${precedentsContext}`;
   };
 
+  const handleSaveDraft = async () => {
+    try {
+      const data = {
+        ...form,
+        salary: form.salary ? parseFloat(form.salary) : undefined,
+        status: "rascunho",
+      };
+      if (savedPetitionId) {
+        await base44.entities.Petition.update(savedPetitionId, data);
+      } else {
+        const p = await base44.entities.Petition.create(data);
+        setSavedPetitionId(p.id);
+      }
+      toast.success("Rascunho salvo!");
+    } catch (err) {
+      toast.error("Erro ao salvar rascunho: " + err.message);
+    }
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
+    setGeneratingStep("Salvando rascunho...");
+    setGenerateError(null);
+    setGeneratingProgress(10);
+
+    // 1. Salvar rascunho no banco ANTES de chamar a API
+    let petitionId = savedPetitionId;
+    try {
+      const draftData = {
+        ...form,
+        salary: form.salary ? parseFloat(form.salary) : undefined,
+        status: "em_geracao",
+      };
+      if (petitionId) {
+        await base44.entities.Petition.update(petitionId, draftData);
+      } else {
+        const p = await base44.entities.Petition.create(draftData);
+        petitionId = p.id;
+        setSavedPetitionId(p.id);
+      }
+    } catch (err) {
+      toast.error("Erro ao salvar rascunho: " + err.message);
+      setGenerating(false);
+      return;
+    }
+
     setGeneratingStep("Carregando precedentes e modelos...");
+    setGeneratingProgress(25);
 
     let precedentsContext = "";
     try {
@@ -234,10 +277,17 @@ A resposta será considerada excelente se:
     }
 
     const prompt = buildPrompt(form, templates, precedentsContext, calculationsContext, documentContext);
+    const startTime = Date.now();
 
     try {
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
-      setGeneratingStep("Enviando dados para a IA (isso pode levar 2-4 minutos)...");
+      setGeneratingStep("Enviando dados para a IA (isso pode levar 2–4 minutos)...");
+      setGeneratingProgress(40);
+
+      // Simular progresso enquanto aguarda
+      const progressInterval = setInterval(() => {
+        setGeneratingProgress(prev => prev < 85 ? prev + 3 : prev);
+      }, 3000);
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Tempo limite excedido (5 min). Tente novamente.")), 5 * 60 * 1000)
@@ -252,29 +302,57 @@ A resposta será considerada excelente se:
         timeoutPromise,
       ]);
 
+      clearInterval(progressInterval);
       setGeneratingStep("Salvando petição...");
+      setGeneratingProgress(90);
 
-      // Upload content as file to avoid field size limit
+      // Upload conteúdo como arquivo
       const blob = new Blob([result], { type: "text/plain" });
       const file = new File([blob], "peticao.txt", { type: "text/plain" });
       const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
 
-      const petition = await base44.entities.Petition.create({
-        ...form,
-        salary: form.salary ? parseFloat(form.salary) : undefined,
-        status: "concluida",
+      // Atualizar petição no banco
+      await base44.entities.Petition.update(petitionId, {
         generated_content: contentUrl,
+        status: "concluida",
       });
 
+      // Registrar no GenerationLog
+      try {
+        await base44.entities.GenerationLog.create({
+          petition_id: petitionId,
+          petition_title: form.title,
+          status: "concluido",
+          model_used: "claude_sonnet_4_6",
+          duration_seconds: Math.round((Date.now() - startTime) / 1000),
+          generated_at: new Date().toISOString(),
+        });
+      } catch (e) { /* ignore log errors */ }
+
       try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (e) {}
+      setGeneratingProgress(100);
+      setGeneratedContent(result);
+      setGeneratingStep("concluido");
       toast.success("Petição gerada com sucesso!");
-      navigate(`/peticoes/${petition.id}`);
     } catch (err) {
-      toast.error("Erro ao gerar petição: " + (err.message || "Tente novamente"));
-      console.error(err);
+      // Marcar petição como rascunho novamente em caso de erro
+      try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (e) {}
+      try {
+        await base44.entities.GenerationLog.create({
+          petition_id: petitionId,
+          petition_title: form.title,
+          status: "erro",
+          error_message: err.message,
+          model_used: "claude_sonnet_4_6",
+          duration_seconds: Math.round((Date.now() - startTime) / 1000),
+          generated_at: new Date().toISOString(),
+        });
+      } catch (e) {}
+      setGenerateError(err.message || "Erro desconhecido. Tente novamente.");
+      toast.error("Erro ao gerar petição. Seus dados foram preservados.");
     } finally {
       setGenerating(false);
-      setGeneratingStep("");
+      setGeneratingProgress(0);
     }
   };
 
@@ -298,26 +376,63 @@ A resposta será considerada excelente se:
 
       <PetitionStepIndicator steps={STEPS} currentStep={step} />
 
+      {/* Resultado gerado inline */}
+      {generatedContent && (
+        <Card className="p-6 lg:p-8 border-green-200 bg-green-50/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-green-700">
+              <Sparkles className="w-5 h-5" />
+              <h3 className="font-semibold text-lg">Petição Gerada com Sucesso!</h3>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(generatedContent); toast.success("Copiado!"); }}>
+                <Copy className="w-4 h-4" /> Copiar
+              </Button>
+              <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate(`/peticoes/${savedPetitionId}`)}>
+                Ver Petição Completa <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border p-6 max-h-[500px] overflow-y-auto">
+            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{generatedContent}</pre>
+          </div>
+        </Card>
+      )}
+
+      {/* Erro de geração */}
+      {generateError && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          <p className="font-semibold mb-1">Erro ao gerar petição</p>
+          <p>{generateError}</p>
+          <p className="mt-2 text-xs text-red-600">Seus dados foram preservados. Clique em "Gerar Petição" para tentar novamente.</p>
+        </div>
+      )}
+
       <Card className="p-6 lg:p-8">
         {step === 0 && <StepParties form={form} updateForm={updateForm} />}
         {step === 1 && <StepDetails form={form} updateForm={updateForm} templates={templates} />}
         {step === 2 && <LaborCalculator form={form} updateForm={updateForm} />}
         {step === 3 && <DocumentUploader form={form} updateForm={updateForm} />}
-        {step === 4 && <StepReview form={form} generating={generating} generatingStep={generatingStep} onGenerate={handleGenerate} />}
+        {step === 4 && <StepReview form={form} generating={generating} generatingStep={generatingStep} generatingProgress={generatingProgress} onGenerate={handleGenerate} />}
       </Card>
 
       <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={() => setStep((s) => s - 1)}
-          disabled={step === 0}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" /> Anterior
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setStep((s) => s - 1)}
+            disabled={step === 0 || generating}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" /> Anterior
+          </Button>
+          <Button variant="outline" onClick={handleSaveDraft} disabled={generating} className="gap-2 text-muted-foreground">
+            Salvar Rascunho
+          </Button>
+        </div>
 
         {!isLastStep ? (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed()} className="gap-2">
+          <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed() || generating} className="gap-2">
             Próximo <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
@@ -569,7 +684,7 @@ function StepDetails({ form, updateForm, templates }) {
   );
 }
 
-function StepReview({ form, generating, generatingStep }) {
+function StepReview({ form, generating, generatingStep, generatingProgress }) {
   return (
     <div className="space-y-6">
       <div className="text-center py-4">
@@ -613,18 +728,24 @@ function StepReview({ form, generating, generatingStep }) {
       </div>
 
       {generating && (
-        <div className="text-center py-8 space-y-3">
+        <div className="text-center py-8 space-y-4">
           <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
           <p className="font-semibold text-foreground">Gerando sua petição com IA...</p>
           <p className="text-sm text-muted-foreground">{generatingStep}</p>
-          <p className="text-xs text-muted-foreground">Modelo Claude Sonnet — alta qualidade, pode levar 2–4 minutos. Não feche esta aba.</p>
-          <div className="flex justify-center gap-1 pt-2">
-            {[0,1,2].map(i => (
-              <div key={i} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay: `${i * 0.2}s`}} />
-            ))}
-          </div>
+          {generatingProgress > 0 && (
+            <div className="max-w-sm mx-auto">
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className="bg-accent h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${generatingProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{generatingProgress}%</p>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Não feche esta aba — seus dados estão salvos.</p>
         </div>
       )}
     </div>
