@@ -22,6 +22,7 @@ export default function NewPetition() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -57,6 +58,7 @@ export default function NewPetition() {
 
   const handleGenerate = async () => {
     setGenerating(true);
+    setGeneratingStep("Carregando precedentes e modelos...");
 
     // Load active precedents
     let precedentsContext = "";
@@ -145,6 +147,7 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
 
     try {
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
+      setGeneratingStep("Enviando dados para a IA (isso pode levar 2-4 minutos)...");
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -160,12 +163,15 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
         generated_content: result,
       });
 
+      setGeneratingStep("Salvando petição...");
       toast.success("Petição gerada com sucesso!");
       navigate(`/peticoes/${petition.id}`);
     } catch (err) {
-      toast.error("Erro ao gerar petição: " + err.message);
+      toast.error("Erro ao gerar petição: " + (err.message || "Tente novamente"));
+      console.error(err);
     } finally {
       setGenerating(false);
+      setGeneratingStep("");
     }
   };
 
@@ -206,7 +212,7 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
           <DocumentUploader form={form} updateForm={updateForm} />
         )}
         {step === 4 && (
-          <StepReview form={form} generating={generating} onGenerate={handleGenerate} />
+          <StepReview form={form} generating={generating} generatingStep={generatingStep} onGenerate={handleGenerate} />
         )}
       </Card>
 
@@ -420,7 +426,7 @@ function StepDetails({ form, updateForm, templates }) {
   );
 }
 
-function StepReview({ form, generating }) {
+function StepReview({ form, generating, generatingStep }) {
   return (
     <div className="space-y-6">
       <div className="text-center py-4">
@@ -461,10 +467,18 @@ function StepReview({ form, generating }) {
       </div>
 
       {generating && (
-        <div className="text-center py-8">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent mb-3" />
-          <p className="text-muted-foreground">Gerando sua petição com IA...</p>
-          <p className="text-xs text-muted-foreground mt-1">Isso pode levar alguns minutos. Modelo Claude Sonnet (usa mais créditos para maior qualidade)</p>
+        <div className="text-center py-8 space-y-3">
+          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+          <p className="font-semibold text-foreground">Gerando sua petição com IA...</p>
+          <p className="text-sm text-muted-foreground">{generatingStep}</p>
+          <p className="text-xs text-muted-foreground">Modelo Claude Sonnet — alta qualidade, pode levar 2–4 minutos. Não feche esta aba.</p>
+          <div className="flex justify-center gap-1 pt-2">
+            {[0,1,2].map(i => (
+              <div key={i} className="w-2 h-2 rounded-full bg-accent animate-bounce" style={{animationDelay: `${i * 0.2}s`}} />
+            ))}
+          </div>
         </div>
       )}
     </div>
