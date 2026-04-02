@@ -149,11 +149,18 @@ A redação deve ser contínua, sem simplificações, com alto nível técnico.$
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
       setGeneratingStep("Enviando dados para a IA (isso pode levar 2-4 minutos)...");
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: fileUrls,
-        model: "claude_sonnet_4_6",
-      });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Tempo limite excedido (5 min). Tente novamente.")), 5 * 60 * 1000)
+      );
+
+      const result = await Promise.race([
+        base44.integrations.Core.InvokeLLM({
+          prompt,
+          file_urls: fileUrls,
+          model: "claude_sonnet_4_6",
+        }),
+        timeoutPromise,
+      ]);
 
       // Create petition record
       const petition = await base44.entities.Petition.create({
