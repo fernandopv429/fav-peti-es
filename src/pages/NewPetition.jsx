@@ -61,6 +61,7 @@ export default function NewPetition() {
   const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [generatedContent, setGeneratedContent] = useState(null);
   const [generateError, setGenerateError] = useState(null);
+  const [form, setForm] = useState(getInitialForm);
 
   const updateForm = (field, value) => setForm((prev) => {
     const next = { ...prev, [field]: value };
