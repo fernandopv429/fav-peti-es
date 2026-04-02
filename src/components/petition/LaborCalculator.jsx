@@ -132,6 +132,7 @@ export default function LaborCalculator({ form, updateForm }) {
       totalVerbas,
       totalGeral,
       formatted: formatResult({
+        params,
         salary, mesesContrato, valorHoraContratual, minResidualDia, intervaloSuprimido,
         heDiariaTotal, diasTrabalhoMes, heNormalMensal, horasFolgaMensal, valorHeNormal,
         valorHeFolga, totalHeMensal, dsrHE, totalHeMensalComDsr, totalHePeriodo,
