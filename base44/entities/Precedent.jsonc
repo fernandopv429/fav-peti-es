@@ -31,6 +31,10 @@
       "type": "string",
       "description": "Ementa ou texto do precedente"
     },
+    "source_url": {
+      "type": "string",
+      "description": "Link oficial para consulta (JusBrasil, TST, etc.)"
+    },
     "tags": {
       "type": "array",
       "items": {

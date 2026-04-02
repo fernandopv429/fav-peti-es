@@ -12,7 +12,7 @@ import NewPetition from './pages/NewPetition';
 import PetitionsList from './pages/PetitionsList';
 import PetitionView from './pages/PetitionView';
 import Templates from './pages/Templates';
-import Precedents from './pages/Precedents';
+import Precedents from './pages/Precedents.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
