@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
@@ -47,6 +47,7 @@ export default function NewPetition() {
     document_urls: [],
     document_names: [],
     calculations: null,
+    extra_defendants: [],
   });
 
   useEffect(() => {
@@ -107,9 +108,9 @@ CPF: ${form.claimant_cpf}
 Endereço: ${form.claimant_address}
 Função: ${form.claimant_role}
 
-**Reclamado:** ${form.defendant_name}
+**Reclamado 1 (Principal):** ${form.defendant_name}
 CNPJ: ${form.defendant_cnpj}
-Endereço: ${form.defendant_address}
+Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `\n**Reclamado ${i + 2}:** ${d.name}\nCNPJ: ${d.cnpj}\nEndereço: ${d.address}`).join("") : ""}
 
 **Contrato de Trabalho:**
 Início: ${form.contract_start}
@@ -388,22 +389,80 @@ function StepParties({ form, updateForm }) {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold mb-1">Reclamado</h3>
-        <p className="text-sm text-muted-foreground mb-4">Dados da empresa</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label>Razão Social *</Label>
-            <Input value={form.defendant_name} onChange={(e) => updateForm("defendant_name", e.target.value)} placeholder="Nome da empresa" className="mt-1.5" />
-          </div>
-          <div>
-            <Label>CNPJ</Label>
-            <Input value={form.defendant_cnpj} onChange={(e) => updateForm("defendant_cnpj", e.target.value)} placeholder="00.000.000/0000-00" className="mt-1.5" />
-          </div>
-          <div className="md:col-span-2">
-            <Label>Endereço</Label>
-            <Input value={form.defendant_address} onChange={(e) => updateForm("defendant_address", e.target.value)} placeholder="Endereço completo" className="mt-1.5" />
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-semibold">Reclamado(s)</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">Dados da(s) empresa(s) reclamada(s)</p>
+
+        {/* Reclamado principal */}
+        <div className="p-4 rounded-xl border mb-3">
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Reclamado 1 — Principal</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Razão Social *</Label>
+              <Input value={form.defendant_name} onChange={(e) => updateForm("defendant_name", e.target.value)} placeholder="Nome da empresa" className="mt-1.5" />
+            </div>
+            <div>
+              <Label>CNPJ</Label>
+              <Input value={form.defendant_cnpj} onChange={(e) => updateForm("defendant_cnpj", e.target.value)} placeholder="00.000.000/0000-00" className="mt-1.5" />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Endereço</Label>
+              <Input value={form.defendant_address} onChange={(e) => updateForm("defendant_address", e.target.value)} placeholder="Endereço completo" className="mt-1.5" />
+            </div>
           </div>
         </div>
+
+        {/* Reclamados adicionais */}
+        {form.extra_defendants.map((d, i) => (
+          <div key={i} className="p-4 rounded-xl border mb-3 relative">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wider">Reclamado {i + 2}</p>
+              <button
+                onClick={() => {
+                  const updated = form.extra_defendants.filter((_, idx) => idx !== i);
+                  updateForm("extra_defendants", updated);
+                }}
+                className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Razão Social</Label>
+                <Input value={d.name} onChange={(e) => {
+                  const updated = [...form.extra_defendants];
+                  updated[i] = { ...updated[i], name: e.target.value };
+                  updateForm("extra_defendants", updated);
+                }} placeholder="Nome da empresa" className="mt-1.5" />
+              </div>
+              <div>
+                <Label>CNPJ</Label>
+                <Input value={d.cnpj} onChange={(e) => {
+                  const updated = [...form.extra_defendants];
+                  updated[i] = { ...updated[i], cnpj: e.target.value };
+                  updateForm("extra_defendants", updated);
+                }} placeholder="00.000.000/0000-00" className="mt-1.5" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Endereço</Label>
+                <Input value={d.address} onChange={(e) => {
+                  const updated = [...form.extra_defendants];
+                  updated[i] = { ...updated[i], address: e.target.value };
+                  updateForm("extra_defendants", updated);
+                }} placeholder="Endereço completo" className="mt-1.5" />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <button
+          onClick={() => updateForm("extra_defendants", [...form.extra_defendants, { name: "", cnpj: "", address: "" }])}
+          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors mt-1"
+        >
+          <Plus className="w-4 h-4" /> Adicionar outro reclamado
+        </button>
       </div>
     </div>
   );
@@ -511,9 +570,12 @@ function StepReview({ form, generating, generatingStep }) {
           <ReviewItem label="Função" value={form.claimant_role} />
         </ReviewSection>
 
-        <ReviewSection title="Reclamado">
+        <ReviewSection title="Reclamado(s)">
           <ReviewItem label="Empresa" value={form.defendant_name} />
           <ReviewItem label="CNPJ" value={form.defendant_cnpj} />
+          {form.extra_defendants?.map((d, i) => (
+            <ReviewItem key={i} label={`Reclamado ${i + 2}`} value={d.name} />
+          ))}
         </ReviewSection>
 
         <ReviewSection title="Contrato">
