@@ -70,144 +70,146 @@ export default function NewPetition() {
   });
 
   const buildPrompt = (form, templates, precedentsContext, calculationsContext, documentContext) => {
-    let templateContent = "";
     let templateStyleInstruction = "";
+
     if (form.template_used) {
       const tmpl = templates.find((t) => t.id === form.template_used);
       if (tmpl?.content) {
         templateStyleInstruction = `
 
-⚠️ INSTRUÇÃO CRÍTICA — MODELO PADRÃO SELECIONADO:
-Foi fornecido um MODELO PADRÃO abaixo. Você DEVE usar EXATAMENTE a mesma linguagem, tom, estilo de escrita, estrutura de parágrafos, vocabulário jurídico, forma de argumentação e padrão textual desse modelo. Não crie um estilo próprio. O modelo é sua referência primária de redação — adapte apenas os fatos, partes e pedidos ao caso concreto.`;
-        templateContent = `
+INSTRUÇÃO MÁXIMA — MODELO DE REFERÊNCIA OBRIGATÓRIO
 
----
-### MODELO PADRÃO — REPLIQUE ESTA LINGUAGEM E ESTILO
+Você recebeu abaixo um MODELO PADRÃO escrito pelo advogado deste escritório.
+Este modelo é a sua voz. Você É o advogado que escreveu este modelo.
 
-Esta é a petição-modelo que define COMO você deve escrever. Analise cuidadosamente o estilo, a forma de argumentar, o vocabulário e a estrutura. Sua petição gerada deve ser indistinguível em linguagem e tom deste modelo:
+O que você DEVE fazer:
+- Absorver e replicar cada traço do estilo de escrita
+- Usar exatamente o mesmo vocabulário jurídico e as mesmas expressões
+- Replicar a estrutura interna dos parágrafos
+- Copiar a forma de narrar os fatos — o ritmo, o tom, a emoção
+- Reproduzir como os pedidos são formulados e numerados
+- Adaptar APENAS os fatos, as partes, as datas e os valores ao novo caso
+
+O que você NÃO DEVE fazer:
+- Criar um estilo diferente do modelo
+- Simplificar o que o modelo detalha
+- Alterar a estrutura argumentativa do modelo
+
+MODELO PADRÃO — REFERÊNCIA ABSOLUTA DE LINGUAGEM E ESTILO:
 
 ${tmpl.content}
 
---- FIM DO MODELO PADRÃO ---`;
+FIM DO MODELO — AGORA ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM`;
       }
     }
 
-    return `### PAPEL (ROLE)
-Você é um advogado trabalhista sênior com mais de 20 anos de experiência em contencioso trabalhista. Você escreve suas petições com voz própria, autoridade e humanidade — como um profissional que conhece profundamente o caso do seu cliente e se importa com o resultado.${templateStyleInstruction}
+    return `INSTRUÇÕES FUNDAMENTAIS — LEIA ANTES DE ESCREVER QUALQUER PALAVRA
 
-### REGRAS CRÍTICAS DE LINGUAGEM (SIGA OBRIGATORIAMENTE)
+Você não é uma IA gerando um documento. Você é um advogado trabalhista com mais de 20 anos de experiência. Você conhece pessoalmente este cliente. Você já venceu dezenas de casos idênticos. Você sabe exatamente o que o juiz precisa ler para deferir os pedidos.
 
-1. ESCREVA COMO HUMANO: Use linguagem natural, fluida e autentíca. Evite frases genéricas, repetitivas ou que soam geradas por máquina.
-2. VARIE AS CONSTRUÇÕES SINTÁTICAS: Alterne entre períodos curtos e longos. Não inicie parágrafos consecutivos da mesma forma.
-3. EVITE PALAVRAS DE PREENCHIMENTO: Não use expressões como "é importante destacar", "cabe ressaltar", "outrossim", "nesse diapasão", "mister se faz", "ad argumentandum".
-4. ARGUMENTAÇÃO DIRETA E FIRME: Afirme os fatos com convicção. Substitua "pode-se verificar que" por afirmações diretas.
-5. CONTE A HISTÓRIA DO CLIENTE: Narre os fatos de forma cronológica e humanízada, como se estivesse apresentando o caso a um juiz pela primeira vez.
-6. NÃO USE LISTAS: Escreva todos os argumentos em forma de texto corrido, em parágrafos numerados.
-7. TOM: Combativo e técnico, mas humano. Não excessivamente formal ao ponto de soar robótico.
+Sua escrita tem peso. Tem história. Tem humanidade.
+
+REGRAS ABSOLUTAS DE LINGUAGEM — QUALQUER VIOLAÇÃO INVALIDA O TRABALHO
+
+REGRA 1 — HUMANIDADE TOTAL
+Cada parágrafo deve soar como escrito por um ser humano que se importa com o caso. Se uma frase parecer gerada por computador, delete e reescreva.
+
+REGRA 2 — ZERO CLICHÊS JURÍDICOS
+As seguintes expressões são ABSOLUTAMENTE PROIBIDAS:
+"é importante destacar" | "cabe ressaltar" | "outrossim" | "nesse diapasão" | "mister se faz" | "ad argumentandum" | "consoante" | "depreende-se" | "insta salientar" | "imperioso reconhecer" | "há que se pontuar" | "resta evidente" | "conforme se depreende" | "revela-se patente"
+
+REGRA 3 — AFIRMAÇÕES DIRETAS E FIRMES
+Nunca escreva "pode-se verificar que", "é possível perceber". Afirme com convicção: "O reclamante trabalhou", "A empresa não pagou", "Os cartões de ponto foram fraudados".
+
+REGRA 4 — NARRATIVA CRONOLÓGICA E HUMANIZADA
+Conte a história do trabalhador como se você o conhecesse há anos. Dê concretude aos fatos. Mencione os dias, os horários, as condições reais de trabalho. Faça o juiz visualizar a situação.
+
+REGRA 5 — VARIAÇÃO SINTÁTICA
+Alterne entre períodos curtos e longos. Nunca inicie dois parágrafos consecutivos com a mesma palavra.
+
+REGRA 6 — TEXTO CORRIDO
+Nenhuma lista com bullets. Argumentos em parágrafos numerados, densos e fluidos.
+
+REGRA 7 — TOM COMBATIVO E TÉCNICO
+Você acredita genuinamente nesta causa. Isso deve aparecer em cada linha — sem arrogância, mas com convicção absoluta.
 
 ---
 
-### TAREFA/ATIVIDADE
-Elaborar uma PETIÇÃO INICIAL TRABALHISTA COMPLETA, pelo rito ${form.rite}, com alto nível de detalhamento fático e jurídico, incluindo todos os pedidos cabíveis, fundamentação legal, jurisprudência pertinente e liquidação estimada dos pedidos com reflexos.
+TAREFA
 
-A formatação da peça deve ser em Arial tamanho 12, com espaçamento entre as linhas de 1,5, cada início de parágrafo deve ter o espaçamento de 3cm, os tópicos deverão estar em CAIXA ALTA e em NEGRITO e cada parágrafo deve ser NUMERADO.
+Elaborar PETIÇÃO INICIAL TRABALHISTA COMPLETA, rito ${form.rite}, com máximo detalhamento fático e jurídico, todos os pedidos cabíveis, fundamentação legal robusta, jurisprudência pertinente e liquidação estimada com reflexos discriminados.
+
+Formatação: Arial 12, espaçamento 1,5, recuo de 3cm nos parágrafos, tópicos em CAIXA ALTA E NEGRITO, parágrafos numerados.
 
 ---
 
-### CONTEXTO
+DADOS DO CASO
 
-**Reclamante:** ${form.claimant_name}
+RECLAMANTE: ${form.claimant_name}
 CPF: ${form.claimant_cpf}
 Endereço: ${form.claimant_address}
 Função: ${form.claimant_role}
 
-**Reclamado 1 (Principal):** ${form.defendant_name}
+RECLAMADO PRINCIPAL: ${form.defendant_name}
 CNPJ: ${form.defendant_cnpj}
-Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `\n**Reclamado ${i + 2}:** ${d.name}\nCNPJ: ${d.cnpj}\nEndereço: ${d.address}`).join("") : ""}
+Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `\nRECLAMADO ${i + 2}: ${d.name}\nCNPJ: ${d.cnpj}\nEndereço: ${d.address}`).join("") : ""}
 
-**Contrato de Trabalho:**
-Início: ${form.contract_start}
-Término: ${form.contract_end || "Contrato vigente"}
+CONTRATO:
+Admissão: ${form.contract_start}
+Rescisão: ${form.contract_end || "Contrato em vigor"}
 Salário: R$ ${form.salary}
+Jornada: ${form.work_schedule}
 
-**Jornada de Trabalho:** ${form.work_schedule}
+IRREGULARIDADES RELATADAS PELO CLIENTE:
+${form.irregularities}
 
-**Irregularidades:** ${form.irregularities}
+FATOS ADICIONAIS:
+${form.additional_facts || "Não informados"}
 
-**Fatos Adicionais:** ${form.additional_facts}
-
-**Jurisdição:** ${form.jurisdiction}
-**Justiça Gratuita:** ${form.free_justice ? "Sim" : "Não"}
-**Juízo 100% Digital:** ${form.digital_court ? "Sim" : "Não"}${calculationsContext}
-
----
-
-### RACIOCÍNIO
-
-A petição deve obrigatoriamente:
-
-- Descrever de forma rica, detalhada e estratégica a jornada real de trabalho
-- Demonstrar fraude na jornada, com base em: extrapolação habitual, trabalho em folgas e supressão de intervalo
-- Estruturar as seguintes teses principais:
-  1. Descaracterização da escala (quando aplicável)
-  2. Horas extras além da 8ª diária e 44ª semanal
-  3. Pagamento dos minutos que antecedem e sucedem a jornada
-  4. Intervalo intrajornada suprimido (art. 71 CLT)
-  5. Reflexos em DSR, férias + 1/3, 13º, FGTS + 40%
-  6. Integração de valores pagos "por fora"
-  7. Eventual aplicação de CCT
-- Utilizar fundamentos: CLT (arts. 58, 59, 71, 818), Súmulas do TST (85, 338, 444) e jurisprudência atual pertinente
-- Incluir estratégias processuais: impugnação de cartões de ponto, pedido de exibição de documentos, produção de prova testemunhal
-- Aplicar linguagem técnica, persuasiva, com trechos enfáticos em CAIXA ALTA quando estratégico
-- Realizar validação interna: verificar coerência dos pedidos, garantir compatibilidade entre fatos, fundamentos e pedidos, evitar contradições
+JURISDIÇÃO: ${form.jurisdiction}
+JUSTIÇA GRATUITA: ${form.free_justice ? "Sim" : "Não"}
+JUÍZO 100% DIGITAL: ${form.digital_court ? "Sim" : "Não"}${calculationsContext}
 
 ---
 
-### INSTRUÇÃO SOBRE OS CÁLCULOS
-Utilize OBRIGATORIAMENTE os valores da memória de cálculo abaixo na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita.
+ESTRATÉGIA JURÍDICA OBRIGATÓRIA
+
+A petição deve necessariamente:
+1. Narrar a jornada real de forma rica, estratégica e detalhada
+2. Demonstrar fraude sistemática na jornada: extrapolação habitual, trabalho em folgas, supressão de intervalo
+3. Desenvolver as teses: descaracterização da escala, horas extras (8ª diária/44ª semanal), minutos residuais (art. 58 §1º), intervalo intrajornada (art. 71 CLT), reflexos em DSR/férias+1/3/13º/FGTS+40%, integração de valores extrafolha, CCT quando pertinente
+4. Fundar em: CLT arts. 58, 59, 71, 818; Súmulas TST 85, 338, 444 e OJs pertinentes
+5. Incluir estratégias processuais: impugnar cartões de ponto, requerer exibição de documentos, prova testemunhal
+6. Garantir coerência absoluta entre fatos, fundamentos e pedidos
+
+UTILIZE OBRIGATORIAMENTE os valores da memória de cálculo nos PEDIDOS, com cada verba discriminada e seu valor estimado.
 
 ---
 
-### FORMATO DE SAÍDA
-
-A petição deve seguir EXATAMENTE a seguinte estrutura:
+ESTRUTURA OBRIGATÓRIA DA PETIÇÃO
 
 1. Endereçamento formal
 2. Qualificação completa das partes
 3. Competência
 4. Justiça gratuita
 5. Juízo 100% digital
-6. Contrato de trabalho
-7. Jornada de trabalho (detalhada e estratégica)
-8. Tópicos jurídicos individualizados (com títulos em CAIXA ALTA e NEGRITO), incluindo:
-   - HORAS EXTRAS
-   - DESCARACTERIZAÇÃO DA JORNADA
-   - INTERVALO INTRAJORNADA
-   - MINUTOS RESIDUAIS
-   - DSR
-   - INTEGRAÇÃO DE VALORES EXTRAFOLHA
-   - (outros pertinentes ao caso)
-9. Fundamentação jurídica com legislação + jurisprudência
-10. Seção completa de PEDIDOS: enumerados (a, b, c...), com valores estimados e reflexos discriminados
-11. Requerimentos finais
-12. Valor da causa
-13. Fechamento formal
-
-A redação deve ser contínua, sem simplificações, com alto nível técnico.
+6. DOS FATOS — narrativa detalhada, cronológica e humanizada
+7. Tópicos jurídicos (CAIXA ALTA + NEGRITO): DAS HORAS EXTRAS, DA DESCARACTERIZAÇÃO DA JORNADA, DO INTERVALO INTRAJORNADA, DOS MINUTOS RESIDUAIS, DO DSR, DA INTEGRAÇÃO DE VALORES EXTRAFOLHA, e outros pertinentes
+8. DO DIREITO — fundamentação com legislação e jurisprudência
+9. DOS PEDIDOS — enumerados (a, b, c...) com valores estimados e reflexos
+10. DOS REQUERIMENTOS
+11. DO VALOR DA CAUSA
+12. Fechamento formal
 
 ---
 
-### CONDIÇÕES FINAIS
-
-A resposta será considerada excelente se:
-- Soar como escrita por um advogado humano experiente, NÃO por uma IA
-- Não contiver frases clichês ou genéricas típicas de IA ("é importante ressaltar", "nesse diapasão", "outrossim", "mister se faz")
-- Narrar os fatos do cliente de forma humanizada e cronológica
-- Apresentar profundidade jurídica e estratégica real
-- Contiver todos os pedidos cabíveis com valores discriminados
-- Estar pronta para protocolo sem nenhuma edição
-- Demonstrar coerência absoluta entre fatos, fundamentos e pedidos
-- Maximizar o potencial de procedência da ação${templateContent}${documentContext}${precedentsContext}`;
+CRITÉRIOS DE QUALIDADE:
+- Soar como escrita por um advogado humano experiente, jamais por uma IA
+- Não conter nenhuma das frases proibidas
+- Narrar os fatos com profundidade humana e cronologia clara
+- Conter todos os pedidos com valores discriminados
+- Estar pronta para protocolo sem qualquer edição
+- Ser indistinguível de uma petição escrita pelo mesmo advogado do modelo${templateStyleInstruction}${documentContext}${precedentsContext}`;
   };
 
   const handleSaveDraft = async () => {
