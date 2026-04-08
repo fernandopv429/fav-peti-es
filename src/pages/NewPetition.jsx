@@ -15,7 +15,6 @@ import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
 
 const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Revisão e Geração"];
-
 const FORM_STORAGE_KEY = "juris_new_petition_form";
 
 function getInitialForm() {
@@ -63,87 +62,55 @@ export default function NewPetition() {
   const [generateError, setGenerateError] = useState(null);
   const [form, setForm] = useState(getInitialForm);
 
+  useEffect(() => {
+    base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates).catch(() => {});
+  }, []);
+
   const updateForm = (field, value) => setForm((prev) => {
     const next = { ...prev, [field]: value };
     try { localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
     return next;
   });
 
-  const buildPrompt = (form, templates, precedentsContext, calculationsContext, documentContext) => {
-    let templateStyleInstruction = "";
+  const buildPrompt = (form, allTemplates, precedentsContext, calculationsContext, documentContext) => {
+    // Load ALL active templates with content as style references
+    const activeTemplatesWithContent = allTemplates.filter((t) => t.content && t.is_active !== false);
+    const selectedTemplate = form.template_used ? allTemplates.find((t) => t.id === form.template_used) : null;
 
-    if (form.template_used) {
-      const tmpl = templates.find((t) => t.id === form.template_used);
-      if (tmpl?.content) {
-        templateStyleInstruction = `
+    let templateBlock = "";
+    if (activeTemplatesWithContent.length > 0) {
+      const selectedNote = selectedTemplate
+        ? `\n\nATENÇÃO: O modelo "${selectedTemplate.name}" foi explicitamente selecionado para este caso. Priorize seu estilo e estrutura acima dos demais, mas absorva vocabulário e construções de todos os modelos listados abaixo.`
+        : "";
 
-INSTRUÇÃO MÁXIMA — MODELO DE REFERÊNCIA OBRIGATÓRIO
+      const sep = "=".repeat(70);
+      const dot = "·".repeat(60);
 
-Você recebeu abaixo um MODELO PADRÃO escrito pelo advogado deste escritório.
-Este modelo é a sua voz. Você É o advogado que escreveu este modelo.
+      const modelosTexto = activeTemplatesWithContent
+        .map((t, i) => {
+          const label = t.id === selectedTemplate?.id
+            ? `MODELO ${i + 1} ★ SELECIONADO (PRIORIDADE MÁXIMA): ${t.name}`
+            : `MODELO ${i + 1}: ${t.name}`;
+          return `${label}\n${dot}\n${t.content}\n${dot}`;
+        })
+        .join("\n\n");
 
-O que você DEVE fazer:
-- Absorver e replicar cada traço do estilo de escrita
-- Usar exatamente o mesmo vocabulário jurídico e as mesmas expressões
-- Replicar a estrutura interna dos parágrafos
-- Copiar a forma de narrar os fatos — o ritmo, o tom, a emoção
-- Reproduzir como os pedidos são formulados e numerados
-- Adaptar APENAS os fatos, as partes, as datas e os valores ao novo caso
-
-O que você NÃO DEVE fazer:
-- Criar um estilo diferente do modelo
-- Simplificar o que o modelo detalha
-- Alterar a estrutura argumentativa do modelo
-
-MODELO PADRÃO — REFERÊNCIA ABSOLUTA DE LINGUAGEM E ESTILO:
-
-${tmpl.content}
-
-FIM DO MODELO — AGORA ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM`;
-      }
+      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM, ESTILO E VOZ\n${sep}${selectedNote}\n\nVocê tem acesso a ${activeTemplatesWithContent.length} modelo(s) reais produzidos pelos advogados deste escritório. Estes modelos DEFINEM como você deve escrever. Você É o advogado que escreveu esses modelos.\n\nO que extrair de cada modelo:\n- O vocabulário jurídico exato e as expressões recorrentes\n- O ritmo e a cadência dos parágrafos\n- Como os fatos são narrados — com que nível de detalhe, que tom emocional e técnico\n- A forma de construir os argumentos jurídicos tese a tese\n- Como os pedidos são formulados, numerados e justificados\n- O grau de combatividade e precisão técnica\n\nSua petição deve ser INDISTINGUÍVEL dos modelos abaixo em termos de linguagem e estilo. Adapte APENAS os fatos, as partes, as datas, os valores e as teses específicas do caso concreto.\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS — ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM E ESTILO\n${sep}`;
     }
 
-    return `INSTRUÇÕES FUNDAMENTAIS — LEIA ANTES DE ESCREVER QUALQUER PALAVRA
-
-Você não é uma IA gerando um documento. Você é um advogado trabalhista com mais de 20 anos de experiência. Você conhece pessoalmente este cliente. Você já venceu dezenas de casos idênticos. Você sabe exatamente o que o juiz precisa ler para deferir os pedidos.
-
-Sua escrita tem peso. Tem história. Tem humanidade.
-
-REGRAS ABSOLUTAS DE LINGUAGEM — QUALQUER VIOLAÇÃO INVALIDA O TRABALHO
-
-REGRA 1 — HUMANIDADE TOTAL
-Cada parágrafo deve soar como escrito por um ser humano que se importa com o caso. Se uma frase parecer gerada por computador, delete e reescreva.
-
-REGRA 2 — ZERO CLICHÊS JURÍDICOS
-As seguintes expressões são ABSOLUTAMENTE PROIBIDAS:
-"é importante destacar" | "cabe ressaltar" | "outrossim" | "nesse diapasão" | "mister se faz" | "ad argumentandum" | "consoante" | "depreende-se" | "insta salientar" | "imperioso reconhecer" | "há que se pontuar" | "resta evidente" | "conforme se depreende" | "revela-se patente"
-
-REGRA 3 — AFIRMAÇÕES DIRETAS E FIRMES
-Nunca escreva "pode-se verificar que", "é possível perceber". Afirme com convicção: "O reclamante trabalhou", "A empresa não pagou", "Os cartões de ponto foram fraudados".
-
-REGRA 4 — NARRATIVA CRONOLÓGICA E HUMANIZADA
-Conte a história do trabalhador como se você o conhecesse há anos. Dê concretude aos fatos. Mencione os dias, os horários, as condições reais de trabalho. Faça o juiz visualizar a situação.
-
-REGRA 5 — VARIAÇÃO SINTÁTICA
-Alterne entre períodos curtos e longos. Nunca inicie dois parágrafos consecutivos com a mesma palavra.
-
-REGRA 6 — TEXTO CORRIDO
-Nenhuma lista com bullets. Argumentos em parágrafos numerados, densos e fluidos.
-
-REGRA 7 — TOM COMBATIVO E TÉCNICO
-Você acredita genuinamente nesta causa. Isso deve aparecer em cada linha — sem arrogância, mas com convicção absoluta.
+    return `### PAPEL (ROLE)
+Você é um advogado trabalhista altamente experiente, com atuação focada na elaboração de petições iniciais robustas, detalhadas e estrategicamente persuasivas, seguindo o padrão de escritórios especializados em contencioso trabalhista massivo e técnico. Sua escrita deve ser combativa, técnica, minuciosa e orientada à máxima procedência dos pedidos. Você não deve usar formato de LISTAS. Escreva todos os tópicos de forma altamente detalhada em parágrafos corridos e numerados.
 
 ---
 
-TAREFA
+### TAREFA/ATIVIDADE
+Elaborar uma PETIÇÃO INICIAL TRABALHISTA COMPLETA, pelo rito ${form.rite}, com alto nível de detalhamento fático e jurídico, incluindo todos os pedidos cabíveis, fundamentação legal, jurisprudência pertinente e liquidação estimada dos pedidos com reflexos.
 
-Elaborar PETIÇÃO INICIAL TRABALHISTA COMPLETA, rito ${form.rite}, com máximo detalhamento fático e jurídico, todos os pedidos cabíveis, fundamentação legal robusta, jurisprudência pertinente e liquidação estimada com reflexos discriminados.
-
-Formatação: Arial 12, espaçamento 1,5, recuo de 3cm nos parágrafos, tópicos em CAIXA ALTA E NEGRITO, parágrafos numerados.
+A formatação da peça deve ser em Arial tamanho 12, com espaçamento entre as linhas de 1,5, cada início de parágrafo deve ter o espaçamento de 3cm, os tópicos deverão estar em CAIXA ALTA e em NEGRITO e cada parágrafo deve ser NUMERADO.
 
 ---
 
-DADOS DO CASO
+### CONTEXTO
 
 RECLAMANTE: ${form.claimant_name}
 CPF: ${form.claimant_cpf}
@@ -172,44 +139,49 @@ JUÍZO 100% DIGITAL: ${form.digital_court ? "Sim" : "Não"}${calculationsContext
 
 ---
 
-ESTRATÉGIA JURÍDICA OBRIGATÓRIA
+### RACIOCÍNIO
 
-A petição deve necessariamente:
-1. Narrar a jornada real de forma rica, estratégica e detalhada
-2. Demonstrar fraude sistemática na jornada: extrapolação habitual, trabalho em folgas, supressão de intervalo
-3. Desenvolver as teses: descaracterização da escala, horas extras (8ª diária/44ª semanal), minutos residuais (art. 58 §1º), intervalo intrajornada (art. 71 CLT), reflexos em DSR/férias+1/3/13º/FGTS+40%, integração de valores extrafolha, CCT quando pertinente
-4. Fundar em: CLT arts. 58, 59, 71, 818; Súmulas TST 85, 338, 444 e OJs pertinentes
-5. Incluir estratégias processuais: impugnar cartões de ponto, requerer exibição de documentos, prova testemunhal
-6. Garantir coerência absoluta entre fatos, fundamentos e pedidos
+A petição deve obrigatoriamente descrever de forma rica, detalhada e estratégica a jornada real de trabalho, demonstrando fraude sistemática na jornada com base em extrapolação habitual, trabalho em folgas e supressão de intervalo.
 
-UTILIZE OBRIGATORIAMENTE os valores da memória de cálculo nos PEDIDOS, com cada verba discriminada e seu valor estimado.
+As teses principais a desenvolver são: descaracterização da escala (quando aplicável); horas extras além da 8ª diária e 44ª semanal; pagamento dos minutos que antecedem e sucedem a jornada (art. 58 §1º CLT); intervalo intrajornada suprimido (art. 71 CLT); reflexos em DSR, férias + 1/3, 13º salário, FGTS + 40%; integração de valores pagos extrafolha; e eventual aplicação de CCT.
+
+Fundamentação legal obrigatória: CLT arts. 58, 59, 71, 818; Súmulas TST 85, 338, 444; OJs pertinentes; jurisprudência atual.
+
+Estratégias processuais obrigatórias: impugnação de cartões de ponto, pedido de exibição de documentos, produção de prova testemunhal, linguagem técnica e persuasiva com trechos enfáticos em CAIXA ALTA quando estratégico.
+
+Validar internamente: coerência dos pedidos, compatibilidade entre fatos, fundamentos e pedidos, ausência de contradições.
 
 ---
 
-ESTRUTURA OBRIGATÓRIA DA PETIÇÃO
+### INSTRUÇÃO SOBRE OS CÁLCULOS
+Utilize OBRIGATORIAMENTE os valores da memória de cálculo na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita.
 
+---
+
+### FORMATO DE SAÍDA
+
+A petição deve seguir EXATAMENTE a seguinte estrutura:
 1. Endereçamento formal
 2. Qualificação completa das partes
 3. Competência
 4. Justiça gratuita
 5. Juízo 100% digital
-6. DOS FATOS — narrativa detalhada, cronológica e humanizada
-7. Tópicos jurídicos (CAIXA ALTA + NEGRITO): DAS HORAS EXTRAS, DA DESCARACTERIZAÇÃO DA JORNADA, DO INTERVALO INTRAJORNADA, DOS MINUTOS RESIDUAIS, DO DSR, DA INTEGRAÇÃO DE VALORES EXTRAFOLHA, e outros pertinentes
-8. DO DIREITO — fundamentação com legislação e jurisprudência
-9. DOS PEDIDOS — enumerados (a, b, c...) com valores estimados e reflexos
-10. DOS REQUERIMENTOS
-11. DO VALOR DA CAUSA
-12. Fechamento formal
+6. Contrato de trabalho
+7. Jornada de trabalho (detalhada e estratégica)
+8. Tópicos jurídicos individualizados com títulos em CAIXA ALTA e NEGRITO: HORAS EXTRAS, DESCARACTERIZAÇÃO DA JORNADA, INTERVALO INTRAJORNADA, MINUTOS RESIDUAIS, DSR, INTEGRAÇÃO DE VALORES EXTRAFOLHA, e outros pertinentes ao caso
+9. Fundamentação jurídica com legislação e jurisprudência
+10. Seção completa de PEDIDOS: enumerados (a, b, c...), com valores estimados e reflexos discriminados
+11. Requerimentos finais
+12. Valor da causa
+13. Fechamento formal
+
+A redação deve ser contínua, sem simplificações, com alto nível técnico.
 
 ---
 
-CRITÉRIOS DE QUALIDADE:
-- Soar como escrita por um advogado humano experiente, jamais por uma IA
-- Não conter nenhuma das frases proibidas
-- Narrar os fatos com profundidade humana e cronologia clara
-- Conter todos os pedidos com valores discriminados
-- Estar pronta para protocolo sem qualquer edição
-- Ser indistinguível de uma petição escrita pelo mesmo advogado do modelo${templateStyleInstruction}${documentContext}${precedentsContext}`;
+### CONDIÇÕES FINAIS
+
+A resposta será considerada excelente se reproduzir fielmente o estilo combativo e detalhado dos modelos do escritório, apresentar profundidade jurídica e estratégica real, contiver todos os pedidos possíveis para o caso com valores discriminados, estiver pronta para protocolo sem nenhuma edição, demonstrar coerência absoluta entre fatos, fundamentos e pedidos, e maximizar o potencial de procedência da ação.${templateBlock}${documentContext}${precedentsContext}`;
   };
 
   const handleSaveDraft = async () => {
@@ -237,7 +209,6 @@ CRITÉRIOS DE QUALIDADE:
     setGenerateError(null);
     setGeneratingProgress(10);
 
-    // 1. Salvar rascunho no banco ANTES de chamar a API
     let petitionId = savedPetitionId;
     try {
       const draftData = {
@@ -258,7 +229,7 @@ CRITÉRIOS DE QUALIDADE:
       return;
     }
 
-    setGeneratingStep("Carregando precedentes e modelos...");
+    setGeneratingStep("Carregando modelos e precedentes...");
     setGeneratingProgress(25);
 
     let precedentsContext = "";
@@ -287,7 +258,6 @@ CRITÉRIOS DE QUALIDADE:
       setGeneratingStep("Enviando dados para a IA (isso pode levar 2–4 minutos)...");
       setGeneratingProgress(40);
 
-      // Simular progresso enquanto aguarda
       const progressInterval = setInterval(() => {
         setGeneratingProgress(prev => prev < 85 ? prev + 3 : prev);
       }, 3000);
@@ -309,18 +279,15 @@ CRITÉRIOS DE QUALIDADE:
       setGeneratingStep("Salvando petição...");
       setGeneratingProgress(90);
 
-      // Upload conteúdo como arquivo
       const blob = new Blob([result], { type: "text/plain" });
       const file = new File([blob], "peticao.txt", { type: "text/plain" });
       const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
 
-      // Atualizar petição no banco
       await base44.entities.Petition.update(petitionId, {
         generated_content: contentUrl,
         status: "concluida",
       });
 
-      // Registrar no GenerationLog
       try {
         await base44.entities.GenerationLog.create({
           petition_id: petitionId,
@@ -330,7 +297,7 @@ CRITÉRIOS DE QUALIDADE:
           duration_seconds: Math.round((Date.now() - startTime) / 1000),
           generated_at: new Date().toISOString(),
         });
-      } catch (e) { /* ignore log errors */ }
+      } catch (e) {}
 
       try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (e) {}
       setGeneratingProgress(100);
@@ -338,7 +305,6 @@ CRITÉRIOS DE QUALIDADE:
       setGeneratingStep("concluido");
       toast.success("Petição gerada com sucesso!");
     } catch (err) {
-      // Marcar petição como rascunho novamente em caso de erro
       try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (e) {}
       try {
         await base44.entities.GenerationLog.create({
@@ -379,7 +345,6 @@ CRITÉRIOS DE QUALIDADE:
 
       <PetitionStepIndicator steps={STEPS} currentStep={step} />
 
-      {/* Resultado gerado inline */}
       {generatedContent && (
         <Card className="p-6 lg:p-8 border-green-200 bg-green-50/30">
           <div className="flex items-center justify-between mb-4">
@@ -402,7 +367,6 @@ CRITÉRIOS DE QUALIDADE:
         </Card>
       )}
 
-      {/* Erro de geração */}
       {generateError && (
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
           <p className="font-semibold mb-1">Erro ao gerar petição</p>
@@ -421,12 +385,7 @@ CRITÉRIOS DE QUALIDADE:
 
       <div className="flex justify-between">
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setStep((s) => s - 1)}
-            disabled={step === 0 || generating}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={step === 0 || generating} className="gap-2">
             <ArrowLeft className="w-4 h-4" /> Anterior
           </Button>
           <Button variant="outline" onClick={handleSaveDraft} disabled={generating} className="gap-2 text-muted-foreground">
@@ -439,11 +398,7 @@ CRITÉRIOS DE QUALIDADE:
             Próximo <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-          >
+          <Button onClick={handleGenerate} disabled={generating} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             {generating ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
             ) : (
@@ -522,12 +477,9 @@ function StepParties({ form, updateForm }) {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-semibold">Reclamado(s)</h3>
-        </div>
+        <h3 className="text-lg font-semibold mb-1">Reclamado(s)</h3>
         <p className="text-sm text-muted-foreground mb-4">Dados da(s) empresa(s) reclamada(s)</p>
 
-        {/* Reclamado principal */}
         <div className="p-4 rounded-xl border mb-3">
           <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Reclamado 1 — Principal</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -546,7 +498,6 @@ function StepParties({ form, updateForm }) {
           </div>
         </div>
 
-        {/* Reclamados adicionais */}
         {form.extra_defendants.map((d, i) => (
           <div key={i} className="p-4 rounded-xl border mb-3 relative">
             <div className="flex items-center justify-between mb-3">
@@ -672,9 +623,10 @@ function StepDetails({ form, updateForm, templates }) {
 
       {templates.length > 0 && (
         <div>
-          <Label>Modelo de Referência (opcional)</Label>
+          <Label>Modelo de Referência Prioritário (opcional)</Label>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">Todos os modelos ativos são usados como base. Selecione um para dar prioridade máxima ao seu estilo.</p>
           <Select value={form.template_used} onValueChange={(v) => updateForm("template_used", v)}>
-            <SelectTrigger className="mt-1.5"><SelectValue placeholder="Selecione um modelo" /></SelectTrigger>
+            <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione um modelo para priorizar" /></SelectTrigger>
             <SelectContent>
               {templates.map((t) => (
                 <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -740,10 +692,7 @@ function StepReview({ form, generating, generatingStep, generatingProgress }) {
           {generatingProgress > 0 && (
             <div className="max-w-sm mx-auto">
               <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className="bg-accent h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${generatingProgress}%` }}
-                />
+                <div className="bg-accent h-2 rounded-full transition-all duration-500" style={{ width: `${generatingProgress}%` }} />
               </div>
               <p className="text-xs text-muted-foreground mt-1">{generatingProgress}%</p>
             </div>
