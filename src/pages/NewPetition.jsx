@@ -43,6 +43,7 @@ function getInitialForm() {
     free_justice: true,
     digital_court: true,
     template_used: "",
+    pinned_templates: [],
     document_urls: [],
     document_names: [],
     calculations: null,
@@ -73,29 +74,35 @@ export default function NewPetition() {
   });
 
   const buildPrompt = (form, allTemplates, precedentsContext, calculationsContext, documentContext) => {
-    // Load ALL active templates with content as style references
+    const pinnedIds = form.pinned_templates || [];
     const activeTemplatesWithContent = allTemplates.filter((t) => t.content && t.is_active !== false);
-    const selectedTemplate = form.template_used ? allTemplates.find((t) => t.id === form.template_used) : null;
+
+    // Pinned = explicitly selected; others = all remaining active with content
+    const pinnedTemplates = activeTemplatesWithContent.filter((t) => pinnedIds.includes(t.id));
+    const otherTemplates = activeTemplatesWithContent.filter((t) => !pinnedIds.includes(t.id));
+    // Pinned first, then others
+    const orderedTemplates = [...pinnedTemplates, ...otherTemplates];
 
     let templateBlock = "";
-    if (activeTemplatesWithContent.length > 0) {
-      const selectedNote = selectedTemplate
-        ? `\n\nATENÇÃO: O modelo "${selectedTemplate.name}" foi explicitamente selecionado para este caso. Priorize seu estilo e estrutura acima dos demais, mas absorva vocabulário e construções de todos os modelos listados abaixo.`
+    if (orderedTemplates.length > 0) {
+      const pinnedNote = pinnedTemplates.length > 0
+        ? `\n\nATENÇÃO: ${pinnedTemplates.length === 1 ? `O modelo "${pinnedTemplates[0].name}" foi` : `Os modelos ${pinnedTemplates.map(t => `"${t.name}"`).join(", ")} foram`} explicitamente vinculado(s) a esta petição. Priorize ${pinnedTemplates.length === 1 ? "seu" : "seus"} estilo e estrutura acima dos demais, mas absorva vocabulário e construções de todos os modelos listados abaixo.`
         : "";
 
       const sep = "=".repeat(70);
       const dot = "·".repeat(60);
 
-      const modelosTexto = activeTemplatesWithContent
+      const modelosTexto = orderedTemplates
         .map((t, i) => {
-          const label = t.id === selectedTemplate?.id
-            ? `MODELO ${i + 1} ★ SELECIONADO (PRIORIDADE MÁXIMA): ${t.name}`
+          const isPinned = pinnedIds.includes(t.id);
+          const label = isPinned
+            ? `MODELO ${i + 1} ★ VINCULADO (PRIORIDADE MÁXIMA): ${t.name}`
             : `MODELO ${i + 1}: ${t.name}`;
           return `${label}\n${dot}\n${t.content}\n${dot}`;
         })
         .join("\n\n");
 
-      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM, ESTILO E VOZ\n${sep}${selectedNote}\n\nVocê tem acesso a ${activeTemplatesWithContent.length} modelo(s) reais produzidos pelos advogados deste escritório. Estes modelos DEFINEM como você deve escrever. Você É o advogado que escreveu esses modelos.\n\nO que extrair de cada modelo:\n- O vocabulário jurídico exato e as expressões recorrentes\n- O ritmo e a cadência dos parágrafos\n- Como os fatos são narrados — com que nível de detalhe, que tom emocional e técnico\n- A forma de construir os argumentos jurídicos tese a tese\n- Como os pedidos são formulados, numerados e justificados\n- O grau de combatividade e precisão técnica\n\nSua petição deve ser INDISTINGUÍVEL dos modelos abaixo em termos de linguagem e estilo. Adapte APENAS os fatos, as partes, as datas, os valores e as teses específicas do caso concreto.\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS — ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM E ESTILO\n${sep}`;
+      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM, ESTILO E VOZ\n${sep}${pinnedNote}\n\nVocê tem acesso a ${orderedTemplates.length} modelo(s) reais produzidos pelos advogados deste escritório. Estes modelos DEFINEM como você deve escrever. Você É o advogado que escreveu esses modelos.\n\nO que extrair de cada modelo:\n- O vocabulário jurídico exato e as expressões recorrentes\n- O ritmo e a cadência dos parágrafos\n- Como os fatos são narrados — com que nível de detalhe, que tom emocional e técnico\n- A forma de construir os argumentos jurídicos tese a tese\n- Como os pedidos são formulados, numerados e justificados\n- O grau de combatividade e precisão técnica\n\nSua petição deve ser INDISTINGUÍVEL dos modelos abaixo em termos de linguagem e estilo. Adapte APENAS os fatos, as partes, as datas, os valores e as teses específicas do caso concreto.\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS — ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM E ESTILO\n${sep}`;
     }
 
     return `### PAPEL (ROLE)
@@ -623,16 +630,55 @@ function StepDetails({ form, updateForm, templates }) {
 
       {templates.length > 0 && (
         <div>
-          <Label>Modelo de Referência Prioritário (opcional)</Label>
-          <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">Todos os modelos ativos são usados como base. Selecione um para dar prioridade máxima ao seu estilo.</p>
-          <Select value={form.template_used} onValueChange={(v) => updateForm("template_used", v)}>
-            <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione um modelo para priorizar" /></SelectTrigger>
-            <SelectContent>
-              {templates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Modelos Vinculados (opcional)</Label>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+            Todos os modelos ativos são usados como referência de estilo. Vincule um ou mais para dar prioridade máxima ao estilo deles nesta petição.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {templates.map((t) => {
+              const pinned = (form.pinned_templates || []).includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    const current = form.pinned_templates || [];
+                    const updated = pinned
+                      ? current.filter((id) => id !== t.id)
+                      : [...current, t.id];
+                    updateForm("pinned_templates", updated);
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    pinned
+                      ? "border-amber-400 bg-amber-50 text-amber-800"
+                      : "border-border hover:border-primary/40 hover:bg-muted/50 text-foreground"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                    pinned ? "border-amber-500 bg-amber-500" : "border-muted-foreground/40"
+                  }`}>
+                    {pinned && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{t.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{t.case_type}</p>
+                  </div>
+                  {pinned && (
+                    <span className="ml-auto text-xs font-semibold text-amber-600 shrink-0">★ Vinculado</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {(form.pinned_templates || []).length > 0 && (
+            <p className="text-xs text-amber-700 mt-2 font-medium">
+              {(form.pinned_templates || []).length} modelo(s) vinculado(s) com prioridade máxima
+            </p>
+          )}
         </div>
       )}
     </div>
