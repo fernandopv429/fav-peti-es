@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
@@ -629,57 +629,7 @@ function StepDetails({ form, updateForm, templates }) {
       </div>
 
       {templates.length > 0 && (
-        <div>
-          <Label>Modelos Vinculados (opcional)</Label>
-          <p className="text-xs text-muted-foreground mt-0.5 mb-3">
-            Todos os modelos ativos são usados como referência de estilo. Vincule um ou mais para dar prioridade máxima ao estilo deles nesta petição.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {templates.map((t) => {
-              const pinned = (form.pinned_templates || []).includes(t.id);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    const current = form.pinned_templates || [];
-                    const updated = pinned
-                      ? current.filter((id) => id !== t.id)
-                      : [...current, t.id];
-                    updateForm("pinned_templates", updated);
-                  }}
-                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                    pinned
-                      ? "border-amber-400 bg-amber-50 text-amber-800"
-                      : "border-border hover:border-primary/40 hover:bg-muted/50 text-foreground"
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                    pinned ? "border-amber-500 bg-amber-500" : "border-muted-foreground/40"
-                  }`}>
-                    {pinned && (
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{t.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{t.case_type}</p>
-                  </div>
-                  {pinned && (
-                    <span className="ml-auto text-xs font-semibold text-amber-600 shrink-0">★ Vinculado</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {(form.pinned_templates || []).length > 0 && (
-            <p className="text-xs text-amber-700 mt-2 font-medium">
-              {(form.pinned_templates || []).length} modelo(s) vinculado(s) com prioridade máxima
-            </p>
-          )}
-        </div>
+        <TemplateMultiSelect templates={templates} pinned={form.pinned_templates || []} onChange={(v) => updateForm("pinned_templates", v)} />
       )}
     </div>
   );
@@ -755,6 +705,66 @@ function ReviewSection({ title, children }) {
     <div className="p-4 rounded-xl border">
       <h4 className="font-medium text-sm text-primary mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function TemplateMultiSelect({ templates, pinned, onChange }) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (id) => {
+    const updated = pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id];
+    onChange(updated);
+  };
+
+  const label = pinned.length === 0
+    ? "Selecionar modelos para vincular"
+    : `${pinned.length} modelo(s) vinculado(s)`;
+
+  return (
+    <div>
+      <Label>Modelos Vinculados (opcional)</Label>
+      <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+        Todos os modelos ativos são usados como base. Vincule um ou mais para dar prioridade máxima ao estilo deles.
+      </p>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-muted/50 transition-colors"
+        >
+          <span className={pinned.length === 0 ? "text-muted-foreground" : "text-foreground font-medium"}>{label}</span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </button>
+        {open && (
+          <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+            {templates.map((t) => {
+              const selected = pinned.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggle(t.id)}
+                  className="flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-muted/60 transition-colors first:rounded-t-md last:rounded-b-md"
+                >
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${selected ? "border-amber-500 bg-amber-500" : "border-muted-foreground/40"}`}>
+                    {selected && (
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{t.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{t.case_type}</p>
+                  </div>
+                  {selected && <span className="text-xs text-amber-600 font-semibold shrink-0">★</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
