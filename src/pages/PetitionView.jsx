@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Copy, Clock, FileText } from "lucide-react";
+import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X } from "lucide-react";
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { toast } from "sonner";
@@ -15,6 +15,9 @@ export default function PetitionView() {
   const [petition, setPetition] = useState(null);
   const [petitionContent, setPetitionContent] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     base44.entities.Petition.filter({ id }).then(async (data) => {
@@ -36,6 +39,34 @@ export default function PetitionView() {
   const handleCopy = () => {
     navigator.clipboard.writeText(petitionContent || "");
     toast.success("Conteúdo copiado!");
+  };
+
+  const handleStartEdit = () => {
+    setEditContent(petitionContent);
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditContent("");
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      const blob = new Blob([editContent], { type: "text/plain" });
+      const file = new File([blob], "peticao.txt", { type: "text/plain" });
+      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
+      await base44.entities.Petition.update(id, { generated_content: contentUrl });
+      setPetitionContent(editContent);
+      setEditing(false);
+      setEditContent("");
+      toast.success("Petição salva com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -67,10 +98,15 @@ export default function PetitionView() {
             {petition.claimant_name} vs {petition.defendant_name} • {new Date(petition.created_date).toLocaleDateString("pt-BR")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={handleCopy} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-transparent text-sm hover:bg-muted transition-colors">
             <Copy className="w-4 h-4" /> Copiar
           </button>
+          {petitionContent && !editing && (
+            <button onClick={handleStartEdit} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-700 text-sm hover:bg-amber-100 transition-colors">
+              <Pencil className="w-4 h-4" /> Editar
+            </button>
+          )}
           {petition.status === "revisao_necessaria" && (
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-red-100 text-red-700 text-sm font-medium">
               <Clock className="w-4 h-4" /> Revisão Necessária
@@ -97,7 +133,29 @@ export default function PetitionView() {
 
       {/* Content */}
       <Card className="p-8 lg:p-12">
-        {petitionContent ? (
+        {editing ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-amber-700 flex items-center gap-2">
+                <Pencil className="w-4 h-4" /> Modo de edição ativo
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleCancelEdit} disabled={saving} className="gap-1.5">
+                  <X className="w-3.5 h-3.5" /> Cancelar
+                </Button>
+                <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="gap-1.5 bg-green-600 hover:bg-green-700 text-white">
+                  {saving ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
+                  {saving ? "Salvando..." : "Salvar alterações"}
+                </Button>
+              </div>
+            </div>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="w-full min-h-[600px] p-4 rounded-lg border border-amber-300 bg-amber-50/20 text-sm font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 resize-y"
+            />
+          </div>
+        ) : petitionContent ? (
           <div className="prose prose-slate max-w-none petition-content">
             <ReactMarkdown
               components={{
