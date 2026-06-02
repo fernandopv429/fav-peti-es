@@ -1,0 +1,99 @@
+{
+  "name": "AtualizacaoCalculo",
+  "type": "object",
+  "description": "C\u00e1lculos de atualiza\u00e7\u00e3o monet\u00e1ria e juros",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Identifica\u00e7\u00e3o do c\u00e1lculo"
+    },
+    "origem_debito": {
+      "type": "string",
+      "enum": [
+        "trabalhista",
+        "dano_material",
+        "dano_moral",
+        "tributario",
+        "alimentos",
+        "contratual"
+      ],
+      "description": "Origem do d\u00e9bito"
+    },
+    "valor_original": {
+      "type": "number",
+      "description": "Valor original"
+    },
+    "data_inicial": {
+      "type": "string",
+      "format": "date",
+      "description": "Data inicial"
+    },
+    "data_final": {
+      "type": "string",
+      "format": "date",
+      "description": "Data final"
+    },
+    "indice_correcao": {
+      "type": "string",
+      "enum": [
+        "selic",
+        "ipca_e",
+        "inpc",
+        "igpm",
+        "tr"
+      ],
+      "description": "\u00cdndice de corre\u00e7\u00e3o"
+    },
+    "indice_acumulado": {
+      "type": "number",
+      "description": "\u00cdndice acumulado do per\u00edodo (%)"
+    },
+    "juros_percent_mes": {
+      "type": "number",
+      "default": 1,
+      "description": "Juros ao m\u00eas (%)"
+    },
+    "selic_embutida": {
+      "type": "boolean",
+      "default": false,
+      "description": "Selic j\u00e1 engloba juros (Tema 99 STJ)"
+    },
+    "honorarios_percent": {
+      "type": "number",
+      "description": "Honor\u00e1rios (%)"
+    },
+    "multa_10_percent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Multa art. 475-J/523 CPC (10%)"
+    },
+    "valor_correcao": {
+      "type": "number"
+    },
+    "valor_juros": {
+      "type": "number"
+    },
+    "valor_honorarios": {
+      "type": "number"
+    },
+    "valor_multa": {
+      "type": "number"
+    },
+    "valor_atualizado": {
+      "type": "number"
+    },
+    "memoria_calculo": {
+      "type": "string"
+    },
+    "fundamento_indice": {
+      "type": "string",
+      "description": "Fundamento legal do \u00edndice utilizado"
+    }
+  },
+  "required": [
+    "title",
+    "valor_original",
+    "data_inicial",
+    "data_final"
+  ]
+}

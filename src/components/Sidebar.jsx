@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FilePlus, FileText, FolderOpen, Scale, X, LogOut, BookMarked, ChevronRight, Calculator } from "lucide-react";
+import { LayoutDashboard, FilePlus, FileText, FolderOpen, Scale, X, LogOut, BookMarked, ChevronRight, Calculator, Shield, TrendingUp } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
 const navItems = [
@@ -9,6 +9,8 @@ const navItems = [
   { label: "Modelos", icon: FolderOpen, path: "/modelos" },
   { label: "Precedentes", icon: BookMarked, path: "/precedentes" },
   { label: "Calculadora de Verbas", icon: Calculator, path: "/calculadora-verbas" },
+  { label: "Defesa", icon: Shield, path: "/defesa" },
+  { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo" },
 ];
 
 export default function Sidebar({ onClose }) {
