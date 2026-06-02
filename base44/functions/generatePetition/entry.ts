@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { petitionId, aiPrompt, templateParts, templateName, templateId } = await req.json();
+    const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId } = await req.json();
     if (!petitionId || !templateParts) {
       return Response.json({ error: 'petitionId e templateParts são obrigatórios' }, { status: 400 });
     }
@@ -15,8 +15,18 @@ Deno.serve(async (req) => {
     (async () => {
       const startTime = Date.now();
 
-      // ── Monta o documento final ──────────────────────────────────────
-      const assemblePetition = (parts, aiResponse) => {
+      /**
+       * Monta o documento final.
+       * - Se templateContent fornecido: a IA recebeu o esqueleto completo e retorna o documento pronto.
+       * - Se não: usa layout fallback padrão com os blocos de parts.
+       */
+      const assemblePetition = (parts, aiResponse, tmplContent) => {
+        if (tmplContent && tmplContent.trim().length >= 50 && aiResponse) {
+          // IA preencheu o esqueleto — retorna direto
+          return aiResponse.trim();
+        }
+
+        // Fallback layout padrão
         let narrativa = "";
         let fundamentacao = "";
         if (aiResponse) {
@@ -71,7 +81,7 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
       let finalStatus = "concluida";
       let usedAI = false;
 
-      // ── Tenta chamar a IA (apenas narrativa + fundamentação) ─────────
+      // ── Chama a IA (preenche o esqueleto do modelo ou gera narrativa+fundamentação) ──
       if (aiPrompt) {
         try {
           aiResponse = await base44.integrations.Core.InvokeLLM({
@@ -80,15 +90,16 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
           });
           usedAI = true;
         } catch (aiErr) {
-          // IA falhou/timeout → salva template parcial com revisao_necessaria
           console.error("IA falhou, salvando template parcial:", aiErr.message);
           finalStatus = "revisao_necessaria";
         }
       }
 
-      // Verifica pendências
-      const fullText = assemblePetition(templateParts, aiResponse);
-      const hasPendencias = /\[A PREENCHER/i.test(fullText);
+      // Monta o documento final
+      const fullText = assemblePetition(templateParts, aiResponse, templateContent);
+
+      // Verifica se há pendências/placeholders
+      const hasPendencias = /\[A PREENCHER|\[PENDÊNCIA/i.test(fullText);
       if (hasPendencias && finalStatus !== "revisao_necessaria") {
         finalStatus = "revisao_necessaria";
       }
@@ -120,7 +131,7 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
       try {
         await base44.asServiceRole.entities.GenerationLog.create({
           petition_id: petitionId,
-          status: finalStatus === "revisao_necessaria" ? "concluido" : "concluido",
+          status: "concluido",
           model_used: usedAI ? "claude_sonnet_4_6" : "template_only",
           template_id: templateId || "",
           duration_seconds: Math.round((Date.now() - startTime) / 1000),

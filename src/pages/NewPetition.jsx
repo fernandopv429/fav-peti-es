@@ -230,7 +230,7 @@ export default function NewPetition() {
       const draftData = {
         ...form,
         salary: form.salary ? parseFloat(form.salary) : undefined,
-        template_used: selectedTemplate.name,
+        template_used: selectedTemplate?.name || "",
         status: "em_geracao",
       };
       if (petitionId) {
@@ -260,6 +260,7 @@ export default function NewPetition() {
         petitionId,
         aiPrompt,
         templateParts,
+        templateContent: selectedTemplate?.content || "",
         templateName: selectedTemplate.name,
         templateId: selectedTemplate.id,
       });

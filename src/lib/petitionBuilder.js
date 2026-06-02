@@ -1,7 +1,8 @@
 /**
  * petitionBuilder.js
- * Monta o texto fixo da petição por código, sem IA.
- * A IA só preenche os slots: NARRATIVA_DOS_FATOS e FUNDAMENTACAO_ESPECIFICA.
+ * Monta os dados fixos da petição por código (qualificação, contrato, cálculos, fecho).
+ * O esqueleto estrutural da peça é SEMPRE o conteúdo do PetitionTemplate selecionado.
+ * A IA preenche os slots dinâmicos dentro desse esqueleto.
  */
 
 function fmt(v) { return v || "[A PREENCHER]"; }
@@ -19,7 +20,6 @@ function fmtDate(d) {
   } catch (_) { return d; }
 }
 
-/** Calcula anos/meses entre duas datas (string ISO) */
 function calcDuration(start, end) {
   if (!start) return "";
   const s = new Date(start);
@@ -31,9 +31,6 @@ function calcDuration(start, end) {
   return `${years} ano(s) e ${rem} mês(es)`;
 }
 
-/**
- * Monta a qualificação das partes (texto fixo).
- */
 function buildQualificacao(form, config) {
   const extra = (form.extra_defendants || []).map((d, i) =>
     `${i + 2}ª RECLAMADA: ${fmt(d.name)}, CNPJ ${fmt(d.cnpj)}, com endereço em ${fmt(d.address)};`
@@ -52,9 +49,6 @@ em face de
 pelos fatos e fundamentos jurídicos a seguir expostos.`;
 }
 
-/**
- * Monta os dados do contrato (texto fixo).
- */
 function buildContrato(form) {
   const vigente = !form.contract_end;
   const duracao = calcDuration(form.contract_start, form.contract_end);
@@ -64,9 +58,6 @@ ${vigente
     : `O contrato foi rescindido em ${fmtDate(form.contract_end)}, totalizando ${duracao} de vínculo empregatício.`}`;
 }
 
-/**
- * Monta os pedidos de justiça gratuita / juízo digital (texto fixo).
- */
 function buildBeneficios(form) {
   const parts = [];
   if (form.free_justice) {
@@ -78,13 +69,10 @@ function buildBeneficios(form) {
   return parts.join("\n\n");
 }
 
-/**
- * Monta o bloco de cálculos (texto fixo a partir dos dados do form).
- */
 function buildCalculos(form) {
   const calc = form.calculations;
   if (!calc?.items?.length) {
-    return `Os valores das verbas pleiteadas serão apurados em sede de liquidação de sentença, uma vez que não foi possível apurar todos os dados necessários para o cálculo neste momento.`;
+    return `Os valores das verbas pleiteadas serão apurados em sede de liquidação de sentença.`;
   }
   const lines = calc.items.map((item) =>
     `- ${item.label}: ${fmtMoney(item.value)}`
@@ -93,9 +81,6 @@ function buildCalculos(form) {
   return `Com base nos documentos e informações disponíveis, estima-se o seguinte:\n\n${lines.join("\n")}${total}`;
 }
 
-/**
- * Monta o valor da causa (determinístico).
- */
 function buildValorCausa(form) {
   const calc = form.calculations;
   if (calc?.total) {
@@ -108,9 +93,6 @@ function buildValorCausa(form) {
   return `Dá-se à presente causa o valor de [A PREENCHER: valor da causa], a ser apurado em liquidação de sentença.`;
 }
 
-/**
- * Monta o fecho / assinatura (texto fixo).
- */
 function buildFecho(form, config) {
   const cidade = config?.cidade_sede || fmt(form.jurisdiction?.split(" ").pop());
   const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
@@ -128,9 +110,6 @@ ${config?.email_contato ? config.email_contato : ""}
 ${config?.telefone ? config.telefone : ""}`.trim();
 }
 
-/**
- * Monta os requerimentos padrão (texto fixo).
- */
 function buildRequerimentos(form, config) {
   const recs = [
     "a) a citação da(s) Reclamada(s) para, querendo, contestar a presente ação, sob pena de revelia e confissão;",
@@ -146,8 +125,7 @@ function buildRequerimentos(form, config) {
 }
 
 /**
- * Retorna o template completo com os slots para a IA.
- * Os slots são substituídos pelo backend após a chamada de IA.
+ * Retorna os blocos de dados fixos da petição (gerados deterministicamente).
  */
 export function buildPetitionTemplate(form, config) {
   return {
@@ -162,44 +140,108 @@ export function buildPetitionTemplate(form, config) {
 }
 
 /**
- * Monta o prompt CURTO para a IA — apenas narrativa + fundamentação.
+ * Monta o prompt para a IA.
+ * A IA recebe o esqueleto COMPLETO do modelo selecionado e deve:
+ *  - Preservar TODAS as seções e tópicos na mesma ordem
+ *  - Preencher apenas os slots dinâmicos com os dados do caso
+ *  - Nunca remover ou pular nenhuma seção
+ *  - Usar [PENDÊNCIA: descrição] quando faltar dado
  */
 export function buildShortAIPrompt(form, config, templateContent) {
-  const systemBase = `Você é um advogado trabalhista brasileiro experiente. Sua tarefa é escrever APENAS dois trechos curtos de uma petição já estruturada:
+  const caseData = `DADOS DO CASO:
+Reclamante: ${fmt(form.claimant_name)} | CPF: ${fmt(form.claimant_cpf)} | Endereço: ${fmt(form.claimant_address)}
+Função: ${fmt(form.claimant_role)} | Salário: ${fmtMoney(form.salary)} | Jornada: ${fmt(form.work_schedule)}
+Admissão: ${fmtDate(form.contract_start)} | Rescisão: ${form.contract_end ? fmtDate(form.contract_end) : "vigente"}
+Reclamada: ${fmt(form.defendant_name)} | CNPJ: ${fmt(form.defendant_cnpj)} | Endereço: ${fmt(form.defendant_address)}
+${(form.extra_defendants || []).map((d, i) => `Reclamada ${i + 2}: ${fmt(d.name)} | CNPJ: ${fmt(d.cnpj)}`).join("\n")}
+Jurisdição: ${fmt(form.jurisdiction)}
+Justiça gratuita: ${form.free_justice ? "Sim" : "Não"} | Juízo digital: ${form.digital_court ? "Sim" : "Não"}
 
-1. NARRATIVA DOS FATOS: relato objetivo e cronológico dos fatos do caso, em 3 a 5 parágrafos. Use apenas os dados fornecidos. Não invente nada.
-2. FUNDAMENTAÇÃO JURÍDICA: fundamentos legais e jurisprudenciais específicos para as irregularidades descritas, em 3 a 5 parágrafos. Cite apenas dispositivos legais reais (CLT, CF, Súmulas TST). Não invente jurisprudência.
-
-REGRAS:
-- Escreva APENAS esses dois trechos, separados pela linha "---FUNDAMENTACAO---"
-- Não escreva qualificação das partes, requerimentos, fecho ou valor da causa — isso já está montado
-- Para qualquer dado ausente use [A PREENCHER: descrição]
-- Seja conciso: cada trecho deve ter no máximo 500 palavras`;
-
-  const caseData = `
-DADOS DO CASO:
-Reclamante: ${fmt(form.claimant_name)} | Função: ${fmt(form.claimant_role)}
-Reclamada: ${fmt(form.defendant_name)}
-Admissão: ${fmtDate(form.contract_start)} | Rescisão: ${fmtDate(form.contract_end) || "vigente"}
-Salário: ${fmtMoney(form.salary)} | Jornada: ${fmt(form.work_schedule)}
-
-IRREGULARIDADES:
+IRREGULARIDADES RELATADAS PELO ADVOGADO:
 ${form.irregularities || "[A PREENCHER]"}
 
 FATOS ADICIONAIS:
-${form.additional_facts || "Nenhum"}
-${templateContent ? `\nESTRUTURA DO MODELO (referência para o estilo):\n${templateContent.slice(0, 800)}` : ""}`;
+${form.additional_facts || "Nenhum"}`;
 
-  return `${systemBase}\n\n${caseData}`;
+  const fmtCalc = (() => {
+    const calc = form.calculations;
+    if (!calc?.items?.length) return "Cálculos não informados — usar [PENDÊNCIA: valor].";
+    const lines = calc.items.map(i => `  - ${i.label}: ${fmtMoney(i.value)}`).join("\n");
+    const total = calc.total ? `\n  TOTAL: ${fmtMoney(calc.total)}` : "";
+    return lines + total;
+  })();
+
+  const valorCausa = (() => {
+    const calc = form.calculations;
+    if (calc?.total) return fmtMoney(calc.total);
+    if (form.salary) return fmtMoney(parseFloat(form.salary) * 12) + " (estimado)";
+    return "[PENDÊNCIA: valor da causa]";
+  })();
+
+  const advogado = config?.advogado_principal || "[A PREENCHER: advogado]";
+  const oab = config ? `OAB/${config.uf_oab || ""} ${config.oab}` : "[A PREENCHER: OAB]";
+  const cidade = config?.cidade_sede || "[A PREENCHER: cidade]";
+  const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+
+  const contextualSlots = `DADOS FIXOS JÁ CALCULADOS (usar exatamente estes valores ao preencher o modelo):
+- Qualificação do reclamante: ${fmt(form.claimant_name)}, CPF ${fmt(form.claimant_cpf)}, residente em ${fmt(form.claimant_address)}
+- Qualificação da reclamada: ${fmt(form.defendant_name)}, CNPJ ${fmt(form.defendant_cnpj)}, endereço: ${fmt(form.defendant_address)}
+- Contrato: admissão ${fmtDate(form.contract_start)}, ${form.contract_end ? "rescisão " + fmtDate(form.contract_end) : "contrato vigente"}, função ${fmt(form.claimant_role)}, salário ${fmtMoney(form.salary)}
+- Verbas/cálculos:\n${fmtCalc}
+- Valor da causa: ${valorCausa}
+- Advogado: ${advogado} | ${oab}
+- Cidade/data: ${cidade}, ${hoje}`;
+
+  if (!templateContent || templateContent.trim().length < 50) {
+    // Fallback mínimo — sem modelo disponível
+    return `Você é um advogado trabalhista brasileiro experiente. Redija uma petição inicial trabalhista completa usando APENAS os dados abaixo. Para qualquer dado ausente use [PENDÊNCIA: descrição].
+
+${caseData}
+
+${contextualSlots}`;
+  }
+
+  return `Você é um advogado trabalhista brasileiro experiente.
+
+SUA TAREFA: Preencher o modelo de petição abaixo com os dados do caso.
+
+REGRAS ABSOLUTAS — SIGA RIGOROSAMENTE:
+1. PRESERVE a estrutura completa do modelo: cada seção, título, tópico e subtópico deve aparecer na saída, NA MESMA ORDEM.
+2. NUNCA remova ou pule nenhuma seção do modelo, mesmo que falte dado para preenchê-la.
+3. Para cada campo ou slot no modelo, substitua pelo dado real fornecido nos DADOS DO CASO.
+4. Se faltar um dado para algum tópico, mantenha o tópico e insira [PENDÊNCIA: descrição do dado ausente].
+5. NÃO invente fatos, datas, valores ou jurisprudência. Use apenas o que está nos DADOS DO CASO.
+6. Fundamentos jurídicos: cite apenas dispositivos legais reais (CLT, CF, Súmulas TST, OJs). Não invente acórdãos ou súmulas.
+7. Substitua todos os espaços em branco, campos genéricos e marcadores do modelo pelos dados reais.
+8. O texto final deve ser formal e técnico, próprio de uma peça processual brasileira.
+
+─────────────────────────────────────
+MODELO SELECIONADO PELO ADVOGADO (esqueleto obrigatório — preserve todas as seções):
+─────────────────────────────────────
+${templateContent}
+─────────────────────────────────────
+
+${caseData}
+
+${contextualSlots}
+
+IMPORTANTE: Retorne APENAS o texto da petição preenchida, seguindo fielmente o esqueleto do modelo acima. Não adicione comentários, não altere a ordem das seções, não omita nenhum tópico.`;
 }
 
 /**
- * Monta o documento final combinando template + resposta da IA.
+ * Monta o documento final quando há templateContent:
+ * neste caso o resultado da IA já É o documento completo (ela preencheu o esqueleto).
+ * Quando não há templateContent, usa o layout fallback padrão.
  */
-export function assemblePetition(parts, aiResponse) {
+export function assemblePetition(parts, aiResponse, templateContent) {
+  // Se o modelo estava disponível, a IA já entregou o documento completo
+  if (templateContent && templateContent.trim().length >= 50 && aiResponse) {
+    return aiResponse.trim();
+  }
+
+  // Fallback: layout padrão quando não havia modelo
   let narrativa = "";
   let fundamentacao = "";
-
   if (aiResponse) {
     const split = aiResponse.split(/---FUNDAMENTACAO---/i);
     narrativa = split[0]?.trim() || "";
