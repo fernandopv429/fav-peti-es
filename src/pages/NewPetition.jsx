@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useEspecialista } from "@/hooks/useEspecialista";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ export default function NewPetition() {
   const [step, setStep] = useState(0);
   const [templates, setTemplates] = useState([]);
   const [generating, setGenerating] = useState(false);
+  const { especialista: esp31 } = useEspecialista("31");
   const [generatingStep, setGeneratingStep] = useState("");
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [savedPetitionId, setSavedPetitionId] = useState(null);
@@ -74,187 +76,56 @@ export default function NewPetition() {
   });
 
   const buildPrompt = (form, allTemplates, precedentsContext, calculationsContext, documentContext) => {
+    // System prompt vem do Especialista #31 — fallback mínimo caso ainda não carregou
+    const systemPrompt = esp31?.prompt_sistema || "Você é um advogado trabalhista brasileiro experiente. Elabore a petição inicial completa com base nos dados fornecidos.";
+
     const pinnedIds = form.pinned_templates || [];
     const activeTemplatesWithContent = allTemplates.filter((t) => t.content && t.is_active !== false);
-
-    // Pinned = explicitly selected; others = all remaining active with content
     const pinnedTemplates = activeTemplatesWithContent.filter((t) => pinnedIds.includes(t.id));
     const otherTemplates = activeTemplatesWithContent.filter((t) => !pinnedIds.includes(t.id));
-    // Pinned first, then others
     const orderedTemplates = [...pinnedTemplates, ...otherTemplates];
 
     let templateBlock = "";
     if (orderedTemplates.length > 0) {
       const pinnedNote = pinnedTemplates.length > 0
-        ? `\n\nATENÇÃO: ${pinnedTemplates.length === 1 ? `O modelo "${pinnedTemplates[0].name}" foi` : `Os modelos ${pinnedTemplates.map(t => `"${t.name}"`).join(", ")} foram`} explicitamente vinculado(s) a esta petição. Priorize ${pinnedTemplates.length === 1 ? "seu" : "seus"} estilo e estrutura acima dos demais, mas absorva vocabulário e construções de todos os modelos listados abaixo.`
+        ? `\n\nATENÇÃO: ${pinnedTemplates.length === 1 ? `O modelo "${pinnedTemplates[0].name}" foi` : `Os modelos ${pinnedTemplates.map(t => `"${t.name}"`).join(", ")} foram`} explicitamente vinculado(s) a esta petição. Priorize seu estilo acima dos demais.`
         : "";
-
       const sep = "=".repeat(70);
       const dot = "·".repeat(60);
-
       const modelosTexto = orderedTemplates
         .map((t, i) => {
           const isPinned = pinnedIds.includes(t.id);
-          const label = isPinned
-            ? `MODELO ${i + 1} ★ VINCULADO (PRIORIDADE MÁXIMA): ${t.name}`
-            : `MODELO ${i + 1}: ${t.name}`;
+          const label = isPinned ? `MODELO ${i + 1} ★ VINCULADO (PRIORIDADE MÁXIMA): ${t.name}` : `MODELO ${i + 1}: ${t.name}`;
           return `${label}\n${dot}\n${t.content}\n${dot}`;
         })
         .join("\n\n");
-
-      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM, ESTILO E VOZ\n${sep}${pinnedNote}\n\nVocê tem acesso a ${orderedTemplates.length} modelo(s) reais produzidos pelos advogados deste escritório. Estes modelos DEFINEM como você deve escrever. Você É o advogado que escreveu esses modelos.\n\nO que extrair de cada modelo:\n- O vocabulário jurídico exato e as expressões recorrentes\n- O ritmo e a cadência dos parágrafos\n- Como os fatos são narrados — com que nível de detalhe, que tom emocional e técnico\n- A forma de construir os argumentos jurídicos tese a tese\n- Como os pedidos são formulados, numerados e justificados\n- O grau de combatividade e precisão técnica\n\nSua petição deve ser INDISTINGUÍVEL dos modelos abaixo em termos de linguagem e estilo. Adapte APENAS os fatos, as partes, as datas, os valores e as teses específicas do caso concreto.\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS — ESCREVA O CASO ATUAL COM ESTA MESMA LINGUAGEM E ESTILO\n${sep}`;
+      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM E ESTILO\n${sep}${pinnedNote}\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS\n${sep}`;
     }
 
-    return `# PETIÇÃO INICIAL — DIREITO BRASILEIRO
-## Redação Técnica com Narrativa Persuasiva
+    const caseFacts = `DADOS DO CASO:
 
-Você é um advogado brasileiro altamente experiente, especializado na elaboração de Petições Iniciais juridicamente robustas sob o ordenamento brasileiro (CPC/2015, CF/88 e legislação especial — incluindo CLT para causas trabalhistas). Sua escrita une rigor técnico-jurídico com narrativa persuasiva estruturada, orientada à máxima procedência dos pedidos. Você não usa listas — escreve em parágrafos corridos, numerados, com alto nível técnico e estilo combativo.
+AUTOR(A): ${form.claimant_name} | CPF: ${form.claimant_cpf}
+Endereço: ${form.claimant_address} | Função: ${form.claimant_role}
 
----
-
-## DADOS DO CASO
-
-AUTOR(A) / RECLAMANTE: ${form.claimant_name}
-CPF: ${form.claimant_cpf}
-Endereço: ${form.claimant_address}
-Função/Profissão: ${form.claimant_role}
-
-RÉU / RECLAMADO PRINCIPAL: ${form.defendant_name}
-CNPJ: ${form.defendant_cnpj}
-Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `\nRECLAMADO ${i + 2}: ${d.name}\nCNPJ: ${d.cnpj}\nEndereço: ${d.address}`).join("") : ""}
+RÉU PRINCIPAL: ${form.defendant_name} | CNPJ: ${form.defendant_cnpj}
+Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `RECLAMADO ${i + 2}: ${d.name} | CNPJ: ${d.cnpj} | Endereço: ${d.address}`).join("\n") : ""}
 
 TIPO DE AÇÃO: ${form.case_type} — Rito: ${form.rite}
 JURISDIÇÃO: ${form.jurisdiction}
-JUSTIÇA GRATUITA: ${form.free_justice ? "Sim" : "Não"}
-JUÍZO 100% DIGITAL: ${form.digital_court ? "Sim" : "Não"}
+JUSTIÇA GRATUITA: ${form.free_justice ? "Sim" : "Não"} | JUÍZO DIGITAL: ${form.digital_court ? "Sim" : "Não"}
 
-CONTRATO:
-Admissão: ${form.contract_start}
-Rescisão: ${form.contract_end || "Contrato em vigor"}
-Salário: R$ ${form.salary}
-Jornada: ${form.work_schedule}
+CONTRATO: Admissão ${form.contract_start} | Rescisão ${form.contract_end || "Vigente"} | Salário R$ ${form.salary} | Jornada: ${form.work_schedule}
 
-IRREGULARIDADES / FATOS RELATADOS PELO CLIENTE:
-${form.irregularities}
+IRREGULARIDADES: ${form.irregularities}
 
-FATOS ADICIONAIS:
-${form.additional_facts || "Não informados"}
-${calculationsContext}
+FATOS ADICIONAIS: ${form.additional_facts || "Não informados"}
+${calculationsContext}`;
+
+    return `${systemPrompt}
 
 ---
 
-## DIAGNÓSTICO JURÍDICO (EXECUTAR INTERNAMENTE ANTES DE REDIGIR)
-
-Com base nos dados acima, identifique internamente:
-- Ramo do direito e tipo de ação adequada
-- Rito processual e competência (vara trabalhista, cível, JEC, etc.)
-- Valor da causa (critérios CPC art. 292)
-- Dispositivos legais aplicáveis: CF/88, CLT (arts. 58, 59, 71, 818 e pertinentes), CC, CDC (se relação de consumo), CPC/2015 art. 319, 300, 292
-- Teses jurídicas a desenvolver conforme os fatos narrados
-- Mínimo 2 precedentes de tribunais superiores (STJ, TST, STF) ou tribunal regional competente — marcar sempre com [VERIFICAR]
-
----
-
-## ARQUITETURA NARRATIVA (APLICAR NA REDAÇÃO)
-
-### Princípios obrigatórios:
-
-**A. Storytelling Jurídico**
-- Abertura de impacto: primeiro parágrafo dos fatos posiciona o autor como sujeito de direito violado — cria empatia sem ser sentimental
-- Cronologia com tensão narrativa: os fatos são uma sequência causal que demonstra como a conduta do réu gerou o dano — cada parágrafo constrói sobre o anterior
-- Clímax factual: o momento mais grave da violação descrito com máxima clareza e respaldo documental
-- Resolução pela norma: transição natural dos fatos para o direito — o magistrado deve perceber que a lei foi criada exatamente para casos como este
-
-**B. Facilitação Cognitiva da Decisão**
-- Coerência e consistência: cada argumento jurídico reforça a narrativa fática
-- Ancoragem no justo: pedidos formulados de modo que a procedência pareça a única conclusão lógica
-- Simplicidade sem vulgaridade: linguagem técnica com frases diretas — períodos de 15 a 25 palavras
-- Autoridade referenciada: cada citação responde a uma objeção implícita do magistrado
-
-**C. Proibições absolutas de redação**
-- PROIBIDO usar travessões (—) no corpo da petição: substituir por vírgulas, parênteses ou ponto e vírgula
-- PROIBIDO usar listas ou marcadores — apenas parágrafos corridos e numerados
-- PROIBIDO usar jargão excessivo ou períodos de mais de 40 palavras
-
----
-
-## ESTRUTURA OBRIGATÓRIA DA PETIÇÃO (CPC art. 319)
-
-Redija a petição completa seguindo EXATAMENTE esta estrutura:
-
-**[CABEÇALHO / ENDEREÇAMENTO]**
-Endereçamento em NEGRITO + VERSALETE (SmallCaps), sem recuo, justificado.
-Formato: EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) [DA VARA COMPETENTE]
-Para SC: determinar comarca com base no endereço. Para vara única: "AO JUÍZO DA VARA ÚNICA DA COMARCA DE [CIDADE] - SC"
-
-**[QUALIFICAÇÃO DA PARTE AUTORA]** (CPC art. 319, I)
-Nome completo em negrito + qualificação completa (nacionalidade, estado civil, profissão, CPF, RG, endereço, e-mail) + "vem propor a presente"
-
-**[TÍTULO DA AÇÃO]** — centralizado, negrito, maiúsculas
-AÇÃO DE [TIPO] POR [FUNDAMENTO]
-C/C [CUMULAÇÃO SE HOUVER] COM PEDIDO DE [TUTELA SE HOUVER]
-
-**[QUALIFICAÇÃO DA PARTE RÉ]**
-"em face de NOME DA PARTE RÉ" + qualificação + endereço para citação + "pelos fatos e fundamentos a seguir expostos."
-
-**I. DOS FATOS**
-1. Contextualização da relação entre as partes (1-2 parágrafos)
-2. Cronologia da conduta lesiva com datas precisas e referências documentais entre parênteses: (Doc. X)
-3. O dano concreto — material, moral, patrimonial — específico, não genérico
-4. Tentativas de resolução extrajudicial (se houver)
-
-**II. DO DIREITO**
-1. Enquadramento jurídico da relação
-2. Fundamentos legais em ordem: CF → legislação especial → CC → CPC
-3. Doutrina aplicável — 1 a 2 citações com [VERIFICAR DOUTRINA]
-4. Jurisprudência — mínimo 2 precedentes com [VERIFICAR: STJ/TST/TJ_UF, REsp/RR XXXXXXX, Rel. Min. XXXXX, j. xx/xx/xxxx]
-5. Da responsabilidade do réu — conclusão que amarra fatos + direito
-
-**III. DA TUTELA DE URGÊNCIA** (se aplicável — CPC art. 300)
-- Probabilidade do direito (fumus boni iuris)
-- Perigo de dano ou risco ao resultado útil do processo (periculum in mora)
-- Reversibilidade da medida
-
-**IV. DOS PEDIDOS** (CPC art. 319, IV)
-"Ante o exposto, requer o(a) autor(a):"
-Alíneas a), b), c)... com pedidos específicos, mensuráveis e com valores discriminados.
-Incluir obrigatoriamente: citação do réu, condenação principal, danos morais (se cabível), custas e honorários (CPC art. 85 §2º), produção de provas.
-
-**V. DO VALOR DA CAUSA** (CPC art. 292)
-"Atribui-se à causa o valor de R$ [XXXX], correspondente a [critério legal]."
-
-**[ENCERRAMENTO]** — centralizado
-"Termos em que, pede deferimento."
-[Cidade/UF], [data por extenso].
-[Assinaturas]
-
----
-
-## INSTRUÇÃO SOBRE OS CÁLCULOS
-${calculationsContext ? "Utilize OBRIGATORIAMENTE os valores da memória de cálculo abaixo na seção de PEDIDOS. Cada pedido deve conter o valor estimado calculado. Na seção de liquidação, reproduza a memória de cálculo de forma técnica e detalhada, justificando cada verba com base na jornada real descrita." : "Se houver verbas trabalhistas a liquidar, apresente memória de cálculo discriminada por verba na seção de pedidos."}
-
----
-
-## CHECKLIST INTERNO (verificar antes de gerar a saída)
-- Todos os requisitos do CPC art. 319 atendidos
-- Valor da causa calculado com critério legal
-- Pedidos específicos e mensuráveis
-- Jurisprudência marcada com [VERIFICAR]
-- Doutrina marcada com [VERIFICAR DOUTRINA]
-- Narrativa fática em ordem cronológica
-- Documentos referenciados por número no texto (se houver)
-- Endereço do réu para citação indicado
-- Tutela de urgência fundamentada (se pedida)
-- ZERO travessões (—) no corpo da petição
-- ZERO listas — apenas parágrafos corridos numerados
-
-Se algum dado obrigatório estiver faltando, liste ao final em: "PENDÊNCIAS — A COMPLETAR PELO ADVOGADO"
-
----
-
-## CONDIÇÕES FINAIS DE QUALIDADE
-
-A resposta será considerada excelente se: reproduzir fielmente o estilo combativo e detalhado dos modelos do escritório; apresentar profundidade jurídica e estratégica real; conter todos os pedidos possíveis para o caso com valores discriminados; estar pronta para protocolo sem nenhuma edição; demonstrar coerência absoluta entre fatos, fundamentos e pedidos; e maximizar o potencial de procedência da ação.${templateBlock}${documentContext}${precedentsContext}`;
+${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
   };
 
   const handleSaveDraft = async () => {

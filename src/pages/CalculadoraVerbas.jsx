@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { useEspecialista } from "@/hooks/useEspecialista";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calculator, Save, FileText, AlertTriangle, Info } from "lucide-react";
+import { Calculator, Save, FileText, AlertTriangle, Info, Sparkles, Loader2 } from "lucide-react";
 
 const MOTIVOS = [
   { value: "sem_justa_causa", label: "Sem justa causa" },
@@ -189,6 +190,9 @@ function calcular(form) {
 
 export default function CalculadoraVerbas() {
   const navigate = useNavigate();
+  const { especialista: esp33 } = useEspecialista("33");
+  const [gerandoNarrativa, setGerandoNarrativa] = useState(false);
+  const [narrativa, setNarrativa] = useState("");
   const [form, setForm] = useState({
     claimant_name: "",
     claimant_cpf: "",
@@ -246,6 +250,25 @@ export default function CalculadoraVerbas() {
       toast.error("Erro ao salvar: " + e.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGerarNarrativa = async () => {
+    if (!resultado) return;
+    setGerandoNarrativa(true);
+    setNarrativa("");
+    try {
+      const systemPrompt = esp33?.prompt_sistema || "Você é especialista em cálculo de verbas rescisórias trabalhistas brasileiras. Com base na memória de cálculo fornecida, elabore um texto jurídico técnico para uso em petição.";
+      const modelo = esp33?.modelo_ia === "sonnet" ? "claude_sonnet_4_6" : (esp33?.modelo_ia || "claude_sonnet_4_6");
+      const r = await base44.integrations.Core.InvokeLLM({
+        prompt: `${systemPrompt}\n\n---\n\nElabore o texto jurídico para uso em petição com base na seguinte memória de cálculo:\n\n${resultado.memoria}`,
+        model: modelo,
+      });
+      setNarrativa(r);
+    } catch (e) {
+      toast.error("Erro ao gerar narrativa: " + e.message);
+    } finally {
+      setGerandoNarrativa(false);
     }
   };
 
@@ -387,11 +410,23 @@ export default function CalculadoraVerbas() {
                 <Save className="w-4 h-4" />
                 {saving ? "Salvando..." : "Salvar cálculo"}
               </Button>
-              <Button onClick={handleUsarEmPeticao} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button onClick={handleUsarEmPeticao} variant="outline" className="gap-2">
                 <FileText className="w-4 h-4" />
                 Usar em nova petição
               </Button>
+              <Button onClick={handleGerarNarrativa} disabled={gerandoNarrativa} className="gap-2">
+                {gerandoNarrativa ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Sparkles className="w-4 h-4" /> Gerar Narrativa Jurídica (IA)</>}
+              </Button>
             </div>
+
+            {narrativa && (
+              <div className="mt-4 space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Narrativa gerada pelo Especialista #{esp33?.numero}</h3>
+                <div className="bg-muted/30 rounded-xl border p-5 max-h-[400px] overflow-y-auto">
+                  <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground">{narrativa}</pre>
+                </div>
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground mt-4 flex items-start gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />

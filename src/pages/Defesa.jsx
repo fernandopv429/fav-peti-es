@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useEspecialista } from "@/hooks/useEspecialista";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ const INITIAL_FORM = {
 };
 
 export default function Defesa() {
+  const { especialista: esp32 } = useEspecialista("32");
   const [form, setForm] = useState(INITIAL_FORM);
   const [generating, setGenerating] = useState(false);
   const [resultado, setResultado] = useState(null);
@@ -61,12 +63,15 @@ export default function Defesa() {
     setSavedId(null);
 
     try {
-      const configs = await base44.entities.DefesaConfig.filter({ ativo: true });
-      const config = configs[0];
+      // Instrução vem do Especialista #32 — fonte única de verdade
+      const systemPrompt = esp32?.prompt_sistema || "Você é um advogado trabalhista sênior especializado em defesa de empregadores. Elabore a contestação trabalhista completa com base nos dados fornecidos.";
+      const modelo = esp32?.modelo_ia === "sonnet" ? "claude_sonnet_4_6" : (esp32?.modelo_ia || "claude_sonnet_4_6");
 
-      const systemPrompt = config?.prompt_sistema || `Você é um advogado trabalhista sênior especializado em defesa de empregadores. Sua tarefa é elaborar uma Contestação Trabalhista tecnicamente precisa, objetiva e estratégica, com base nos dados do caso e no texto da reclamação inicial fornecida. A peça deve conter: qualificação das partes, preliminares cabíveis (ilegitimidade, inépcia, incompetência se houver), impugnação detalhada de cada pedido da inicial com fundamento legal e indicação de prova, análise de risco por pedido, requerimento de carta de preposição e pedido final de improcedência total. Ao final, indique explicitamente: lista de preliminares levantadas, tabela de pedidos impugnados (pedido | posição da defesa | fundamento | prova), tabela de análise de risco (pedido | probabilidade de procedência | estimativa de condenação), e lembrete sobre carta de preposição. Use linguagem técnica, direta, sem gerundismo, sem travessão no corpo do texto.`;
+      const userPrompt = `${systemPrompt}
 
-      const userPrompt = `CONTESTAÇÃO TRABALHISTA — DADOS DO CASO
+---
+
+CONTESTAÇÃO TRABALHISTA — DADOS DO CASO
 
 Processo nº: ${form.process_number || "não informado"}
 Reclamante: ${form.reclamante_name}
@@ -76,11 +81,11 @@ Salário: R$ ${form.salario || "não informado"}
 Admissão: ${form.contract_start || "não informada"}
 Demissão: ${form.contract_end || "não informada"}
 
-TEXTO DA RECLAMAÇÃO INICIAL (colar abaixo):
+TEXTO DA RECLAMAÇÃO INICIAL:
 ${form.inicial_texto}
 
 ---
-Com base nos dados acima e no texto da inicial, elabore a contestação completa conforme as instruções do sistema. Ao final, apresente separadamente:
+Elabore a contestação completa. Ao final, apresente separadamente:
 1. LISTA DE PRELIMINARES cabíveis
 2. TABELA DE PEDIDOS IMPUGNADOS (Pedido | Posição da Defesa | Fundamento Legal | Prova a Produzir)
 3. TABELA DE ANÁLISE DE RISCO (Pedido | Probabilidade de Procedência | Estimativa de Condenação)
@@ -88,7 +93,7 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt: userPrompt,
-        model: config?.modelo_ia || "claude_sonnet_4_6",
+        model: modelo,
       });
 
       setResultado(result);

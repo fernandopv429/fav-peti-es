@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useEspecialista } from "@/hooks/useEspecialista";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { TrendingUp, Save, Trash2, Info, AlertTriangle } from "lucide-react";
+import { TrendingUp, Save, Trash2, Info, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 
 const AVISO_REVISAO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
@@ -118,11 +119,14 @@ const INITIAL_FORM = {
 };
 
 export default function AtualizacaoCalculoPage() {
+  const { especialista: esp56 } = useEspecialista("56");
   const [form, setForm] = useState(INITIAL_FORM);
   const [resultado, setResultado] = useState(null);
   const [calculos, setCalculos] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [gerandoNarrativa, setGerandoNarrativa] = useState(false);
+  const [narrativa, setNarrativa] = useState("");
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -175,6 +179,25 @@ export default function AtualizacaoCalculoPage() {
       toast.error("Erro ao salvar: " + e.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGerarNarrativa = async () => {
+    if (!resultado) return;
+    setGerandoNarrativa(true);
+    setNarrativa("");
+    try {
+      const systemPrompt = esp56?.prompt_sistema || "Você é especialista em atualização monetária e juros em cálculos judiciais brasileiros. Elabore o texto jurídico fundamentado para uso em petição com base na memória de cálculo fornecida.";
+      const modelo = esp56?.modelo_ia === "sonnet" ? "claude_sonnet_4_6" : (esp56?.modelo_ia || "claude_sonnet_4_6");
+      const r = await base44.integrations.Core.InvokeLLM({
+        prompt: `${systemPrompt}\n\n---\n\nElabore o texto jurídico para uso em petição com base na seguinte memória de cálculo:\n\n${resultado.memoria}`,
+        model: modelo,
+      });
+      setNarrativa(r);
+    } catch (e) {
+      toast.error("Erro ao gerar narrativa: " + e.message);
+    } finally {
+      setGerandoNarrativa(false);
     }
   };
 
@@ -374,12 +397,24 @@ export default function AtualizacaoCalculoPage() {
             <pre className="text-xs font-mono bg-muted/40 rounded-xl p-4 whitespace-pre-wrap leading-relaxed border overflow-x-auto">{resultado.memoria}</pre>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button onClick={handleSalvar} disabled={saving} variant="outline" className="gap-2">
               <Save className="w-4 h-4" />
               {saving ? "Salvando..." : "Salvar cálculo"}
             </Button>
+            <Button onClick={handleGerarNarrativa} disabled={gerandoNarrativa} className="gap-2">
+              {gerandoNarrativa ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Sparkles className="w-4 h-4" /> Gerar Fundamentação Jurídica (IA)</>}
+            </Button>
           </div>
+
+          {narrativa && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Fundamentação gerada pelo Especialista #{esp56?.numero}</h3>
+              <div className="bg-muted/30 rounded-xl border p-5 max-h-[400px] overflow-y-auto">
+                <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground">{narrativa}</pre>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-start gap-2.5 p-3 rounded-xl border text-sm" style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)", color: "hsl(var(--foreground))" }}>
             <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "hsl(var(--warning))" }} />
