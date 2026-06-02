@@ -13,6 +13,7 @@ import PetitionsList from './pages/PetitionsList';
 import PetitionView from './pages/PetitionView';
 import Templates from './pages/Templates';
 import Precedents from './pages/Precedents.jsx';
+import CalculadoraVerbas from './pages/CalculadoraVerbas';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -47,6 +48,7 @@ const AuthenticatedApp = () => {
         <Route path="/peticoes/:id" element={<PetitionView />} />
         <Route path="/modelos" element={<Templates />} />
         <Route path="/precedentes" element={<Precedents />} />
+        <Route path="/calculadora-verbas" element={<CalculadoraVerbas />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

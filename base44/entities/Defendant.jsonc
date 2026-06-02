@@ -1,0 +1,59 @@
+{
+  "name": "Defendant",
+  "type": "object",
+  "description": "Cadastro de empresas reclamadas para reutiliza\u00e7\u00e3o em m\u00faltiplas peti\u00e7\u00f5es",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "description": "Raz\u00e3o social"
+    },
+    "trade_name": {
+      "type": "string",
+      "description": "Nome fantasia"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "city": {
+      "type": "string",
+      "description": "Cidade"
+    },
+    "state": {
+      "type": "string",
+      "description": "Estado (UF)"
+    },
+    "economic_activity": {
+      "type": "string",
+      "description": "Ramo de atividade"
+    },
+    "employee_count": {
+      "type": "string",
+      "enum": [
+        "microempresa",
+        "pequena",
+        "media",
+        "grande",
+        ""
+      ],
+      "description": "Porte da empresa"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es relevantes"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Cadastro ativo"
+    }
+  },
+  "required": [
+    "company_name",
+    "cnpj"
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "name": "PetitionConfig",
+  "type": "object",
+  "description": "Configura\u00e7\u00f5es globais do gerador de peti\u00e7\u00f5es por IA",
+  "properties": {
+    "escritorio": {
+      "type": "string",
+      "description": "Nome do escrit\u00f3rio"
+    },
+    "advogado_principal": {
+      "type": "string",
+      "description": "Nome do advogado respons\u00e1vel"
+    },
+    "oab": {
+      "type": "string",
+      "description": "N\u00famero OAB"
+    },
+    "uf_oab": {
+      "type": "string",
+      "description": "Estado da OAB"
+    },
+    "email_contato": {
+      "type": "string",
+      "description": "E-mail do escrit\u00f3rio"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone"
+    },
+    "cidade_sede": {
+      "type": "string",
+      "description": "Cidade sede"
+    },
+    "uf_sede": {
+      "type": "string",
+      "description": "UF"
+    },
+    "site": {
+      "type": "string",
+      "description": "Site do escrit\u00f3rio"
+    },
+    "modelo_ia": {
+      "type": "string",
+      "description": "Modelo de IA para gera\u00e7\u00e3o",
+      "default": "claude-sonnet-4-20250514"
+    },
+    "prompt_sistema": {
+      "type": "string",
+      "description": "Prompt de sistema para gera\u00e7\u00e3o das peti\u00e7\u00f5es"
+    },
+    "max_tokens": {
+      "type": "number",
+      "description": "M\u00e1ximo de tokens por gera\u00e7\u00e3o",
+      "default": 4000
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "escritorio",
+    "advogado_principal",
+    "oab"
+  ]
+}

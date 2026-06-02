@@ -1,0 +1,50 @@
+{
+  "name": "ErrorLog",
+  "type": "object",
+  "description": "Log de erros do sistema para diagn\u00f3stico",
+  "properties": {
+    "context": {
+      "type": "string",
+      "description": "Onde ocorreu o erro"
+    },
+    "error_type": {
+      "type": "string",
+      "enum": [
+        "geracao",
+        "template",
+        "schema",
+        "api",
+        "outro"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "description": "Mensagem de erro"
+    },
+    "petition_id": {
+      "type": "string",
+      "description": "ID da peti\u00e7\u00e3o relacionada"
+    },
+    "template_id": {
+      "type": "string",
+      "description": "ID do template relacionado"
+    },
+    "resolved": {
+      "type": "boolean",
+      "default": false
+    },
+    "resolution": {
+      "type": "string",
+      "description": "Como foi resolvido"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "context",
+    "error_type",
+    "message"
+  ]
+}

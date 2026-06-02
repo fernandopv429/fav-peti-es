@@ -1,0 +1,61 @@
+{
+  "name": "GenerationLog",
+  "type": "object",
+  "description": "Log de todas as gera\u00e7\u00f5es de peti\u00e7\u00f5es pela IA \u2014 rastreabilidade e auditoria",
+  "properties": {
+    "petition_id": {
+      "type": "string",
+      "description": "ID da peti\u00e7\u00e3o"
+    },
+    "petition_title": {
+      "type": "string",
+      "description": "T\u00edtulo da peti\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "iniciado",
+        "concluido",
+        "erro"
+      ],
+      "description": "Status da gera\u00e7\u00e3o"
+    },
+    "model_used": {
+      "type": "string",
+      "description": "Modelo de IA utilizado"
+    },
+    "template_id": {
+      "type": "string",
+      "description": "ID do template utilizado"
+    },
+    "precedents_count": {
+      "type": "number",
+      "description": "Quantidade de precedentes usados"
+    },
+    "tokens_used": {
+      "type": "number",
+      "description": "Tokens consumidos"
+    },
+    "duration_seconds": {
+      "type": "number",
+      "description": "Tempo de gera\u00e7\u00e3o em segundos"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Mensagem de erro se houver"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora da gera\u00e7\u00e3o"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "Usu\u00e1rio que gerou"
+    }
+  },
+  "required": [
+    "petition_id",
+    "status"
+  ]
+}

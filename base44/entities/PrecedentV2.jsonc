@@ -1,0 +1,66 @@
+{
+  "name": "PrecedentV2",
+  "type": "object",
+  "description": "Banco de jurisprud\u00eancia definitivo \u2014 vers\u00e3o \u00fanica com link JusBrasil embutido e controle de vers\u00e3o",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo do precedente"
+    },
+    "source": {
+      "type": "string",
+      "description": "Tribunal (ex: TST, TRT-2)"
+    },
+    "reference": {
+      "type": "string",
+      "description": "N\u00famero da s\u00famula ou OJ"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "horas_extras",
+        "verbas_rescis\u00f3rias",
+        "dano_moral",
+        "equipara\u00e7\u00e3o_salarial",
+        "assedio",
+        "intervalo",
+        "outro"
+      ]
+    },
+    "content": {
+      "type": "string",
+      "description": "Ementa completa"
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Link direto JusBrasil"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string",
+      "description": "Data da \u00faltima atualiza\u00e7\u00e3o da s\u00famula"
+    },
+    "last_checked": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data da \u00faltima verifica\u00e7\u00e3o do link"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "title",
+    "source",
+    "reference",
+    "content",
+    "category",
+    "source_url"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "PrecedentLink",
+  "type": "object",
+  "description": "Links oficiais de veracidade para cada precedente",
+  "properties": {
+    "precedent_id": {
+      "type": "string",
+      "description": "ID do precedente"
+    },
+    "reference": {
+      "type": "string",
+      "description": "N\u00famero da s\u00famula/OJ"
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Link oficial do TST para consulta"
+    },
+    "secondary_url": {
+      "type": "string",
+      "description": "Link alternativo (JusLaboris, planalto, etc)"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de verifica\u00e7\u00e3o do link"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o status da s\u00famula"
+    }
+  },
+  "required": [
+    "precedent_id",
+    "source_url"
+  ]
+}
