@@ -242,37 +242,37 @@ PROTOCOLO OBRIGATÓRIO DE ANÁLISE DOS DOCUMENTOS:
     let userPrompt;
 
     if (templateSelecionado?.content) {
-      // MODO MODELO: instrução de seguir a estrutura domina o system prompt
-      systemPrompt = `Você é um assistente jurídico especializado em ${espSelecionado.area}.
+      // MODO MODELO: a IA deve reproduzir o modelo inteiro, substituindo apenas os [colchetes]
+      systemPrompt = `Você é um redator jurídico. Sua tarefa é produzir um documento jurídico completo.
+${docAnalysisInstructions}`;
 
-SUA ÚNICA TAREFA É PREENCHER O MODELO ABAIXO com os dados do caso fornecido pelo usuário.
+      userPrompt = `INSTRUÇÕES DE PREENCHIMENTO:
+Você receberá um MODELO DE DOCUMENTO e os DADOS DO CASO.
+Sua tarefa: reproduzir o modelo INTEGRALMENTE, substituindo os campos entre [colchetes] pelos dados reais do caso.
 
-REGRAS ABSOLUTAS — SEM EXCEÇÃO:
-1. Copie CADA título, subtítulo e seção do modelo exatamente como estão, na MESMA ORDEM.
-2. NUNCA omita, renomeie, funda ou reordene nenhum tópico — mesmo que pareça não se aplicar.
-3. Se um tópico não se aplicar ao caso, escreva abaixo do título: "Não aplicável ao presente caso."
-4. Substitua apenas os dados variáveis: nomes das partes, datas, salário, jornada, fatos do caso.
-5. Campos sem informação suficiente: [A PREENCHER: descrição do dado necessário]
-6. Mantenha toda a linguagem jurídica formal e os fundamentos legais do modelo.
-7. NÃO invente estrutura nova. O modelo é lei.
-${docAnalysisInstructions}
+REGRAS OBRIGATÓRIAS:
+1. Copie o modelo palavra por palavra, linha por linha, seção por seção.
+2. Substitua cada [campo entre colchetes] pelo dado correspondente do caso.
+3. Se não houver dado para um campo, mantenha: [A PREENCHER: nome do campo]
+4. NUNCA omita, resuma, funda ou reordene nenhuma seção, parágrafo ou título.
+5. Se uma seção não se aplicar, escreva logo abaixo do título: "Não aplicável ao presente caso."
+6. Mantenha intactos: fundamentos legais, súmulas, artigos de lei, jurisprudências do modelo.
+7. Expanda as seções de FATOS e NARRATIVA com os detalhes concretos do caso.
 
 ════════════════════════════════════════════════════════════
-MODELO OBRIGATÓRIO — PREENCHA CADA SEÇÃO ABAIXO:
+DADOS DO CASO PARA PREENCHER O MODELO:
+════════════════════════════════════════════════════════════
+${contexto}
+${docTextBlock}${docVisualNote}${naoLidosNote}
+
+════════════════════════════════════════════════════════════
+MODELO COMPLETO A REPRODUZIR E PREENCHER:
 ════════════════════════════════════════════════════════════
 
 ${templateSelecionado.content}
 
 ════════════════════════════════════════════════════════════
-FIM DO MODELO. Agora preencha cada seção acima com os dados do caso que o usuário irá fornecer.`;
-
-      userPrompt = `Especialista de referência: ${nomeEsp} | Área: ${espSelecionado.area}
-
-CONTEXTO DO CASO (use para preencher o modelo):
-${contexto}
-${docTextBlock}${docVisualNote}${naoLidosNote}
-
-Preencha agora o modelo com os dados acima. Siga rigorosamente a estrutura do modelo.`;
+Reproduza agora o modelo acima, do início ao fim, substituindo os [colchetes] pelos dados do caso.`;
 
     } else {
       // MODO LIVRE: especialista decide a estrutura
