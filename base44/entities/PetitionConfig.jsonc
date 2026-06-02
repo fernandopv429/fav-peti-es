@@ -39,10 +39,26 @@
       "type": "string",
       "description": "Site do escrit\u00f3rio"
     },
+    "logo_url": {
+      "type": "string",
+      "description": "URL do logotipo/timbre do escrit\u00f3rio"
+    },
+    "cabecalho_texto": {
+      "type": "string",
+      "description": "Texto do cabe\u00e7alho do documento (ex: endere\u00e7o, telefone formatados)"
+    },
+    "rodape_texto": {
+      "type": "string",
+      "description": "Texto do rodap\u00e9 do documento"
+    },
+    "papel_timbrado_url": {
+      "type": "string",
+      "description": "URL de imagem/PDF do papel timbrado completo"
+    },
     "modelo_ia": {
       "type": "string",
       "description": "Modelo de IA para gera\u00e7\u00e3o",
-      "default": "claude-sonnet-4-20250514"
+      "default": "claude_sonnet_4_6"
     },
     "prompt_sistema": {
       "type": "string",

@@ -9,14 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
 
-const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Revisão e Geração"];
-const FORM_STORAGE_KEY = "juris_new_petition_form";
+const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Modelo Obrigatório", "Revisão e Geração"];
+const FORM_STORAGE_KEY = "juris_new_petition_form_v2";
 
 function getInitialForm() {
   try {
@@ -44,7 +44,7 @@ function getInitialForm() {
     free_justice: true,
     digital_court: true,
     template_used: "",
-    pinned_templates: [],
+    selected_template_id: "",
     document_urls: [],
     document_names: [],
     calculations: null,
@@ -52,10 +52,17 @@ function getInitialForm() {
   };
 }
 
+// Extrai todos os marcadores [A PREENCHER: ...] do texto gerado
+function extractPendencias(text) {
+  const regex = /\[A PREENCHER:[^\]]+\]/g;
+  return [...new Set(text.match(regex) || [])];
+}
+
 export default function NewPetition() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [templates, setTemplates] = useState([]);
+  const [petitionConfig, setPetitionConfig] = useState(null);
   const [generating, setGenerating] = useState(false);
   const { especialista: esp31 } = useEspecialista("31");
   const [generatingStep, setGeneratingStep] = useState("");
@@ -63,10 +70,12 @@ export default function NewPetition() {
   const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [generatedContent, setGeneratedContent] = useState(null);
   const [generateError, setGenerateError] = useState(null);
+  const [pendencias, setPendencias] = useState([]);
   const [form, setForm] = useState(getInitialForm);
 
   useEffect(() => {
     base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates).catch(() => {});
+    base44.entities.PetitionConfig.filter({ ativo: true }).then((r) => setPetitionConfig(r[0] || null)).catch(() => {});
   }, []);
 
   const updateForm = (field, value) => setForm((prev) => {
@@ -75,66 +84,121 @@ export default function NewPetition() {
     return next;
   });
 
-  const buildPrompt = (form, allTemplates, precedentsContext, calculationsContext, documentContext) => {
-    // System prompt vem do Especialista #31 — fallback mínimo caso ainda não carregou
-    const systemPrompt = esp31?.prompt_sistema || "Você é um advogado trabalhista brasileiro experiente. Elabore a petição inicial completa com base nos dados fornecidos.";
+  // Retorna o template selecionado (obrigatório)
+  const selectedTemplate = templates.find((t) => t.id === form.selected_template_id) || null;
 
-    const pinnedIds = form.pinned_templates || [];
-    const activeTemplatesWithContent = allTemplates.filter((t) => t.content && t.is_active !== false);
-    const pinnedTemplates = activeTemplatesWithContent.filter((t) => pinnedIds.includes(t.id));
-    const otherTemplates = activeTemplatesWithContent.filter((t) => !pinnedIds.includes(t.id));
-    const orderedTemplates = [...pinnedTemplates, ...otherTemplates];
+  // Templates filtrados pelo case_type do formulário
+  const compatibleTemplates = templates.filter((t) => !t.case_type || t.case_type === form.case_type);
 
-    let templateBlock = "";
-    if (orderedTemplates.length > 0) {
-      const pinnedNote = pinnedTemplates.length > 0
-        ? `\n\nATENÇÃO: ${pinnedTemplates.length === 1 ? `O modelo "${pinnedTemplates[0].name}" foi` : `Os modelos ${pinnedTemplates.map(t => `"${t.name}"`).join(", ")} foram`} explicitamente vinculado(s) a esta petição. Priorize seu estilo acima dos demais.`
-        : "";
-      const sep = "=".repeat(70);
-      const dot = "·".repeat(60);
-      const modelosTexto = orderedTemplates
-        .map((t, i) => {
-          const isPinned = pinnedIds.includes(t.id);
-          const label = isPinned ? `MODELO ${i + 1} ★ VINCULADO (PRIORIDADE MÁXIMA): ${t.name}` : `MODELO ${i + 1}: ${t.name}`;
-          return `${label}\n${dot}\n${t.content}\n${dot}`;
-        })
-        .join("\n\n");
-      templateBlock = `\n\n${sep}\nMODELOS DO ESCRITÓRIO — REFERÊNCIA ABSOLUTA DE LINGUAGEM E ESTILO\n${sep}${pinnedNote}\n\n${modelosTexto}\n\n${sep}\nFIM DOS MODELOS\n${sep}`;
-    }
+  const buildAnchoredPrompt = (template, config, precs, calcCtx, docCtx) => {
+    const systemPrompt = esp31?.prompt_sistema ||
+      "Você é um advogado trabalhista brasileiro experiente. Elabore a petição inicial completa com base nos dados fornecidos.";
 
-    const caseFacts = `DADOS DO CASO:
+    // Bloco de ancoragem obrigatório
+    const anchoringRules = `
+════════════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ANCORAGEM — VIOLAÇÃO INVALIDA A PEÇA
+════════════════════════════════════════════════════════════════════════
 
-AUTOR(A): ${form.claimant_name} | CPF: ${form.claimant_cpf}
-Endereço: ${form.claimant_address} | Função: ${form.claimant_role}
+1. ESTRUTURA OBRIGATÓRIA: Você DEVE seguir rigorosamente a estrutura/esqueleto do MODELO abaixo. Não invente seções, não omita seções previstas no modelo.
 
-RÉU PRINCIPAL: ${form.defendant_name} | CNPJ: ${form.defendant_cnpj}
-Endereço: ${form.defendant_address}${form.extra_defendants?.length > 0 ? "\n" + form.extra_defendants.map((d, i) => `RECLAMADO ${i + 2}: ${d.name} | CNPJ: ${d.cnpj} | Endereço: ${d.address}`).join("\n") : ""}
+2. ANTI-ALUCINAÇÃO (proibição absoluta):
+   - É TERMINANTEMENTE PROIBIDO inventar, presumir, estimar ou "completar" qualquer informação.
+   - Dados proibidos de inventar: nomes, CPF, CNPJ, datas, valores, endereços, número de processo, súmulas, jurisprudência, dispositivos legais não citados nas fontes fornecidas.
+   - Para TODA informação ausente ou incompleta nos dados do caso, use OBRIGATORIAMENTE o marcador: [A PREENCHER: descrição do dado faltante]
+   - Exemplos corretos: [A PREENCHER: salário], [A PREENCHER: data de admissão], [A PREENCHER: número do processo]
+   - Nunca estime valores de verbas — se não houver cálculo fornecido, use [A PREENCHER: valor da verba X]
+
+3. TIMBRE E IDENTIFICAÇÃO DO ESCRITÓRIO: Use EXCLUSIVAMENTE os dados do escritório fornecidos abaixo. Nunca invente nome de advogado, OAB, endereço ou contatos.
+
+4. JURISPRUDÊNCIA: Cite APENAS os precedentes listados abaixo. Nunca invente ou extrapole súmulas/jurisprudência.
+
+5. AO FINAL DA PEÇA: Inclua uma seção "=== PENDÊNCIAS ===" listando todos os marcadores [A PREENCHER] presentes no texto, numerados.
+════════════════════════════════════════════════════════════════════════`;
+
+    // Timbre do escritório
+    const officeBlock = config ? `
+══ DADOS DO ESCRITÓRIO — USO EXCLUSIVO ══
+Escritório: ${config.escritorio}
+Advogado: ${config.advogado_principal}
+OAB: ${config.oab}/${config.uf_oab || ""}
+E-mail: ${config.email_contato || "[A PREENCHER: e-mail]"}
+Telefone: ${config.telefone || "[A PREENCHER: telefone]"}
+Cidade/UF: ${config.cidade_sede || "[A PREENCHER: cidade]"}/${config.uf_sede || ""}
+Site: ${config.site || ""}
+${config.cabecalho_texto ? `Cabeçalho: ${config.cabecalho_texto}` : ""}
+${config.rodape_texto ? `Rodapé: ${config.rodape_texto}` : ""}
+══════════════════════════════════════════` : `
+ATENÇÃO: Nenhum PetitionConfig ativo encontrado. Use [A PREENCHER: escritório], [A PREENCHER: advogado], [A PREENCHER: OAB] para todos os dados do procurador.`;
+
+    // Modelo obrigatório
+    const sep = "═".repeat(72);
+    const templateBlock = `
+${sep}
+MODELO OBRIGATÓRIO — SIGA ESTA ESTRUTURA COMO ESQUELETO DA PEÇA
+Nome do modelo: ${template.name} | Tipo: ${template.case_type}
+${sep}
+${template.content}
+${sep}
+FIM DO MODELO — TODA A PEÇA DEVE SEGUIR ESTA ESTRUTURA
+${sep}`;
+
+    // Dados do caso
+    const s = form.salary ? `R$ ${parseFloat(form.salary).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "[A PREENCHER: salário base]";
+    const caseBlock = `
+DADOS DO CASO (USE APENAS ESTES — NÃO INVENTE NEM COMPLETE):
+
+RECLAMANTE: ${form.claimant_name || "[A PREENCHER: nome do reclamante]"}
+CPF: ${form.claimant_cpf || "[A PREENCHER: CPF]"}
+Endereço: ${form.claimant_address || "[A PREENCHER: endereço do reclamante]"}
+Função: ${form.claimant_role || "[A PREENCHER: função/cargo]"}
+
+RÉU PRINCIPAL: ${form.defendant_name || "[A PREENCHER: nome da reclamada]"}
+CNPJ: ${form.defendant_cnpj || "[A PREENCHER: CNPJ]"}
+Endereço: ${form.defendant_address || "[A PREENCHER: endereço da reclamada]"}${
+  form.extra_defendants?.length > 0
+    ? "\n" + form.extra_defendants.map((d, i) =>
+        `RECLAMADO ${i + 2}: ${d.name || "[A PREENCHER: nome]"} | CNPJ: ${d.cnpj || "[A PREENCHER: CNPJ]"} | Endereço: ${d.address || "[A PREENCHER: endereço]"}`
+      ).join("\n")
+    : ""
+}
 
 TIPO DE AÇÃO: ${form.case_type} — Rito: ${form.rite}
-JURISDIÇÃO: ${form.jurisdiction}
+JURISDIÇÃO: ${form.jurisdiction || "[A PREENCHER: vara/jurisdição]"}
 JUSTIÇA GRATUITA: ${form.free_justice ? "Sim" : "Não"} | JUÍZO DIGITAL: ${form.digital_court ? "Sim" : "Não"}
 
-CONTRATO: Admissão ${form.contract_start} | Rescisão ${form.contract_end || "Vigente"} | Salário R$ ${form.salary} | Jornada: ${form.work_schedule}
+CONTRATO:
+  Admissão: ${form.contract_start || "[A PREENCHER: data de admissão]"}
+  Rescisão: ${form.contract_end || "[A PREENCHER: data de demissão ou informar se vigente]"}
+  Salário Base: ${s}
+  Jornada: ${form.work_schedule || "[A PREENCHER: jornada de trabalho]"}
 
-IRREGULARIDADES: ${form.irregularities}
+IRREGULARIDADES:
+${form.irregularities || "[A PREENCHER: irregularidades]"}
 
-FATOS ADICIONAIS: ${form.additional_facts || "Não informados"}
-${calculationsContext}`;
+FATOS ADICIONAIS:
+${form.additional_facts || "Não informados"}
+${calcCtx}`;
+
+    // Precedentes
+    const precsBlock = precs.length > 0
+      ? `\n\n═══ JURISPRUDÊNCIA AUTORIZADA — CITE APENAS ESTAS ═══\n` +
+        precs.map((p) => `▸ ${p.title} (${p.source}${p.reference ? ` — ${p.reference}` : ""})\n${p.content}`).join("\n\n") +
+        `\n═══ FIM DA JURISPRUDÊNCIA ═══`
+      : "\n\nNenhum precedente cadastrado — não cite jurisprudência sem fonte verificada.";
 
     return `${systemPrompt}
-
----
-
-${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
+${anchoringRules}
+${officeBlock}
+${templateBlock}
+${caseBlock}
+${precsBlock}
+${docCtx}`;
   };
 
   const handleSaveDraft = async () => {
     try {
-      const data = {
-        ...form,
-        salary: form.salary ? parseFloat(form.salary) : undefined,
-        status: "rascunho",
-      };
+      const data = { ...form, salary: form.salary ? parseFloat(form.salary) : undefined, status: "rascunho" };
       if (savedPetitionId) {
         await base44.entities.Petition.update(savedPetitionId, data);
       } else {
@@ -148,16 +212,25 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
   };
 
   const handleGenerate = async () => {
+    // Validação: modelo obrigatório
+    if (!selectedTemplate) {
+      toast.error("Selecione um modelo (PetitionTemplate) antes de gerar a petição.");
+      setStep(4);
+      return;
+    }
+
     setGenerating(true);
     setGeneratingStep("Salvando rascunho...");
     setGenerateError(null);
     setGeneratingProgress(10);
+    setPendencias([]);
 
     let petitionId = savedPetitionId;
     try {
       const draftData = {
         ...form,
         salary: form.salary ? parseFloat(form.salary) : undefined,
+        template_used: selectedTemplate.name,
         status: "em_geracao",
       };
       if (petitionId) {
@@ -173,37 +246,42 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
       return;
     }
 
-    setGeneratingStep("Carregando modelos e precedentes...");
+    setGeneratingStep("Carregando precedentes e configurações...");
     setGeneratingProgress(25);
 
-    let precedentsContext = "";
+    // Carregar precedentes (Precedent + PrecedentV2)
+    let precs = [];
     try {
-      const precs = await base44.entities.Precedent.filter({ is_active: true });
-      if (precs.length > 0) {
-        precedentsContext = `\n\n### PRECEDENTES E JURISPRUDÊNCIAS DO ADVOGADO\nUtilize OBRIGATORIAMENTE os seguintes precedentes na fundamentação jurídica da petição:\n\n` +
-          precs.map(p => `**${p.title}** (${p.source}${p.reference ? ` - ${p.reference}` : ""})\n${p.content}`).join("\n\n");
-      }
-    } catch (e) { /* ignore */ }
+      const [p1, p2] = await Promise.all([
+        base44.entities.Precedent.filter({ is_active: true }).catch(() => []),
+        base44.entities.PrecedentV2.filter({ is_active: true }).catch(() => []),
+      ]);
+      precs = [...p1, ...p2];
+    } catch (e) {}
 
-    const calculationsContext = form.calculations?.formatted
-      ? `\n\n${form.calculations.formatted}`
-      : "";
-
-    let documentContext = "";
-    if (form.document_urls.length > 0) {
-      documentContext = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+    // Contexto de cálculos
+    let calcCtx = "";
+    if (form.calculations?.formatted) {
+      calcCtx = `\n\nCÁLCULOS DE VERBAS (USE ESTES VALORES — NÃO ESTIME):\n${form.calculations.formatted}`;
+    } else {
+      calcCtx = "\n\nNenhum cálculo de verbas fornecido — use [A PREENCHER: valor] para qualquer valor monetário não informado.";
     }
 
-    const prompt = buildPrompt(form, templates, precedentsContext, calculationsContext, documentContext);
+    let docCtx = "";
+    if (form.document_urls.length > 0) {
+      docCtx = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+    }
+
+    const prompt = buildAnchoredPrompt(selectedTemplate, petitionConfig, precs, calcCtx, docCtx);
     const startTime = Date.now();
 
     try {
       const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
-      setGeneratingStep("Enviando dados para a IA (isso pode levar 2–4 minutos)...");
+      setGeneratingStep("Enviando à IA (isso pode levar 2–4 minutos)...");
       setGeneratingProgress(40);
 
       const progressInterval = setInterval(() => {
-        setGeneratingProgress(prev => prev < 85 ? prev + 3 : prev);
+        setGeneratingProgress((prev) => prev < 85 ? prev + 3 : prev);
       }, 3000);
 
       const timeoutPromise = new Promise((_, reject) =>
@@ -220,24 +298,42 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
       ]);
 
       clearInterval(progressInterval);
-      setGeneratingStep("Salvando petição...");
+      setGeneratingStep("Analisando pendências e salvando...");
       setGeneratingProgress(90);
 
+      // Detectar pendências
+      const foundPendencias = extractPendencias(result);
+      setPendencias(foundPendencias);
+      const hasPendencias = foundPendencias.length > 0;
+      const finalStatus = hasPendencias ? "revisao_necessaria" : "concluida";
+
+      // Salvar conteúdo
       const blob = new Blob([result], { type: "text/plain" });
       const file = new File([blob], "peticao.txt", { type: "text/plain" });
       const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
 
       await base44.entities.Petition.update(petitionId, {
         generated_content: contentUrl,
-        status: "concluida",
+        template_used: selectedTemplate.name,
+        status: finalStatus,
       });
 
+      // Incrementar use_count do template
+      try {
+        await base44.entities.PetitionTemplate.update(selectedTemplate.id, {
+          use_count: (selectedTemplate.use_count || 0) + 1,
+        });
+      } catch (e) {}
+
+      // Log de geração
       try {
         await base44.entities.GenerationLog.create({
           petition_id: petitionId,
           petition_title: form.title,
           status: "concluido",
           model_used: "claude_sonnet_4_6",
+          template_id: selectedTemplate.id,
+          precedents_count: precs.length,
           duration_seconds: Math.round((Date.now() - startTime) / 1000),
           generated_at: new Date().toISOString(),
         });
@@ -247,7 +343,12 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
       setGeneratingProgress(100);
       setGeneratedContent(result);
       setGeneratingStep("concluido");
-      toast.success("Petição gerada com sucesso!");
+
+      if (hasPendencias) {
+        toast.warning(`Petição gerada com ${foundPendencias.length} pendência(s) — revise os marcadores [A PREENCHER].`);
+      } else {
+        toast.success("Petição gerada com sucesso!");
+      }
     } catch (err) {
       try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (e) {}
       try {
@@ -272,6 +373,7 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
   const canProceed = () => {
     if (step === 0) return form.claimant_name && form.defendant_name && form.title;
     if (step === 1) return form.irregularities;
+    if (step === 4) return !!selectedTemplate; // modelo obrigatório
     return true;
   };
 
@@ -284,19 +386,32 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
         <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Nova Petição</h1>
-        <p className="text-muted-foreground mt-1">Preencha os dados para gerar sua petição inicial</p>
+        <p className="text-muted-foreground mt-1">Geração rigorosa — baseada em modelo e dados reais</p>
       </div>
+
+      {/* Aviso de configuração do escritório */}
+      {!petitionConfig && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-warning/10 border border-warning/30 text-sm">
+          <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+          <span className="text-foreground">
+            Nenhuma configuração de escritório (PetitionConfig) encontrada. Os dados do procurador aparecerão como <strong>[A PREENCHER]</strong> na peça.{" "}
+            <span className="text-muted-foreground">Configure em Dashboard → PetitionConfig.</span>
+          </span>
+        </div>
+      )}
 
       <PetitionStepIndicator steps={STEPS} currentStep={step} />
 
       {generatedContent && (
         <Card className="p-6 lg:p-8 border-green-200 bg-green-50/30">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2 text-green-700">
               <Sparkles className="w-5 h-5" />
-              <h3 className="font-semibold text-lg">Petição Gerada com Sucesso!</h3>
+              <h3 className="font-semibold text-lg">
+                {pendencias.length > 0 ? `Petição gerada — ${pendencias.length} pendência(s)` : "Petição Gerada com Sucesso!"}
+              </h3>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(generatedContent); toast.success("Copiado!"); }}>
                 <Copy className="w-4 h-4" /> Copiar
               </Button>
@@ -305,6 +420,21 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
               </Button>
             </div>
           </div>
+
+          {pendencias.length > 0 && (
+            <div className="mb-4 p-4 rounded-xl bg-warning/10 border border-warning/30">
+              <p className="text-sm font-semibold text-warning mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                {pendencias.length} campo(s) precisam ser preenchidos manualmente:
+              </p>
+              <ul className="space-y-1">
+                {pendencias.map((p, i) => (
+                  <li key={i} className="text-xs text-muted-foreground font-mono bg-muted/40 px-2 py-1 rounded">{p}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl border p-6 max-h-[500px] overflow-y-auto">
             <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{generatedContent}</pre>
           </div>
@@ -315,16 +445,34 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
           <p className="font-semibold mb-1">Erro ao gerar petição</p>
           <p>{generateError}</p>
-          <p className="mt-2 text-xs text-red-600">Seus dados foram preservados. Clique em "Gerar Petição" para tentar novamente.</p>
+          <p className="mt-2 text-xs text-red-600">Seus dados foram preservados. Tente novamente.</p>
         </div>
       )}
 
       <Card className="p-6 lg:p-8">
         {step === 0 && <StepParties form={form} updateForm={updateForm} />}
-        {step === 1 && <StepDetails form={form} updateForm={updateForm} templates={templates} />}
+        {step === 1 && <StepDetails form={form} updateForm={updateForm} />}
         {step === 2 && <LaborCalculator form={form} updateForm={updateForm} />}
         {step === 3 && <DocumentUploader form={form} updateForm={updateForm} />}
-        {step === 4 && <StepReview form={form} generating={generating} generatingStep={generatingStep} generatingProgress={generatingProgress} onGenerate={handleGenerate} />}
+        {step === 4 && (
+          <StepModeloObrigatorio
+            form={form}
+            updateForm={updateForm}
+            templates={compatibleTemplates}
+            allTemplates={templates}
+            selectedTemplate={selectedTemplate}
+          />
+        )}
+        {step === 5 && (
+          <StepReview
+            form={form}
+            selectedTemplate={selectedTemplate}
+            petitionConfig={petitionConfig}
+            generating={generating}
+            generatingStep={generatingStep}
+            generatingProgress={generatingProgress}
+          />
+        )}
       </Card>
 
       <div className="flex justify-between">
@@ -338,11 +486,19 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
         </div>
 
         {!isLastStep ? (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canProceed() || generating} className="gap-2">
+          <Button
+            onClick={() => setStep((s) => s + 1)}
+            disabled={!canProceed() || generating}
+            className="gap-2"
+          >
             Próximo <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button onClick={handleGenerate} disabled={generating} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button
+            onClick={handleGenerate}
+            disabled={generating || !selectedTemplate}
+            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+          >
             {generating ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
             ) : (
@@ -355,6 +511,7 @@ ${caseFacts}${templateBlock}${documentContext}${precedentsContext}`;
   );
 }
 
+/* ── Step 0: Partes ─────────────────────────────────────────────────── */
 function StepParties({ form, updateForm }) {
   return (
     <div className="space-y-8">
@@ -364,7 +521,7 @@ function StepParties({ form, updateForm }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título da Petição *</Label>
-            <Input value={form.title} onChange={(e) => updateForm("title", e.target.value)} placeholder="Ex: Reclamatória Trabalhista - João vs Empresa X" className="mt-1.5" />
+            <Input value={form.title} onChange={(e) => updateForm("title", e.target.value)} placeholder="Ex: Reclamatória Trabalhista — João vs Empresa X" className="mt-1.5" />
           </div>
           <div>
             <Label>Tipo de Ação</Label>
@@ -423,7 +580,6 @@ function StepParties({ form, updateForm }) {
       <div>
         <h3 className="text-lg font-semibold mb-1">Reclamado(s)</h3>
         <p className="text-sm text-muted-foreground mb-4">Dados da(s) empresa(s) reclamada(s)</p>
-
         <div className="p-4 rounded-xl border mb-3">
           <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Reclamado 1 — Principal</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -443,14 +599,11 @@ function StepParties({ form, updateForm }) {
         </div>
 
         {form.extra_defendants.map((d, i) => (
-          <div key={i} className="p-4 rounded-xl border mb-3 relative">
+          <div key={i} className="p-4 rounded-xl border mb-3">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-primary uppercase tracking-wider">Reclamado {i + 2}</p>
               <button
-                onClick={() => {
-                  const updated = form.extra_defendants.filter((_, idx) => idx !== i);
-                  updateForm("extra_defendants", updated);
-                }}
+                onClick={() => updateForm("extra_defendants", form.extra_defendants.filter((_, idx) => idx !== i))}
                 className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
@@ -459,27 +612,15 @@ function StepParties({ form, updateForm }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Razão Social</Label>
-                <Input value={d.name} onChange={(e) => {
-                  const updated = [...form.extra_defendants];
-                  updated[i] = { ...updated[i], name: e.target.value };
-                  updateForm("extra_defendants", updated);
-                }} placeholder="Nome da empresa" className="mt-1.5" />
+                <Input value={d.name} onChange={(e) => { const u = [...form.extra_defendants]; u[i] = { ...u[i], name: e.target.value }; updateForm("extra_defendants", u); }} placeholder="Nome da empresa" className="mt-1.5" />
               </div>
               <div>
                 <Label>CNPJ</Label>
-                <Input value={d.cnpj} onChange={(e) => {
-                  const updated = [...form.extra_defendants];
-                  updated[i] = { ...updated[i], cnpj: e.target.value };
-                  updateForm("extra_defendants", updated);
-                }} placeholder="00.000.000/0000-00" className="mt-1.5" />
+                <Input value={d.cnpj} onChange={(e) => { const u = [...form.extra_defendants]; u[i] = { ...u[i], cnpj: e.target.value }; updateForm("extra_defendants", u); }} placeholder="00.000.000/0000-00" className="mt-1.5" />
               </div>
               <div className="md:col-span-2">
                 <Label>Endereço</Label>
-                <Input value={d.address} onChange={(e) => {
-                  const updated = [...form.extra_defendants];
-                  updated[i] = { ...updated[i], address: e.target.value };
-                  updateForm("extra_defendants", updated);
-                }} placeholder="Endereço completo" className="mt-1.5" />
+                <Input value={d.address} onChange={(e) => { const u = [...form.extra_defendants]; u[i] = { ...u[i], address: e.target.value }; updateForm("extra_defendants", u); }} placeholder="Endereço completo" className="mt-1.5" />
               </div>
             </div>
           </div>
@@ -496,7 +637,8 @@ function StepParties({ form, updateForm }) {
   );
 }
 
-function StepDetails({ form, updateForm, templates }) {
+/* ── Step 1: Detalhes do caso ───────────────────────────────────────── */
+function StepDetails({ form, updateForm }) {
   return (
     <div className="space-y-6">
       <div>
@@ -520,32 +662,17 @@ function StepDetails({ form, updateForm, templates }) {
 
       <div>
         <Label>Jornada de Trabalho</Label>
-        <Textarea
-          value={form.work_schedule}
-          onChange={(e) => updateForm("work_schedule", e.target.value)}
-          placeholder="Descreva a jornada detalhadamente. Ex: Escala 12x36, das 06:00 às 18:00, com entrada 30min antes e saída 30min depois..."
-          className="mt-1.5 min-h-[120px]"
-        />
+        <Textarea value={form.work_schedule} onChange={(e) => updateForm("work_schedule", e.target.value)} placeholder="Descreva a jornada detalhadamente. Ex: Escala 12x36, das 06:00 às 18:00..." className="mt-1.5 min-h-[120px]" />
       </div>
 
       <div>
         <Label>Irregularidades *</Label>
-        <Textarea
-          value={form.irregularities}
-          onChange={(e) => updateForm("irregularities", e.target.value)}
-          placeholder="Descreva todas as irregularidades: horas extras não pagas, intervalo suprimido, folgas trabalhadas, pagamentos por fora, etc."
-          className="mt-1.5 min-h-[160px]"
-        />
+        <Textarea value={form.irregularities} onChange={(e) => updateForm("irregularities", e.target.value)} placeholder="Descreva todas as irregularidades: horas extras não pagas, intervalo suprimido, folgas trabalhadas, etc." className="mt-1.5 min-h-[160px]" />
       </div>
 
       <div>
         <Label>Fatos Adicionais</Label>
-        <Textarea
-          value={form.additional_facts}
-          onChange={(e) => updateForm("additional_facts", e.target.value)}
-          placeholder="Quaisquer fatos adicionais relevantes para a petição..."
-          className="mt-1.5 min-h-[100px]"
-        />
+        <Textarea value={form.additional_facts} onChange={(e) => updateForm("additional_facts", e.target.value)} placeholder="Quaisquer fatos adicionais relevantes para a petição..." className="mt-1.5 min-h-[100px]" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -564,24 +691,129 @@ function StepDetails({ form, updateForm, templates }) {
           <Switch checked={form.digital_court} onCheckedChange={(v) => updateForm("digital_court", v)} />
         </div>
       </div>
+    </div>
+  );
+}
 
-      {templates.length > 0 && (
-        <TemplateMultiSelect templates={templates} pinned={form.pinned_templates || []} onChange={(v) => updateForm("pinned_templates", v)} />
+/* ── Step 4: Modelo Obrigatório ─────────────────────────────────────── */
+function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, selectedTemplate }) {
+  const hasCompatible = templates.length > 0;
+  const hasAny = allTemplates.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary" />
+          Modelo Obrigatório
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Selecione o modelo que servirá de esqueleto para a petição. A IA seguirá rigorosamente esta estrutura.
+        </p>
+      </div>
+
+      {/* Alerta: sem modelos */}
+      {!hasAny && (
+        <div className="flex items-start gap-3 p-5 rounded-xl bg-destructive/10 border border-destructive/30">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-destructive">Nenhum modelo cadastrado</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Cadastre pelo menos um PetitionTemplate em <strong>Modelos</strong> antes de gerar petições.
+              Sem modelo, a geração não pode prosseguir.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Alerta: sem compatíveis */}
+      {hasAny && !hasCompatible && (
+        <div className="flex items-start gap-3 p-5 rounded-xl bg-warning/10 border border-warning/30">
+          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Nenhum modelo compatível com "{form.case_type}"</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Os modelos existentes não correspondem ao tipo de ação selecionado.
+              Cadastre um modelo do tipo <strong>{form.case_type}</strong> ou selecione um dos modelos de outro tipo abaixo.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de modelos */}
+      {(hasCompatible ? templates : allTemplates).map((t) => {
+        const isSelected = form.selected_template_id === t.id;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => updateForm("selected_template_id", t.id)}
+            className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
+              isSelected
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50 hover:bg-muted/30"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-foreground">{t.name}</p>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">{t.case_type}</span>
+                  {t.use_count > 0 && (
+                    <span className="text-xs text-muted-foreground">usado {t.use_count}×</span>
+                  )}
+                </div>
+                {t.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
+                )}
+                {t.content && (
+                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2 font-mono bg-muted/30 p-2 rounded">
+                    {t.content.slice(0, 200)}...
+                  </p>
+                )}
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all mt-0.5 ${
+                isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+              }`}>
+                {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+
+      {selectedTemplate && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>Modelo <strong>"{selectedTemplate.name}"</strong> selecionado. A IA seguirá esta estrutura.</span>
+        </div>
       )}
     </div>
   );
 }
 
-function StepReview({ form, generating, generatingStep, generatingProgress }) {
+/* ── Step 5: Revisão Final ──────────────────────────────────────────── */
+function StepReview({ form, selectedTemplate, petitionConfig, generating, generatingStep, generatingProgress }) {
   return (
     <div className="space-y-6">
       <div className="text-center py-4">
         <Sparkles className="w-12 h-12 mx-auto text-accent mb-3" />
         <h3 className="text-xl font-semibold">Revisão Final</h3>
-        <p className="text-muted-foreground mt-1">Confira os dados antes de gerar a petição</p>
+        <p className="text-muted-foreground mt-1">Confira todos os dados antes de gerar a petição</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Bloqueio se sem modelo */}
+      {!selectedTemplate && (
+        <div className="flex items-start gap-3 p-5 rounded-xl bg-destructive/10 border border-destructive/30">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-destructive">Modelo não selecionado</p>
+            <p className="text-sm text-muted-foreground mt-1">Volte ao passo anterior e selecione um modelo para poder gerar a petição.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ReviewSection title="Reclamante">
           <ReviewItem label="Nome" value={form.claimant_name} />
           <ReviewItem label="CPF" value={form.claimant_cpf} />
@@ -599,7 +831,7 @@ function StepReview({ form, generating, generatingStep, generatingProgress }) {
         <ReviewSection title="Contrato">
           <ReviewItem label="Admissão" value={form.contract_start} />
           <ReviewItem label="Demissão" value={form.contract_end || "Vigente"} />
-          <ReviewItem label="Salário" value={form.salary ? `R$ ${form.salary}` : ""} />
+          <ReviewItem label="Salário" value={form.salary ? `R$ ${parseFloat(form.salary).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""} />
         </ReviewSection>
 
         <ReviewSection title="Configurações">
@@ -607,7 +839,23 @@ function StepReview({ form, generating, generatingStep, generatingProgress }) {
           <ReviewItem label="Rito" value={form.rite} />
           <ReviewItem label="Justiça Gratuita" value={form.free_justice ? "Sim" : "Não"} />
           <ReviewItem label="Documentos" value={`${form.document_urls.length} arquivo(s)`} />
+          <ReviewItem label="Cálculos" value={form.calculations ? "Incluídos" : "Não informados"} />
         </ReviewSection>
+
+        {selectedTemplate && (
+          <ReviewSection title="Modelo Selecionado">
+            <ReviewItem label="Nome" value={selectedTemplate.name} />
+            <ReviewItem label="Tipo" value={selectedTemplate.case_type} />
+          </ReviewSection>
+        )}
+
+        {petitionConfig && (
+          <ReviewSection title="Escritório (PetitionConfig)">
+            <ReviewItem label="Escritório" value={petitionConfig.escritorio} />
+            <ReviewItem label="Advogado" value={petitionConfig.advogado_principal} />
+            <ReviewItem label="OAB" value={`${petitionConfig.oab}/${petitionConfig.uf_oab || ""}`} />
+          </ReviewSection>
+        )}
       </div>
 
       <div className="p-4 rounded-xl bg-muted/50">
@@ -615,12 +863,20 @@ function StepReview({ form, generating, generatingStep, generatingProgress }) {
         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{form.irregularities || "Não informadas"}</p>
       </div>
 
+      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm">
+        <p className="font-semibold text-primary mb-1">Modo anti-alucinação ativo</p>
+        <p className="text-muted-foreground">
+          Campos não preenchidos aparecerão como <span className="font-mono text-xs bg-muted px-1 rounded">[A PREENCHER: ...]</span> na peça.
+          Nenhum dado será inventado. Jurisprudência restrita aos precedentes cadastrados.
+        </p>
+      </div>
+
       {generating && (
         <div className="text-center py-8 space-y-4">
           <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
-          <p className="font-semibold text-foreground">Gerando sua petição com IA...</p>
+          <p className="font-semibold text-foreground">Gerando petição ancorada com IA...</p>
           <p className="text-sm text-muted-foreground">{generatingStep}</p>
           {generatingProgress > 0 && (
             <div className="max-w-sm mx-auto">
@@ -646,72 +902,12 @@ function ReviewSection({ title, children }) {
   );
 }
 
-function TemplateMultiSelect({ templates, pinned, onChange }) {
-  const [open, setOpen] = useState(false);
-
-  const toggle = (id) => {
-    const updated = pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id];
-    onChange(updated);
-  };
-
-  const label = pinned.length === 0
-    ? "Selecionar modelos para vincular"
-    : `${pinned.length} modelo(s) vinculado(s)`;
-
-  return (
-    <div>
-      <Label>Modelos Vinculados (opcional)</Label>
-      <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-        Todos os modelos ativos são usados como base. Vincule um ou mais para dar prioridade máxima ao estilo deles.
-      </p>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm hover:bg-muted/50 transition-colors"
-        >
-          <span className={pinned.length === 0 ? "text-muted-foreground" : "text-foreground font-medium"}>{label}</span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
-        </button>
-        {open && (
-          <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
-            {templates.map((t) => {
-              const selected = pinned.includes(t.id);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => toggle(t.id)}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-muted/60 transition-colors first:rounded-t-md last:rounded-b-md"
-                >
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${selected ? "border-amber-500 bg-amber-500" : "border-muted-foreground/40"}`}>
-                    {selected && (
-                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{t.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{t.case_type}</p>
-                  </div>
-                  {selected && <span className="text-xs text-amber-600 font-semibold shrink-0">★</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ReviewItem({ label, value }) {
   if (!value) return null;
   return (
-    <div className="flex justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
+    <div className="flex justify-between text-sm gap-2">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-foreground text-right">{value}</span>
     </div>
   );
 }
