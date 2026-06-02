@@ -1,20 +1,21 @@
 /**
  * Lê os valores de formatação diretamente do PetitionConfig.
- * Sem fallbacks fixos — os padrões aqui devem corresponder aos defaults da entidade.
  */
 export function getPetitionFormat(config) {
   const c = config || {};
   return {
-    font:         c.fonte              ?? "Arial",
-    fontSize:     c.tamanho_fonte      ?? 12,
-    lineHeight:   c.espacamento_linhas ?? 1.5,
-    marginTop:    c.margem_superior    ?? 4,
-    marginBottom: c.margem_inferior    ?? 2.5,
-    marginLeft:   c.margem_esquerda    ?? 3,
-    marginRight:  c.margem_direita     ?? 3,
-    logoUrl:      c.logo_url           || "",
-    headerText:   c.cabecalho_texto    || "",
-    footerText:   c.rodape_texto       || "",
+    font:            c.fonte              ?? "Arial",
+    fontSize:        c.tamanho_fonte      ?? 12,
+    lineHeight:      c.espacamento_linhas ?? 1.5,
+    marginTop:       c.margem_superior    ?? 3,
+    marginBottom:    c.margem_inferior    ?? 1.8,
+    marginLeft:      c.margem_esquerda    ?? 3,
+    marginRight:     c.margem_direita     ?? 3,
+    logoUrl:         c.logo_url           || "",
+    // cabecalho_texto NÃO é usado no cabeçalho visual (o logo já contém o nome)
+    headerText:      "",
+    footerText:      c.rodape_texto       || "",
+    footerImageUrl:  c.papel_timbrado_url || "",
   };
 }
 
