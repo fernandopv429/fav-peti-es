@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useEspecialista } from "@/hooks/useEspecialista";
+import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,111 +92,7 @@ export default function NewPetition() {
   // Templates filtrados pelo case_type do formulário
   const compatibleTemplates = templates.filter((t) => !t.case_type || t.case_type === form.case_type);
 
-  const buildAnchoredPrompt = (template, config, precs, calcCtx, docCtx) => {
-    const systemPrompt = esp31?.prompt_sistema ||
-      "Você é um advogado trabalhista brasileiro experiente. Elabore a petição inicial completa com base nos dados fornecidos.";
-
-    // Bloco de ancoragem obrigatório
-    const anchoringRules = `
-════════════════════════════════════════════════════════════════════════
-REGRAS ABSOLUTAS DE ANCORAGEM — VIOLAÇÃO INVALIDA A PEÇA
-════════════════════════════════════════════════════════════════════════
-
-1. ESTRUTURA OBRIGATÓRIA: Você DEVE seguir rigorosamente a estrutura/esqueleto do MODELO abaixo. Não invente seções, não omita seções previstas no modelo.
-
-2. ANTI-ALUCINAÇÃO (proibição absoluta):
-   - É TERMINANTEMENTE PROIBIDO inventar, presumir, estimar ou "completar" qualquer informação.
-   - Dados proibidos de inventar: nomes, CPF, CNPJ, datas, valores, endereços, número de processo, súmulas, jurisprudência, dispositivos legais não citados nas fontes fornecidas.
-   - Para TODA informação ausente ou incompleta nos dados do caso, use OBRIGATORIAMENTE o marcador: [A PREENCHER: descrição do dado faltante]
-   - Exemplos corretos: [A PREENCHER: salário], [A PREENCHER: data de admissão], [A PREENCHER: número do processo]
-   - Nunca estime valores de verbas — se não houver cálculo fornecido, use [A PREENCHER: valor da verba X]
-
-3. TIMBRE E IDENTIFICAÇÃO DO ESCRITÓRIO: Use EXCLUSIVAMENTE os dados do escritório fornecidos abaixo. Nunca invente nome de advogado, OAB, endereço ou contatos.
-
-4. JURISPRUDÊNCIA: Cite APENAS os precedentes listados abaixo. Nunca invente ou extrapole súmulas/jurisprudência.
-
-5. AO FINAL DA PEÇA: Inclua uma seção "=== PENDÊNCIAS ===" listando todos os marcadores [A PREENCHER] presentes no texto, numerados.
-════════════════════════════════════════════════════════════════════════`;
-
-    // Timbre do escritório
-    const officeBlock = config ? `
-══ DADOS DO ESCRITÓRIO — USO EXCLUSIVO ══
-Escritório: ${config.escritorio}
-Advogado: ${config.advogado_principal}
-OAB: ${config.oab}/${config.uf_oab || ""}
-E-mail: ${config.email_contato || "[A PREENCHER: e-mail]"}
-Telefone: ${config.telefone || "[A PREENCHER: telefone]"}
-Cidade/UF: ${config.cidade_sede || "[A PREENCHER: cidade]"}/${config.uf_sede || ""}
-Site: ${config.site || ""}
-${config.cabecalho_texto ? `Cabeçalho: ${config.cabecalho_texto}` : ""}
-${config.rodape_texto ? `Rodapé: ${config.rodape_texto}` : ""}
-══════════════════════════════════════════` : `
-ATENÇÃO: Nenhum PetitionConfig ativo encontrado. Use [A PREENCHER: escritório], [A PREENCHER: advogado], [A PREENCHER: OAB] para todos os dados do procurador.`;
-
-    // Modelo obrigatório
-    const sep = "═".repeat(72);
-    const templateBlock = `
-${sep}
-MODELO OBRIGATÓRIO — SIGA ESTA ESTRUTURA COMO ESQUELETO DA PEÇA
-Nome do modelo: ${template.name} | Tipo: ${template.case_type}
-${sep}
-${template.content}
-${sep}
-FIM DO MODELO — TODA A PEÇA DEVE SEGUIR ESTA ESTRUTURA
-${sep}`;
-
-    // Dados do caso
-    const s = form.salary ? `R$ ${parseFloat(form.salary).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "[A PREENCHER: salário base]";
-    const caseBlock = `
-DADOS DO CASO (USE APENAS ESTES — NÃO INVENTE NEM COMPLETE):
-
-RECLAMANTE: ${form.claimant_name || "[A PREENCHER: nome do reclamante]"}
-CPF: ${form.claimant_cpf || "[A PREENCHER: CPF]"}
-Endereço: ${form.claimant_address || "[A PREENCHER: endereço do reclamante]"}
-Função: ${form.claimant_role || "[A PREENCHER: função/cargo]"}
-
-RÉU PRINCIPAL: ${form.defendant_name || "[A PREENCHER: nome da reclamada]"}
-CNPJ: ${form.defendant_cnpj || "[A PREENCHER: CNPJ]"}
-Endereço: ${form.defendant_address || "[A PREENCHER: endereço da reclamada]"}${
-  form.extra_defendants?.length > 0
-    ? "\n" + form.extra_defendants.map((d, i) =>
-        `RECLAMADO ${i + 2}: ${d.name || "[A PREENCHER: nome]"} | CNPJ: ${d.cnpj || "[A PREENCHER: CNPJ]"} | Endereço: ${d.address || "[A PREENCHER: endereço]"}`
-      ).join("\n")
-    : ""
-}
-
-TIPO DE AÇÃO: ${form.case_type} — Rito: ${form.rite}
-JURISDIÇÃO: ${form.jurisdiction || "[A PREENCHER: vara/jurisdição]"}
-JUSTIÇA GRATUITA: ${form.free_justice ? "Sim" : "Não"} | JUÍZO DIGITAL: ${form.digital_court ? "Sim" : "Não"}
-
-CONTRATO:
-  Admissão: ${form.contract_start || "[A PREENCHER: data de admissão]"}
-  Rescisão: ${form.contract_end || "[A PREENCHER: data de demissão ou informar se vigente]"}
-  Salário Base: ${s}
-  Jornada: ${form.work_schedule || "[A PREENCHER: jornada de trabalho]"}
-
-IRREGULARIDADES:
-${form.irregularities || "[A PREENCHER: irregularidades]"}
-
-FATOS ADICIONAIS:
-${form.additional_facts || "Não informados"}
-${calcCtx}`;
-
-    // Precedentes
-    const precsBlock = precs.length > 0
-      ? `\n\n═══ JURISPRUDÊNCIA AUTORIZADA — CITE APENAS ESTAS ═══\n` +
-        precs.map((p) => `▸ ${p.title} (${p.source}${p.reference ? ` — ${p.reference}` : ""})\n${p.content}`).join("\n\n") +
-        `\n═══ FIM DA JURISPRUDÊNCIA ═══`
-      : "\n\nNenhum precedente cadastrado — não cite jurisprudência sem fonte verificada.";
-
-    return `${systemPrompt}
-${anchoringRules}
-${officeBlock}
-${templateBlock}
-${caseBlock}
-${precsBlock}
-${docCtx}`;
-  };
+  // buildAnchoredPrompt removido — substituído por buildPetitionTemplate + buildShortAIPrompt
 
   const handleSaveDraft = async () => {
     try {
@@ -308,31 +205,20 @@ ${docCtx}`;
       return;
     }
 
-    // 2. Montar prompt (sem precedentes para reduzir tamanho)
-    setGeneratingStep("Preparando prompt...");
+    // 2. Montar template por código (sem IA) + prompt curto para a IA
+    setGeneratingStep("Montando estrutura da petição...");
     setGeneratingProgress(15);
 
-    let calcCtx = "";
-    if (form.calculations?.formatted) {
-      calcCtx = `\n\nCÁLCULOS DE VERBAS (USE ESTES VALORES — NÃO ESTIME):\n${form.calculations.formatted}`;
-    } else {
-      calcCtx = "\n\nNenhum cálculo de verbas fornecido — use [A PREENCHER: valor] para qualquer valor monetário não informado.";
-    }
-
-    let docCtx = "";
-    if (form.document_urls.length > 0) {
-      docCtx = `\n\nDocumentos anexados: ${form.document_names.join(", ")}`;
-    }
-
-    // Passa precs vazio — sem precedentes para não estourar o contexto
-    const prompt = buildAnchoredPrompt(selectedTemplate, petitionConfig, [], calcCtx, docCtx);
+    const templateParts = buildPetitionTemplate(form, petitionConfig);
+    const aiPrompt = buildShortAIPrompt(form, petitionConfig, selectedTemplate?.content);
 
     // 3. Disparar geração em background via backend function
     try {
       setGeneratingStep("Disparando geração em segundo plano...");
       await base44.functions.invoke("generatePetition", {
         petitionId,
-        prompt,
+        aiPrompt,
+        templateParts,
         templateName: selectedTemplate.name,
         templateId: selectedTemplate.id,
       });
@@ -340,7 +226,6 @@ ${docCtx}`;
       setGenerating(false);
       setGenerateError("Erro ao iniciar geração: " + err.message);
       toast.error("Não foi possível iniciar a geração.");
-      // reverter status
       try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
       return;
     }
