@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, AlertTriangle, CheckCircle2, FileText, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
@@ -61,6 +61,8 @@ function extractPendencias(text) {
 
 export default function NewPetition() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("draftId");
   const [step, setStep] = useState(0);
   const [templates, setTemplates] = useState([]);
   const [petitionConfig, setPetitionConfig] = useState(null);
@@ -73,12 +75,51 @@ export default function NewPetition() {
   const [generateError, setGenerateError] = useState(null);
   const [pendencias, setPendencias] = useState([]);
   const [form, setForm] = useState(getInitialForm);
+  const [loadingDraft, setLoadingDraft] = useState(!!draftId);
   const generatingRef = useRef(false);
 
   useEffect(() => {
     base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates).catch(() => {});
     base44.entities.PetitionConfig.filter({ ativo: true }).then((r) => setPetitionConfig(r[0] || null)).catch(() => {});
   }, []);
+
+  // Carrega dados do rascunho se draftId estiver na URL
+  useEffect(() => {
+    if (!draftId) return;
+    base44.entities.Petition.filter({ id: draftId }).then((results) => {
+      const p = results[0];
+      if (!p) { setLoadingDraft(false); return; }
+      setSavedPetitionId(p.id);
+      setForm({
+        title: p.title || "",
+        case_type: p.case_type || "trabalhista",
+        rite: p.rite || "ordinario",
+        claimant_name: p.claimant_name || "",
+        claimant_cpf: p.claimant_cpf || "",
+        claimant_address: p.claimant_address || "",
+        claimant_role: p.claimant_role || "",
+        defendant_name: p.defendant_name || "",
+        defendant_cnpj: p.defendant_cnpj || "",
+        defendant_address: p.defendant_address || "",
+        contract_start: p.contract_start || "",
+        contract_end: p.contract_end || "",
+        salary: p.salary || "",
+        work_schedule: p.work_schedule || "",
+        irregularities: p.irregularities || "",
+        additional_facts: p.additional_facts || "",
+        jurisdiction: p.jurisdiction || "",
+        free_justice: p.free_justice ?? true,
+        digital_court: p.digital_court ?? true,
+        template_used: p.template_used || "",
+        selected_template_id: "",
+        document_urls: p.document_urls || [],
+        document_names: p.document_names || [],
+        calculations: p.calculations || null,
+        extra_defendants: p.extra_defendants || [],
+      });
+      setLoadingDraft(false);
+    }).catch(() => setLoadingDraft(false));
+  }, [draftId]);
 
   const updateForm = (field, value) => setForm((prev) => {
     const next = { ...prev, [field]: value };
@@ -243,15 +284,32 @@ export default function NewPetition() {
 
   const isLastStep = step === STEPS.length - 1;
 
+  if (loadingDraft) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
       <div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </button>
-        <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Nova Petição</h1>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold">
+          {draftId ? "Editar Rascunho" : "Nova Petição"}
+        </h1>
         <p className="text-muted-foreground mt-1">Geração rigorosa — baseada em modelo e dados reais</p>
       </div>
+
+      {draftId && (
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
+          <Pencil className="w-4 h-4 shrink-0" />
+          Editando rascunho existente. As alterações serão salvas na mesma petição.
+        </div>
+      )}
 
       {/* Aviso de configuração do escritório */}
       {!petitionConfig && (

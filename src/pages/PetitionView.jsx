@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, AlertTriangle } from "lucide-react";
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
 import { getPetitionViewStyle } from "@/hooks/usePetitionFormat.js";
+import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -21,6 +22,9 @@ export default function PetitionView() {
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState("");
+  const generatingRef = useRef(false);
 
   useEffect(() => {
     Promise.all([
@@ -42,6 +46,72 @@ export default function PetitionView() {
       setLoading(false);
     });
   }, [id]);
+
+  // Polling após disparo de geração
+  const startPolling = () => {
+    generatingRef.current = true;
+    const interval = setInterval(async () => {
+      try {
+        const results = await base44.entities.Petition.filter({ id });
+        const p = results[0];
+        if (!p || p.status === "em_geracao") {
+          setGeneratingStep("IA processando...");
+          return;
+        }
+        clearInterval(interval);
+        generatingRef.current = false;
+        setGenerating(false);
+        setPetition(p);
+        if (p.generated_content) {
+          let text = p.generated_content;
+          if (text.startsWith("http")) {
+            const res = await fetch(text);
+            text = await res.text();
+          }
+          setPetitionContent(text);
+          toast.success("Petição gerada com sucesso!");
+        } else {
+          toast.error("A geração falhou. Tente novamente.");
+        }
+      } catch (_) {}
+    }, 4000);
+    // Timeout de 10 minutos
+    setTimeout(() => {
+      if (!generatingRef.current) return;
+      clearInterval(interval);
+      generatingRef.current = false;
+      setGenerating(false);
+      toast.error("Tempo esgotado. Verifique em alguns instantes.");
+    }, 10 * 60 * 1000);
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGeneratingStep("Montando estrutura...");
+    try {
+      // Marca como em_geracao
+      await base44.entities.Petition.update(id, { status: "em_geracao" });
+
+      // Monta template por código + prompt curto
+      const templateParts = buildPetitionTemplate(petition, petitionConfig);
+      const aiPrompt = buildShortAIPrompt(petition, petitionConfig, null);
+
+      await base44.functions.invoke("generatePetition", {
+        petitionId: id,
+        aiPrompt,
+        templateParts,
+        templateName: petition.template_used || "",
+        templateId: "",
+      });
+
+      setGeneratingStep("IA gerando narrativa...");
+      startPolling();
+    } catch (err) {
+      setGenerating(false);
+      toast.error("Erro ao iniciar geração: " + err.message);
+      await base44.entities.Petition.update(id, { status: "rascunho" }).catch(() => {});
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(petitionContent || "");
@@ -106,13 +176,44 @@ export default function PetitionView() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={handleCopy} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-transparent text-sm hover:bg-muted transition-colors">
-            <Copy className="w-4 h-4" /> Copiar
-          </button>
+          {/* Botão Editar dados do rascunho */}
+          {(petition.status === "rascunho" || !petitionContent) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate(`/nova-peticao?draftId=${id}`)}
+            >
+              <Pencil className="w-4 h-4" /> Editar dados
+            </Button>
+          )}
+
+          {/* Botão Gerar Petição — para rascunhos sem conteúdo */}
+          {!petitionContent && !generating && (
+            <Button
+              size="sm"
+              className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={handleGenerate}
+            >
+              <Sparkles className="w-4 h-4" /> Gerar Petição
+            </Button>
+          )}
+
+          {generating && (
+            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted text-muted-foreground text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" /> {generatingStep}
+            </span>
+          )}
+
           {petitionContent && !editing && (
-            <button onClick={handleStartEdit} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-700 text-sm hover:bg-amber-100 transition-colors">
-              <Pencil className="w-4 h-4" /> Editar
-            </button>
+            <>
+              <button onClick={handleCopy} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-input bg-transparent text-sm hover:bg-muted transition-colors">
+                <Copy className="w-4 h-4" /> Copiar
+              </button>
+              <button onClick={handleStartEdit} className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-700 text-sm hover:bg-amber-100 transition-colors">
+                <Pencil className="w-4 h-4" /> Editar
+              </button>
+            </>
           )}
           {petition.status === "revisao_necessaria" && (
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-red-100 text-red-700 text-sm font-medium">
@@ -180,9 +281,26 @@ export default function PetitionView() {
             </ReactMarkdown>
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <FileText className="w-12 h-12 mx-auto mb-4 opacity-40" />
-            <p>Conteúdo da petição não disponível</p>
+          <div className="text-center py-16 text-muted-foreground space-y-4">
+            <FileText className="w-14 h-14 mx-auto opacity-30" />
+            <div>
+              <p className="font-semibold text-foreground">Petição ainda não gerada</p>
+              <p className="text-sm mt-1">Este rascunho ainda não possui conteúdo. Gere a petição ou edite os dados.</p>
+            </div>
+            {!generating ? (
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleGenerate}>
+                  <Sparkles className="w-4 h-4" /> Gerar Petição
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => navigate(`/nova-peticao?draftId=${id}`)}>
+                  <Pencil className="w-4 h-4" /> Editar dados
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 justify-center text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> {generatingStep}
+              </div>
+            )}
           </div>
         )}
         <LetterheadFooter config={petitionConfig} />
