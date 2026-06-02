@@ -7,6 +7,7 @@ import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X } from "lucide-react
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
+import { getPetitionViewStyle } from "../hooks/usePetitionFormat.js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -163,14 +164,16 @@ export default function PetitionView() {
             />
           </div>
         ) : petitionContent ? (
-          <div className="prose prose-slate max-w-none petition-content">
+          <div style={getPetitionViewStyle(petitionConfig)} className="petition-content">
             <ReactMarkdown
               components={{
-                p: ({ children }) => <p className="text-sm leading-7 mb-4 text-justify">{children}</p>,
-                h1: ({ children }) => <h1 className="text-xl font-bold mt-8 mb-4 uppercase">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mt-6 mb-3 uppercase">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2 uppercase">{children}</h3>,
-                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                p: ({ children }) => (
+                  <p style={{ textAlign: "justify", textIndent: "1.25cm", marginBottom: "0.5em" }}>{children}</p>
+                ),
+                h1: ({ children }) => <h1 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1.5em 0 0.5em" }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1.2em 0 0.4em" }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ fontWeight: "bold", textTransform: "uppercase", margin: "1em 0 0.3em" }}>{children}</h3>,
+                strong: ({ children }) => <strong style={{ fontWeight: "bold" }}>{children}</strong>,
               }}
             >
               {petitionContent}

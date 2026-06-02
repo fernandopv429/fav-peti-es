@@ -3,48 +3,81 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, Loader2, Printer } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { getPetitionFormat } from "@/hooks/usePetitionFormat.js";
 
 export default function ExportButtons({ petition, petitionConfig }) {
   const [exporting, setExporting] = useState(null);
 
-  // ── helpers ──────────────────────────────────────────────────────────
   const cfg = petitionConfig || {};
+  const fmt = getPetitionFormat(cfg);
+
+  // cm → mm
+  const cm2mm = (v) => v * 10;
+
   const headerText = cfg.cabecalho_texto || [
     cfg.escritorio,
     cfg.advogado_principal ? `${cfg.advogado_principal} — OAB/${cfg.uf_oab || ""} ${cfg.oab || ""}` : "",
   ].filter(Boolean).join("\n");
   const footerText = cfg.rodape_texto || "";
 
-  // ── IMPRESSÃO ────────────────────────────────────────────────────────
+  // ── IMPRESSÃO (janela HTML) ──────────────────────────────────────────
   const handlePrint = () => {
     const content = petition.generated_content || "";
     const logoHtml = cfg.logo_url
-      ? `<img src="${cfg.logo_url}" style="max-height:80px;display:block;margin:0 auto 10px;" />`
+      ? `<img src="${cfg.logo_url}" style="max-height:72px;display:block;margin:0 auto 8px;" crossorigin="anonymous" />`
       : "";
+
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"/>
   <title>${petition.title || "Petição"}</title>
   <style>
-    @page { margin: 25mm 20mm; }
-    body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.6; color: #000; }
-    .header { text-align:center; border-bottom:1px solid #ccc; padding-bottom:14px; margin-bottom:20px; }
-    .header p { margin:2px 0; font-size:10pt; color:#444; white-space:pre-line; }
-    .content { white-space:pre-wrap; text-align:justify; }
-    .footer { position:running(footer); text-align:center; font-size:9pt; color:#555; border-top:1px solid #ccc; padding-top:8px; white-space:pre-line; }
-    @page { @bottom-center { content: element(footer); } }
+    @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+    @page {
+      size: A4;
+      margin: ${fmt.marginTop}cm ${fmt.marginRight}cm ${fmt.marginBottom}cm ${fmt.marginLeft}cm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "${fmt.font}", "Times New Roman", serif;
+      font-size: ${fmt.fontSize}pt;
+      line-height: ${fmt.lineHeight};
+      color: #000;
+      margin: 0;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+      margin-bottom: 18px;
+    }
+    .header p { margin: 2px 0; font-size: 10pt; white-space: pre-line; }
+    .content { white-space: pre-wrap; text-align: justify; }
+    .content p { text-indent: 1.25cm; margin-bottom: 0; }
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 9pt;
+      color: #555;
+      border-top: 1px solid #ccc;
+      padding-top: 6px;
+      white-space: pre-line;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     ${logoHtml}
-    <p>${headerText}</p>
+    <p>${headerText.replace(/</g, "&lt;")}</p>
   </div>
-  <div class="footer">${footerText}</div>
+  ${footerText ? `<div class="footer">${footerText.replace(/</g, "&lt;")}</div>` : ""}
   <div class="content">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
 </body>
 </html>`;
+
     const w = window.open("", "_blank");
     if (!w) { toast.error("Pop-up bloqueado. Permita pop-ups para imprimir."); return; }
     w.document.write(html);
@@ -58,99 +91,124 @@ export default function ExportButtons({ petition, petitionConfig }) {
     setExporting("pdf");
     try {
       const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const PW = 210;
-      const ML = 25, MR = 25, MT = 20;
+
+      const PW = 210; // A4 width mm
+      const PH = 297; // A4 height mm
+      const ML = cm2mm(fmt.marginLeft);
+      const MR = cm2mm(fmt.marginRight);
+      const MT = cm2mm(fmt.marginTop);
+      const MB = cm2mm(fmt.marginBottom);
       const maxW = PW - ML - MR;
+      const bodyBottom = PH - MB - 12; // reserva para rodapé
+
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+      // Mapeamento de fonte (jsPDF só suporta helvetica/times/courier nativamente)
+      const jsPdfFont = fmt.font.toLowerCase().includes("times") ? "times" :
+        fmt.font.toLowerCase().includes("courier") ? "courier" : "helvetica";
+
+      const lineSpacingFactor = fmt.lineHeight;
+      const fs = fmt.fontSize;
+
       let y = MT;
 
-      const addPageIfNeeded = (needed = 7) => {
-        if (y + needed > 272) { doc.addPage(); y = MT; return true; }
+      const newPage = () => {
+        doc.addPage();
+        y = MT;
+        renderFooter();
+        renderHeader(false); // sem logo em páginas seguintes, só texto
+      };
+
+      const needNewPage = (needed) => {
+        if (y + needed > bodyBottom) { newPage(); return true; }
         return false;
       };
 
-      // ── cabeçalho ──
-      if (cfg.logo_url) {
-        try {
-          // Carrega imagem via canvas para obter dataUrl
-          const img = await new Promise((res, rej) => {
-            const i = new Image();
-            i.crossOrigin = "anonymous";
-            i.onload = () => res(i);
-            i.onerror = rej;
-            i.src = cfg.logo_url;
-          });
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.getContext("2d").drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL("image/png");
-          const ratio = img.width / img.height;
-          const imgH = 18;
-          const imgW = imgH * ratio;
-          doc.addImage(dataUrl, "PNG", (PW - imgW) / 2, y, imgW, imgH);
-          y += imgH + 3;
-        } catch (_) {
-          // Logo falhou — continua sem imagem
-        }
-      }
-
-      if (headerText) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        const hLines = doc.splitTextToSize(headerText, maxW);
-        hLines.forEach((l) => {
-          doc.text(l, PW / 2, y, { align: "center" });
-          y += 5;
+      // ── rodapé em todas as páginas ──
+      const renderFooter = () => {
+        if (!footerText) return;
+        doc.setFont(jsPdfFont, "normal");
+        doc.setFontSize(8);
+        doc.setDrawColor(180, 150, 80);
+        doc.line(ML, PH - MB, PW - MR, PH - MB);
+        const fLines = doc.splitTextToSize(footerText, maxW);
+        let fy = PH - MB + 4;
+        fLines.forEach((fl) => {
+          doc.text(fl, PW / 2, fy, { align: "center" });
+          fy += 4;
         });
-      }
+      };
 
-      // Linha separadora
-      y += 2;
-      doc.setDrawColor(180, 150, 80);
-      doc.line(ML, y, PW - MR, y);
-      y += 6;
+      const renderHeader = async (withLogo) => {
+        let hy = MT;
+        if (withLogo && cfg.logo_url) {
+          try {
+            const img = await new Promise((res, rej) => {
+              const i = new Image();
+              i.crossOrigin = "anonymous";
+              i.onload = () => res(i);
+              i.onerror = rej;
+              i.src = cfg.logo_url;
+            });
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width; canvas.height = img.height;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL("image/png");
+            const ratio = img.width / img.height;
+            const imgH = 18; const imgW = imgH * ratio;
+            doc.addImage(dataUrl, "PNG", (PW - imgW) / 2, hy, imgW, imgH);
+            hy += imgH + 3;
+          } catch (_) {}
+        }
+        if (headerText) {
+          doc.setFont(jsPdfFont, "normal");
+          doc.setFontSize(9);
+          const hLines = doc.splitTextToSize(headerText, maxW);
+          hLines.forEach((l) => {
+            doc.text(l, PW / 2, hy, { align: "center" });
+            hy += 5;
+          });
+        }
+        // Linha separadora dourada
+        hy += 2;
+        doc.setDrawColor(180, 150, 80);
+        doc.line(ML, hy, PW - MR, hy);
+        y = hy + 6;
+        return hy;
+      };
+
+      // Página 1
+      await renderHeader(true);
+      renderFooter();
 
       // ── conteúdo ──
+      const lineH = fs * 0.352778 * lineSpacingFactor; // pt → mm * factor
+      const indentMm = 12.5; // 1.25cm
+
       const content = petition.generated_content || "";
       const lines = content.split("\n");
+
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed) { y += 5; addPageIfNeeded(); continue; }
+        if (!trimmed) { y += lineH * 0.5; if (y > bodyBottom) newPage(); continue; }
         const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
         const isBold = trimmed.startsWith("**") || isHeading;
         const cleanText = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
-        doc.setFont("helvetica", isBold ? "bold" : "normal");
-        doc.setFontSize(isHeading ? 12 : 11);
-        const splitLines = doc.splitTextToSize(cleanText, maxW);
-        for (const sl of splitLines) {
-          addPageIfNeeded();
-          doc.text(sl, ML, y);
-          y += isHeading ? 7 : 6;
+        doc.setFont(jsPdfFont, isBold ? "bold" : "normal");
+        doc.setFontSize(isHeading ? fs + 0.5 : fs);
+        const splitLines = doc.splitTextToSize(cleanText, maxW - (isHeading ? 0 : indentMm));
+        for (let i = 0; i < splitLines.length; i++) {
+          needNewPage(lineH);
+          const x = isHeading ? PW / 2 : (i === 0 ? ML + indentMm : ML);
+          const align = isHeading ? "center" : "left";
+          doc.text(splitLines[i], x, y, { align });
+          y += lineH;
         }
-        if (isHeading) y += 2;
-      }
-
-      // ── rodapé em todas as páginas ──
-      if (footerText) {
-        const totalPages = doc.getNumberOfPages();
-        for (let pg = 1; pg <= totalPages; pg++) {
-          doc.setPage(pg);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8);
-          doc.setDrawColor(180, 150, 80);
-          doc.line(ML, 282, PW - MR, 282);
-          const fLines = doc.splitTextToSize(footerText, maxW);
-          let fy = 285;
-          fLines.forEach((fl) => {
-            doc.text(fl, PW / 2, fy, { align: "center" });
-            fy += 4;
-          });
-        }
+        if (isHeading) y += lineH * 0.3;
       }
 
       doc.save(`${petition.title || "peticao"}.pdf`);
-      toast.success("PDF exportado com timbre!");
+      toast.success("PDF exportado com formatação processual!");
     } catch (err) {
       toast.error("Erro ao exportar PDF: " + err.message);
     } finally {
@@ -162,42 +220,52 @@ export default function ExportButtons({ petition, petitionConfig }) {
   const handleExportDOCX = async () => {
     setExporting("docx");
     try {
-      const { Document, Paragraph, TextRun, Packer, AlignmentType, Header, Footer, ImageRun } = await import("docx");
+      const { Document, Paragraph, TextRun, Packer, AlignmentType, Header, Footer, convertInchesToTwip } = await import("docx");
+
+      const cm2twip = (cm) => Math.round(cm * 567); // 1cm = 567 twip
+
       const content = petition.generated_content || "";
       const lines = content.split("\n");
 
+      // Tamanho de fonte em half-points (docx usa half-points)
+      const halfPt = fmt.fontSize * 2;
+      // Line spacing em twip (240 twip = single, 360 = 1.5, 480 = double)
+      const lineSpacingTwip = Math.round(240 * fmt.lineHeight);
+
       const bodyParagraphs = lines.map((line) => {
         const trimmed = line.trim();
-        if (!trimmed) return new Paragraph({ text: "" });
+        if (!trimmed) return new Paragraph({ text: "", spacing: { line: lineSpacingTwip } });
         const cleanText = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
         const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
         const isBold = trimmed.startsWith("**") || isHeading;
         return new Paragraph({
-          children: [new TextRun({ text: cleanText, bold: isBold, size: isHeading ? 26 : 24 })],
+          children: [new TextRun({
+            text: cleanText,
+            bold: isBold,
+            size: halfPt,
+            font: fmt.font,
+          })],
           alignment: isHeading ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
-          spacing: { before: isHeading ? 240 : 0, after: 120 },
-          indent: isHeading ? undefined : { firstLine: 720 },
+          spacing: { line: lineSpacingTwip, before: isHeading ? 240 : 0, after: isHeading ? 120 : 80 },
+          indent: isHeading ? undefined : { firstLine: cm2twip(1.25) },
         });
       });
 
-      // Cabeçalho DOCX
+      // Cabeçalho
       const headerChildren = [];
-      if (headerText) {
-        headerText.split("\n").forEach((l) => {
-          if (l.trim()) {
-            headerChildren.push(new Paragraph({
-              children: [new TextRun({ text: l.trim(), size: 20, bold: headerChildren.length === 0 })],
-              alignment: AlignmentType.CENTER,
-              spacing: { after: 60 },
-            }));
-          }
-        });
-      }
+      headerText.split("\n").forEach((l, i) => {
+        if (!l.trim()) return;
+        headerChildren.push(new Paragraph({
+          children: [new TextRun({ text: l.trim(), size: 20, bold: i === 0, font: fmt.font })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 60 },
+        }));
+      });
 
-      // Rodapé DOCX
+      // Rodapé
       const footerChildren = footerText
         ? footerText.split("\n").map((l) => new Paragraph({
-            children: [new TextRun({ text: l, size: 18 })],
+            children: [new TextRun({ text: l, size: 18, font: fmt.font })],
             alignment: AlignmentType.CENTER,
             spacing: { after: 40 },
           }))
@@ -205,7 +273,17 @@ export default function ExportButtons({ petition, petitionConfig }) {
 
       const doc = new Document({
         sections: [{
-          properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } },
+          properties: {
+            page: {
+              margin: {
+                top: cm2twip(fmt.marginTop),
+                bottom: cm2twip(fmt.marginBottom),
+                left: cm2twip(fmt.marginLeft),
+                right: cm2twip(fmt.marginRight),
+              },
+              size: { width: cm2twip(21), height: cm2twip(29.7) }, // A4
+            },
+          },
           headers: headerChildren.length ? { default: new Header({ children: headerChildren }) } : undefined,
           footers: footerChildren.length ? { default: new Footer({ children: footerChildren }) } : undefined,
           children: bodyParagraphs,
@@ -215,11 +293,9 @@ export default function ExportButtons({ petition, petitionConfig }) {
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `${petition.title || "peticao"}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("DOCX exportado com timbre!");
+      a.href = url; a.download = `${petition.title || "peticao"}.docx`;
+      a.click(); URL.revokeObjectURL(url);
+      toast.success("DOCX exportado com formatação processual!");
     } catch (err) {
       toast.error("Erro ao exportar DOCX: " + err.message);
     } finally {
