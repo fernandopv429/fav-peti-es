@@ -155,18 +155,18 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1526] p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       <div className="pt-2">
-        <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
-        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-white flex items-center gap-3">
-          <Shield className="w-7 h-7 text-amber-500" />
+        <p className="text-primary text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-foreground flex items-center gap-3">
+          <Shield className="w-7 h-7 text-primary" />
           Defesa — Contestação do Empregador
         </h1>
-        <p className="text-slate-500 mt-1">Gere contestações trabalhistas com IA a partir da petição inicial recebida</p>
+        <p className="text-muted-foreground mt-1">Gere contestações trabalhistas com IA a partir da petição inicial recebida</p>
       </div>
 
-      <Card className="p-6 lg:p-8 space-y-5 bg-white/[0.04] border-white/[0.07]">
-        <h2 className="font-semibold text-base text-white">Dados do caso</h2>
+      <Card className="p-6 lg:p-8 space-y-5">
+        <h2 className="font-semibold text-base text-foreground">Dados do caso</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título *</Label>
@@ -219,17 +219,17 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
         <Button
           onClick={handleGerar}
           disabled={generating}
-          className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto"
+          className="gap-2 w-full sm:w-auto"
         >
           {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando contestação...</> : <><Sparkles className="w-4 h-4" /> Gerar Defesa com IA</>}
         </Button>
       </Card>
 
       {resultado && (
-        <Card className="p-6 lg:p-8 space-y-4 bg-white/[0.04] border-white/[0.07]">
+        <Card className="p-6 lg:p-8 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="font-semibold text-base text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-amber-400" /> Contestação gerada
+            <h2 className="font-semibold text-base text-foreground flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" /> Contestação gerada
             </h2>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(resultado); toast.success("Copiado!"); }}>
@@ -242,20 +242,20 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border p-6 max-h-[600px] overflow-y-auto">
-            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{resultado}</pre>
+          <div className="bg-muted/30 rounded-xl border p-6 max-h-[600px] overflow-y-auto">
+            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground">{resultado}</pre>
           </div>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+          <div className="flex items-start gap-2.5 p-3 rounded-xl border text-sm" style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)", color: "hsl(var(--foreground))" }}>
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "hsl(var(--warning))" }} />
             <p>{AVISO_REVISAO}</p>
           </div>
         </Card>
       )}
 
       {/* Histórico */}
-      <Card className="p-6 lg:p-8 bg-white/[0.04] border-white/[0.07]">
-        <h2 className="font-semibold text-base mb-4 text-white">Defesas salvas</h2>
+      <Card className="p-6 lg:p-8">
+        <h2 className="font-semibold text-base mb-4 text-foreground">Defesas salvas</h2>
         {loadingList ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : defesas.length === 0 ? (

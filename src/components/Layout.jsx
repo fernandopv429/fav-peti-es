@@ -7,7 +7,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0d1526]">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -28,18 +28,18 @@ export default function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header */}
-        <div className="lg:hidden flex items-center h-14 px-4 bg-[#0c1120] border-b border-white/[0.06]">
+        <div className="lg:hidden flex items-center h-14 px-4 bg-sidebar border-b border-sidebar-border">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white/60"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-sidebar-foreground/60"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2 ml-3">
-            <div className="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center">
-              <Scale className="w-3.5 h-3.5 text-white" />
+            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
+              <Scale className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="font-bold text-sm text-white">FAV Petições</span>
+            <span className="font-bold text-sm text-sidebar-foreground">FAV Petições</span>
           </div>
         </div>
 

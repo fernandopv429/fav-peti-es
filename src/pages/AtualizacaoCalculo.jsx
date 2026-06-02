@@ -208,27 +208,27 @@ export default function AtualizacaoCalculoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1526] p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       <div className="pt-2">
-        <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
-        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-white flex items-center gap-3">
-          <TrendingUp className="w-7 h-7 text-amber-500" />
+        <p className="text-primary text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-foreground flex items-center gap-3">
+          <TrendingUp className="w-7 h-7 text-primary" />
           Atualização de Cálculo
         </h1>
-        <p className="text-slate-500 mt-1">Correção monetária e juros com fundamento legal automático</p>
+        <p className="text-muted-foreground mt-1">Correção monetária e juros com fundamento legal automático</p>
       </div>
 
       {/* Aviso sobre índices */}
-      <div className="flex items-start gap-2.5 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm">
-        <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
+      <div className="flex items-start gap-2.5 p-4 rounded-xl border text-sm" style={{ background: "hsl(var(--primary) / 0.08)", borderColor: "hsl(var(--primary) / 0.25)", color: "hsl(var(--foreground))" }}>
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
         <div>
           <p className="font-medium mb-1">Atenção: informe o índice acumulado manualmente</p>
           <p>O percentual acumulado real (SELIC, IPCA-E, INPC, IGP-M, TR) deve ser consultado nas tabelas oficiais — BACEN (<span className="font-mono text-xs">bcb.gov.br</span>), Receita Federal, Portal CNJ ou tabelas do tribunal competente — e informado no campo abaixo. Este sistema não busca esses valores automaticamente.</p>
         </div>
       </div>
 
-      <Card className="p-6 lg:p-8 space-y-5 bg-white/[0.04] border-white/[0.07]">
-        <h2 className="font-semibold text-base text-white">Dados do cálculo</h2>
+      <Card className="p-6 lg:p-8 space-y-5">
+        <h2 className="font-semibold text-base text-foreground">Dados do cálculo</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título</Label>
@@ -309,15 +309,15 @@ export default function AtualizacaoCalculoPage() {
           </div>
         </div>
 
-        <Button onClick={handleCalcular} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 w-full sm:w-auto">
+        <Button onClick={handleCalcular} className="gap-2 w-full sm:w-auto">
           <TrendingUp className="w-4 h-4" /> Calcular atualização
         </Button>
       </Card>
 
       {resultado && (
-        <Card className="p-6 lg:p-8 space-y-4 bg-white/[0.04] border-white/[0.07]">
-          <h2 className="font-semibold text-base text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-amber-400" /> Resultado
+        <Card className="p-6 lg:p-8 space-y-4">
+          <h2 className="font-semibold text-base text-foreground flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" /> Resultado
           </h2>
 
           {/* Sumário */}
@@ -359,8 +359,8 @@ export default function AtualizacaoCalculoPage() {
           </div>
 
           {/* Notas de termo inicial */}
-          <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs space-y-1">
-            <p className="font-semibold text-sm mb-2 flex items-center gap-1.5"><Info className="w-3.5 h-3.5" /> Notas sobre termo inicial</p>
+          <div className="p-4 rounded-xl border text-xs space-y-1" style={{ background: "hsl(var(--primary) / 0.07)", borderColor: "hsl(var(--primary) / 0.2)", color: "hsl(var(--foreground))" }}>
+            <p className="font-semibold text-sm mb-2 flex items-center gap-1.5 text-primary"><Info className="w-3.5 h-3.5" /> Notas sobre termo inicial</p>
             <p>• <strong>Dano material:</strong> Súmula 43 STJ — correção monetária desde o evento danoso.</p>
             <p>• <strong>Juros (extracontratual):</strong> Súmula 54 STJ — juros de mora desde o evento.</p>
             <p>• <strong>Dano moral:</strong> Súmula 362 STJ (correção do arbitramento) + Súmula 54 STJ (juros desde o evento).</p>
@@ -381,16 +381,16 @@ export default function AtualizacaoCalculoPage() {
             </Button>
           </div>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+          <div className="flex items-start gap-2.5 p-3 rounded-xl border text-sm" style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)", color: "hsl(var(--foreground))" }}>
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "hsl(var(--warning))" }} />
             <p>{AVISO_REVISAO}</p>
           </div>
         </Card>
       )}
 
       {/* Histórico */}
-      <Card className="p-6 lg:p-8 bg-white/[0.04] border-white/[0.07]">
-        <h2 className="font-semibold text-base mb-4 text-white">Cálculos salvos</h2>
+      <Card className="p-6 lg:p-8">
+        <h2 className="font-semibold text-base mb-4 text-foreground">Cálculos salvos</h2>
         {loadingList ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : calculos.length === 0 ? (
