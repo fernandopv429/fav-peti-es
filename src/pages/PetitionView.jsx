@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, AlertTriangle, Download } from "lucide-react";
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
@@ -226,7 +226,9 @@ export default function PetitionView() {
             </span>
           )}
           {petitionContent && (
-            <ExportButtons petition={{...petition, generated_content: petitionContent}} petitionConfig={petitionConfig} />
+            <>
+              <ExportButtons petition={{...petition, generated_content: petitionContent}} petitionConfig={petitionConfig} />
+            </>
           )}
         </div>
       </div>

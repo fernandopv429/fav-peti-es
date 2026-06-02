@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { FileText, Search, FilePlus, ArrowRight, Trash2 } from "lucide-react";
+import { FileText, Search, FilePlus, ArrowRight, Trash2, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -40,7 +40,7 @@ export default function PetitionsList() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
-    base44.entities.Petition.list("-created_date").then((data) => {
+    base44.entities.Petition.list("-created_date", 200).then((data) => {
       setPetitions(data);
       setLoading(false);
     });
@@ -126,40 +126,52 @@ export default function PetitionsList() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((p) => (
-            <Link key={p.id} to={`/peticoes/${p.id}`}>
-              <Card className="p-5 hover:shadow-md transition-all group cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <FileText className="w-6 h-6 text-primary" />
+          {filtered.map((p) => {
+            const isRevisao = p.status === "revisao_necessaria";
+            const isEmGeracao = p.status === "em_geracao";
+            return (
+              <Link key={p.id} to={`/peticoes/${p.id}`}>
+                <Card className={`p-5 hover:shadow-md transition-all group cursor-pointer ${isRevisao ? "border-red-400 bg-red-50/40" : ""} ${isEmGeracao ? "border-amber-300 bg-amber-50/30" : ""}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isRevisao ? "bg-red-100" : "bg-primary/10"}`}>
+                        {isRevisao
+                          ? <AlertTriangle className="w-6 h-6 text-red-500" />
+                          : <FileText className="w-6 h-6 text-primary" />
+                        }
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-foreground truncate">{p.title}</h3>
+                          {isRevisao && (
+                            <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">⚠ Clique para revisar</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {p.claimant_name} vs {p.defendant_name} • {CASE_LABELS[p.case_type] || p.case_type}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(p.created_date).toLocaleDateString("pt-BR")} {new Date(p.created_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-foreground truncate">{p.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {p.claimant_name} vs {p.defendant_name} • {CASE_LABELS[p.case_type] || p.case_type}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(p.created_date).toLocaleDateString("pt-BR")}
-                      </p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${STATUS_BADGE[p.status]}`}>
+                        {STATUS_LABELS[p.status]}
+                      </span>
+                      <button
+                        onClick={(e) => handleDelete(p.id, e)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-xs px-3 py-1.5 rounded-full font-medium ${STATUS_BADGE[p.status]}`}>
-                      {STATUS_LABELS[p.status]}
-                    </span>
-                    <button
-                      onClick={(e) => handleDelete(p.id, e)}
-                      className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

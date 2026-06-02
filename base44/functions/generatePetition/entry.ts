@@ -182,8 +182,16 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
         finalStatus = "revisao_necessaria";
       }
 
-      // ── Salva o documento ────────────────────────────────────────────────
-      const blob = new Blob([fullText], { type: "text/plain" });
+      // ── Salva o documento (SEMPRE persiste, mesmo com pendências) ────────
+      let savedContent = fullText;
+
+      // Se a IA falhou e não há conteúdo útil, salva ao menos o esqueleto do template
+      if (!aiResponse && templateContent && templateContent.trim().length >= 50) {
+        savedContent = templateContent;
+        finalStatus = "revisao_necessaria";
+      }
+
+      const blob = new Blob([savedContent], { type: "text/plain" });
       const file = new File([blob], "peticao.txt", { type: "text/plain" });
       const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
 
@@ -192,6 +200,8 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
         template_used: templateName || "",
         status: finalStatus,
       });
+
+      console.log(`Petição ${petitionId} salva com status: ${finalStatus}`);
 
       // Incrementa use_count do template
       if (templateId) {
@@ -217,7 +227,15 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
         });
       } catch (_) {}
 
-    })();
+    })().catch(async (fatalErr) => {
+      console.error("Erro fatal no background:", fatalErr.message);
+      // Garante que a petição saia do status em_geracao mesmo em caso de erro fatal
+      try {
+        await base44.asServiceRole.entities.Petition.update(petitionId, {
+          status: "revisao_necessaria",
+        });
+      } catch (_) {}
+    });
 
     return Response.json({ ok: true, petitionId });
 
