@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Wand2, Copy, Save, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Wand2, Copy, Save, Loader2, AlertTriangle, CheckCircle2, Paperclip, X, FileText, Image, File } from "lucide-react";
 import { toast } from "sonner";
 
 const AREAS_ORDER = [
@@ -25,6 +25,9 @@ export default function GerarDocumento() {
   const [resultado, setResultado] = useState("");
   const [gerando, setGerando] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [arquivos, setArquivos] = useState([]); // { name, url, type }
+  const [uploadingIdx, setUploadingIdx] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     base44.entities.Especialista.filter({ ativo: true })
@@ -46,6 +49,32 @@ export default function GerarDocumento() {
     setEspId("");
   };
 
+  const handleAddArquivos = async (files) => {
+    const lista = Array.from(files);
+    for (let i = 0; i < lista.length; i++) {
+      const file = lista[i];
+      setUploadingIdx(arquivos.length + i);
+      try {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        setArquivos(prev => [...prev, { name: file.name, url: file_url, type: file.type }]);
+      } catch (e) {
+        toast.error(`Erro ao enviar ${file.name}: ` + e.message);
+      }
+    }
+    setUploadingIdx(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoverArquivo = (idx) => {
+    setArquivos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const getFileIcon = (type) => {
+    if (type?.startsWith("image/")) return <Image className="w-4 h-4 text-blue-500" />;
+    if (type?.includes("pdf")) return <FileText className="w-4 h-4 text-red-500" />;
+    return <File className="w-4 h-4 text-muted-foreground" />;
+  };
+
   const handleGerar = async () => {
     if (!espSelecionado) { toast.error("Selecione um especialista."); return; }
     if (!contexto.trim()) { toast.error("Descreva o contexto do caso."); return; }
@@ -61,6 +90,7 @@ export default function GerarDocumento() {
 
 CONTEXTO DO CASO:
 ${contexto}
+${arquivos.length > 0 ? `\nDOCUMENTOS ANEXADOS (${arquivos.length}):\n${arquivos.map((a, i) => `${i + 1}. ${a.name}`).join("\n")}\n\nAnalise os documentos anexados junto com o contexto acima.` : ""}
 
 Com base no contexto acima, elabore o documento jurídico conforme sua especialidade. Seja completo, técnico e preciso.`;
 
@@ -68,6 +98,7 @@ Com base no contexto acima, elabore o documento jurídico conforme sua especiali
       const result = await base44.integrations.Core.InvokeLLM({
         prompt: `${systemPrompt}\n\n---\n\n${userPrompt}`,
         model: espSelecionado.modelo_ia === "sonnet" ? "claude_sonnet_4_6" : (espSelecionado.modelo_ia || "claude_sonnet_4_6"),
+        file_urls: arquivos.length > 0 ? arquivos.map(a => a.url) : undefined,
       });
       setResultado(result);
     } catch (e) {
@@ -175,6 +206,56 @@ Com base no contexto acima, elabore o documento jurídico conforme sua especiali
               className="w-full bg-input border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors min-h-[220px] resize-y leading-relaxed"
             />
             <p className="text-muted-foreground text-xs mt-1">{contexto.length} caracteres — quanto mais detalhado, melhor o resultado</p>
+          </div>
+
+          {/* Step 4: Documentos */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+              4. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
+            </label>
+
+            <div
+              className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); handleAddArquivos(e.dataTransfer.files); }}
+            >
+              <Paperclip className="w-5 h-5 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Clique ou arraste arquivos aqui</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">PDF, imagens, Word — a IA lerá o conteúdo</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt"
+                className="hidden"
+                onChange={e => handleAddArquivos(e.target.files)}
+              />
+            </div>
+
+            {uploadingIdx !== null && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando arquivo...
+              </div>
+            )}
+
+            {arquivos.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {arquivos.map((arq, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border">
+                    {getFileIcon(arq.type)}
+                    <span className="text-sm text-foreground flex-1 truncate">{arq.name}</span>
+                    <button
+                      onClick={() => handleRemoverArquivo(i)}
+                      className="p-1 rounded-md hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{arquivos.length} documento(s) serão analisados pela IA</p>
+              </div>
+            )}
           </div>
 
           <button
