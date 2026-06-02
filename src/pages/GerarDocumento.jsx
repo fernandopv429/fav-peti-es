@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Wand2, Copy, Save, Loader2, AlertTriangle, CheckCircle2, Paperclip, X, FileText, Image, File } from "lucide-react";
+import {
+  Wand2, Copy, Loader2, AlertTriangle, CheckCircle2, Paperclip, X,
+  FileText, Image, File, ExternalLink, Download
+} from "lucide-react";
 import { toast } from "sonner";
+import ExportButtons from "../components/petition/ExportButtons";
+import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
+import ReactMarkdown from "react-markdown";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -10,40 +16,57 @@ const AREAS_ORDER = [
   "Empresarial & Contratos", "Imobiliário & Locação", "Previdenciário", "Execução & Cálculo",
 ];
 
+const CASE_TYPE_MAP = {
+  "Trabalhista": "trabalhista",
+  "Cível": "civel",
+  "Previdenciário": "previdenciario",
+  "Criminal": "outro",
+  "Tributário": "outro",
+  "Empresarial & Contratos": "civel",
+  "Família & Sucessões": "civel",
+  "Imobiliário & Locação": "civel",
+  "Execução & Cálculo": "trabalhista",
+};
+
 const AVISO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
 export default function GerarDocumento() {
   const { search } = useLocation();
+  const navigate = useNavigate();
   const params = new URLSearchParams(search);
   const preArea = params.get("area") || "";
   const preEspId = params.get("especialista") || "";
 
   const [todos, setTodos] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [petitionConfig, setPetitionConfig] = useState(null);
   const [area, setArea] = useState(preArea);
   const [espId, setEspId] = useState(preEspId);
   const [templateId, setTemplateId] = useState("");
   const [contexto, setContexto] = useState("");
   const [resultado, setResultado] = useState("");
   const [gerando, setGerando] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [gerandoStep, setGerandoStep] = useState("");
+  const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [arquivos, setArquivos] = useState([]); // { name, url, type }
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    base44.entities.Especialista.filter({ ativo: true })
-      .then(data => {
-        setTodos(data.sort((a, b) => Number(a.numero) - Number(b.numero)));
-        if (preEspId && !preArea) {
-          const found = data.find(e => e.id === preEspId);
-          if (found) setArea(found.area);
-        }
-      })
-      .catch(() => {});
-    base44.entities.PetitionTemplate.filter({ is_active: true })
-      .then(data => setTemplates(data))
-      .catch(() => {});
+    Promise.all([
+      base44.entities.Especialista.filter({ ativo: true }).catch(() => []),
+      base44.entities.PetitionTemplate.filter({ is_active: true }).catch(() => []),
+      base44.entities.PetitionConfig.filter({ ativo: true }).catch(() => []),
+    ]).then(([especialistas, tmpl, configs]) => {
+      const sorted = especialistas.sort((a, b) => Number(a.numero) - Number(b.numero));
+      setTodos(sorted);
+      if (preEspId && !preArea) {
+        const found = sorted.find(e => e.id === preEspId);
+        if (found) setArea(found.area);
+      }
+      setTemplates(tmpl);
+      setPetitionConfig(configs[0] || null);
+    });
   }, []);
 
   const espDaArea = todos.filter(e => !area || e.area === area);
@@ -81,62 +104,235 @@ export default function GerarDocumento() {
     return <File className="w-4 h-4 text-muted-foreground" />;
   };
 
+  // Extrai conteúdo textual de arquivos não-imagem/PDF via ExtractDataFromUploadedFile
+  const extractDocumentContents = async () => {
+    const conteudosTexto = [];
+    const urlsVisuais = []; // imagens e PDFs vão direto para a IA via file_urls
+    const naoPudeLer = [];
+
+    for (const arq of arquivos) {
+      const lower = arq.url.toLowerCase().split("?")[0];
+      const isImageOrPdf =
+        arq.type?.startsWith("image/") ||
+        arq.type?.includes("pdf") ||
+        lower.endsWith(".pdf") ||
+        lower.endsWith(".png") ||
+        lower.endsWith(".jpg") ||
+        lower.endsWith(".jpeg") ||
+        lower.endsWith(".webp");
+
+      if (isImageOrPdf) {
+        // PDFs e imagens são enviados como file_urls para análise visual pela IA
+        urlsVisuais.push(arq.url);
+      } else {
+        // Arquivos de texto (docx, txt, csv, xlsx) — extrai conteúdo
+        try {
+          const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: arq.url,
+            json_schema: {
+              type: "object",
+              properties: {
+                conteudo: { type: "string", description: "Todo o conteúdo textual do documento" }
+              }
+            }
+          });
+          if (extracted?.status === "success" && extracted?.output?.conteudo) {
+            conteudosTexto.push(`=== ${arq.name} ===\n${extracted.output.conteudo}`);
+          } else {
+            // Tenta leitura direta como texto plano
+            try {
+              const resp = await fetch(arq.url);
+              if (resp.ok) {
+                const txt = (await resp.text()).slice(0, 12000).trim();
+                if (txt) conteudosTexto.push(`=== ${arq.name} ===\n${txt}`);
+                else naoPudeLer.push(arq.name);
+              } else {
+                naoPudeLer.push(arq.name);
+              }
+            } catch (_) {
+              naoPudeLer.push(arq.name);
+            }
+          }
+        } catch (_) {
+          naoPudeLer.push(arq.name);
+        }
+      }
+    }
+
+    return { conteudosTexto, urlsVisuais, naoPudeLer };
+  };
+
   const handleGerar = async () => {
     if (!espSelecionado) { toast.error("Selecione um especialista."); return; }
     if (!contexto.trim()) { toast.error("Descreva o contexto do caso."); return; }
 
     setGerando(true);
     setResultado("");
-    setSaved(false);
+    setSavedPetitionId(null);
 
-    const baseSystemPrompt = espSelecionado.prompt_sistema || `Você é ${espSelecionado.titulo || espSelecionado.name}, especialista em ${espSelecionado.area}. Com base no contexto fornecido, elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
+    const titulo = `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`;
+    const caseType = CASE_TYPE_MAP[area] || "outro";
 
-    const documentAnalysisInstructions = arquivos.length > 0 ? `
+    // ── PASSO 1: Cria o registro Petition ANTES de qualquer coisa ─────────
+    let petitionId = null;
+    try {
+      setGerandoStep("Criando registro...");
+      const created = await base44.entities.Petition.create({
+        title: titulo,
+        case_type: caseType,
+        claimant_name: "—",
+        defendant_name: "—",
+        status: "em_geracao",
+        additional_facts: contexto,
+        template_used: templateSelecionado?.id || "",
+        document_urls: arquivos.map(a => a.url),
+        document_names: arquivos.map(a => a.name),
+      });
+      petitionId = created.id;
+      setSavedPetitionId(petitionId);
+    } catch (e) {
+      toast.error("Erro ao criar registro: " + e.message);
+      setGerando(false);
+      return;
+    }
 
-INSTRUÇÕES CRÍTICAS PARA ANÁLISE DOS DOCUMENTOS ANEXADOS:
-Você DEVE ler e analisar INTEGRALMENTE cada documento anexado antes de elaborar qualquer texto. Siga este protocolo obrigatório:
+    // ── PASSO 2: Extrai conteúdo dos documentos anexados ─────────────────
+    let conteudosTexto = [];
+    let urlsVisuais = [];
+    let naoPudeLer = [];
 
-1. EXTRAÇÃO COMPLETA: Leia cada documento do início ao fim. Extraia TODOS os dados numéricos, datas, nomes, valores, horários e qualquer informação relevante.
+    if (arquivos.length > 0) {
+      setGerandoStep(`Lendo ${arquivos.length} documento(s)...`);
+      try {
+        const extracted = await extractDocumentContents();
+        conteudosTexto = extracted.conteudosTexto;
+        urlsVisuais = extracted.urlsVisuais;
+        naoPudeLer = extracted.naoPudeLer;
+      } catch (_) {}
+    }
 
-2. CRUZAMENTO E COMPARAÇÃO: Compare ativamente os documentos entre si. Especialmente:
-   - Cartão de ponto / espelho de ponto vs. holerites: verifique se as horas registradas batem com as horas pagas. Identifique CADA divergência (dia, horário registrado x horário pago, diferença em minutos/horas).
-   - Salário contratual vs. valores pagos nos holerites: identifique descontos indevidos, diferenças de base de cálculo, faltas injustificadas.
-   - Datas de admissão/demissão vs. registros nos documentos: verifique inconsistências.
-   - Benefícios (VT, VR, plano de saúde) declarados vs. descontos aplicados.
+    // ── PASSO 3: Monta o prompt ───────────────────────────────────────────
+    const baseSystemPrompt = espSelecionado.prompt_sistema ||
+      `Você é ${espSelecionado.titulo || espSelecionado.name}, especialista em ${espSelecionado.area}. Elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
 
-3. DIVERGÊNCIAS E IRREGULARIDADES: Liste TODAS as inconsistências encontradas com precisão. Para cada divergência: (a) qual documento apresenta o dado, (b) o que o outro documento diz, (c) a diferença exata calculada, (d) o prejuízo estimado ao trabalhador.
+    const docInstructions = arquivos.length > 0 ? `
 
-4. DADOS CONCRETOS NA PEÇA: Use os dados reais extraídos dos documentos. NUNCA use valores genéricos ou exemplos hipotéticos quando os documentos contêm a informação real. Cite período, datas específicas e valores exatos encontrados.
+PROTOCOLO OBRIGATÓRIO DE ANÁLISE DOS DOCUMENTOS ANEXADOS:
+Você DEVE ler e analisar integralmente cada documento antes de escrever qualquer texto.
+1. EXTRAÇÃO: Extraia TODOS os dados (datas, valores, horários, nomes, divergências).
+2. CRUZAMENTO: Compare cartão de ponto vs holerites, salário contratual vs recebido, benefícios declarados vs descontos.
+3. DIVERGÊNCIAS: Liste CADA irregularidade com dado exato (documento A diz X, documento B diz Y, diferença Z).
+4. DADOS REAIS: Use exclusivamente os dados extraídos dos documentos, nunca hipotéticos.
+5. PENDÊNCIAS: Se um documento não puder ser lido, liste em seção "PENDÊNCIAS" ao final.` : "";
 
-5. FUNDAMENTAÇÃO: Use as irregularidades encontradas como base fática concreta para os pedidos.` : "";
+    const templateInstructions = templateSelecionado?.content ? `
 
-    const systemPrompt = baseSystemPrompt + documentAnalysisInstructions;
+${"═".repeat(60)}
+MODELO ESTRUTURAL OBRIGATÓRIO — PRIORIDADE MÁXIMA:
+Você DEVE seguir EXATAMENTE a estrutura abaixo. Regras absolutas:
+- Preserve TODOS os títulos, subtítulos e seções na MESMA ORDEM.
+- NÃO suprima, renomeie, funda ou reordene nenhum tópico.
+- Substitua apenas os dados variáveis (partes, datas, salário, fatos).
+- Se um tópico não se aplicar ao caso, escreva: "Não aplicável ao presente caso." — mas NUNCA omita o título.
+- Campos sem informação: [A PREENCHER: descrição do dado necessário]
+${"═".repeat(60)}
 
-    const userPrompt = `Especialista acionado: ${espSelecionado.titulo || espSelecionado.name}
-Área: ${espSelecionado.area}
+${templateSelecionado.content}
+
+${"═".repeat(60)}
+FIM DO MODELO — agora preencha cada seção acima com os dados do caso.` : "";
+
+    const docTextBlock = conteudosTexto.length > 0 ? `
+
+${"═".repeat(60)}
+CONTEÚDO INTEGRAL DOS DOCUMENTOS ANEXADOS — USE ESTES DADOS:
+${"═".repeat(60)}
+
+${conteudosTexto.join("\n\n")}` : "";
+
+    const docVisualNote = urlsVisuais.length > 0
+      ? `\n\nALÉM DO TEXTO ACIMA, analise os ${urlsVisuais.length} arquivo(s) PDF/imagem enviados como anexo visual. Extraia TODOS os dados: valores, datas, horários, divergências entre cartão de ponto e holerites. Use esses dados concretos na peça.`
+      : "";
+
+    const naoLidosNote = naoPudeLer.length > 0
+      ? `\n\nDOCUMENTOS NÃO LIDOS (inclua como PENDÊNCIA na peça): ${naoPudeLer.join(", ")}`
+      : "";
+
+    const systemPrompt = baseSystemPrompt + docInstructions;
+
+    const userPrompt = `Especialista: ${espSelecionado.titulo || espSelecionado.name} | Área: ${espSelecionado.area}
 
 CONTEXTO DO CASO:
 ${contexto}
-${arquivos.length > 0 ? `
-DOCUMENTOS ANEXADOS PARA ANÁLISE OBRIGATÓRIA (${arquivos.length} arquivo(s)):
-${arquivos.map((a, i) => `${i + 1}. ${a.name}`).join("\n")}
+${docTextBlock}${docVisualNote}${naoLidosNote}${templateInstructions}
 
-⚠️ ATENÇÃO: Você DEVE ler e extrair informações de TODOS os documentos acima antes de redigir qualquer texto. Cruze os dados entre os documentos para identificar divergências (ex: horas no cartão de ponto vs. horas pagas no holerite, salário contratual vs. salário recebido, etc.). Cada irregularidade encontrada deve ser citada com dados concretos na peça.` : ""}
-${templateSelecionado ? `\n\nMODELO ESTRUTURAL OBRIGATÓRIO — siga rigorosamente esta estrutura, preservando todos os tópicos e seções. Preencha com os dados extraídos dos documentos e do caso. Campos sem informação marque como [A PREENCHER: descrição]:\n\n${templateSelecionado.content}` : ""}
+Elabore o documento jurídico completo, usando obrigatoriamente os dados reais dos documentos acima.`;
 
-Com base no contexto e nos documentos analisados, elabore o documento jurídico completo, citando dados concretos extraídos dos arquivos. Seja técnico, preciso e use os números reais encontrados.`;
+    // ── PASSO 4: Chama a IA ───────────────────────────────────────────────
+    let textoGerado = "";
+    let statusFinal = "concluida";
 
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
+      setGerandoStep("IA elaborando o documento...");
+      const model = espSelecionado.modelo_ia === "sonnet"
+        ? "claude_sonnet_4_6"
+        : (espSelecionado.modelo_ia || "claude_sonnet_4_6");
+
+      textoGerado = await base44.integrations.Core.InvokeLLM({
         prompt: `${systemPrompt}\n\n---\n\n${userPrompt}`,
-        model: espSelecionado.modelo_ia === "sonnet" ? "claude_sonnet_4_6" : (espSelecionado.modelo_ia || "claude_sonnet_4_6"),
-        file_urls: arquivos.length > 0 ? arquivos.map(a => a.url) : undefined,
+        model,
+        file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
       });
-      setResultado(result);
+
+      // Verifica pendências
+      if (/\[A PREENCHER|\[PENDÊNCIA/i.test(textoGerado)) {
+        statusFinal = "revisao_necessaria";
+      }
     } catch (e) {
+      statusFinal = "revisao_necessaria";
+      textoGerado = `[ERRO NA GERAÇÃO: ${e.message}]\n\nContexto do caso:\n${contexto}`;
       toast.error("Erro ao gerar: " + e.message);
-    } finally {
-      setGerando(false);
+    }
+
+    // ── PASSO 5: Persiste o conteúdo no registro já criado ───────────────
+    try {
+      setGerandoStep("Salvando documento...");
+      // Salva como arquivo para suportar textos longos
+      const blob = new Blob([textoGerado], { type: "text/plain" });
+      const fileObj = new File([blob], "documento.txt", { type: "text/plain" });
+      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file: fileObj });
+
+      await base44.entities.Petition.update(petitionId, {
+        generated_content: contentUrl,
+        status: statusFinal,
+        template_used: templateSelecionado?.id || "",
+      });
+
+      // Incrementa use_count do template
+      if (templateSelecionado?.id) {
+        base44.entities.PetitionTemplate.update(templateSelecionado.id, {
+          use_count: (templateSelecionado.use_count || 0) + 1,
+        }).catch(() => {});
+      }
+    } catch (saveErr) {
+      // Mesmo se o upload falhar, tenta salvar o texto direto
+      try {
+        await base44.entities.Petition.update(petitionId, {
+          generated_content: textoGerado.slice(0, 50000),
+          status: statusFinal,
+        });
+      } catch (_) {}
+      toast.error("Aviso: houve problema ao salvar o arquivo. Conteúdo gravado como texto.");
+    }
+
+    setResultado(textoGerado);
+    setGerando(false);
+    setGerandoStep("");
+
+    if (statusFinal === "revisao_necessaria") {
+      toast.warning("Documento gerado com pendências — revise antes de protocolar.");
+    } else {
+      toast.success("Documento gerado e salvo com sucesso!");
     }
   };
 
@@ -145,24 +341,13 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
     toast.success("Copiado!");
   };
 
-  const handleSalvar = async () => {
-    if (!resultado) return;
-    try {
-      await base44.entities.Petition.create({
-        title: `${espSelecionado?.titulo || "Documento"} — ${new Date().toLocaleDateString("pt-BR")}`,
-        case_type: "outro",
-        claimant_name: "—",
-        defendant_name: "—",
-        generated_content: resultado,
-        status: "concluida",
-        additional_facts: contexto,
-      });
-      setSaved(true);
-      toast.success("Salvo em Minhas Petições!");
-    } catch (e) {
-      toast.error("Erro ao salvar: " + e.message);
-    }
-  };
+  const petitionForExport = savedPetitionId ? {
+    id: savedPetitionId,
+    title: `${espSelecionado?.titulo || "Documento"} — ${new Date().toLocaleDateString("pt-BR")}`,
+    generated_content: resultado,
+    claimant_name: "—",
+    defendant_name: "—",
+  } : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -258,10 +443,11 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
             {templateSelecionado && (
               <div className="mt-2 flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <FileText className="w-4 h-4 text-primary shrink-0" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{templateSelecionado.name}</p>
                   {templateSelecionado.description && <p className="text-xs text-muted-foreground truncate">{templateSelecionado.description}</p>}
                 </div>
+                <span className="text-xs bg-primary/15 text-primary font-semibold px-2 py-0.5 rounded-full shrink-0">Obrigatório</span>
               </div>
             )}
             {templates.length === 0 && (
@@ -283,12 +469,12 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
             >
               <Paperclip className="w-5 h-5 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Clique ou arraste arquivos aqui</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">PDF, imagens, Word — a IA lerá o conteúdo</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">PDF, imagens, Word — a IA lerá e extrairá o conteúdo integral</p>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt,.csv,.xlsx"
                 className="hidden"
                 onChange={e => handleAddArquivos(e.target.files)}
               />
@@ -314,7 +500,7 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
                     </button>
                   </div>
                 ))}
-                <p className="text-xs text-muted-foreground">{arquivos.length} documento(s) serão analisados pela IA</p>
+                <p className="text-xs text-primary font-medium">✓ {arquivos.length} documento(s) serão lidos e analisados integralmente pela IA</p>
               </div>
             )}
           </div>
@@ -324,7 +510,10 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
             disabled={gerando || !espSelecionado || !contexto.trim()}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground font-bold text-sm transition-colors"
           >
-            {gerando ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando documento...</> : <><Wand2 className="w-4 h-4" /> Gerar Documento com IA</>}
+            {gerando
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> {gerandoStep || "Processando..."}</>
+              : <><Wand2 className="w-4 h-4" /> Gerar Documento com IA</>
+            }
           </button>
         </div>
 
@@ -336,7 +525,7 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
               <p className="text-foreground font-semibold">Gerando com IA...</p>
-              <p className="text-muted-foreground text-sm text-center max-w-xs">O especialista está elaborando o documento. Isso pode levar alguns minutos.</p>
+              <p className="text-muted-foreground text-sm text-center max-w-xs">{gerandoStep || "O especialista está elaborando o documento."}</p>
             </div>
           )}
 
@@ -347,25 +536,54 @@ Com base no contexto e nos documentos analisados, elabore o documento jurídico 
             </div>
           )}
 
-          {resultado && (
+          {resultado && !gerando && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-foreground font-semibold text-sm flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" style={{ color: "hsl(var(--success))" }} /> Documento gerado
+                  <CheckCircle2 className="w-4 h-4 text-green-500" /> Documento gerado e salvo
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button onClick={handleCopiar} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium transition-colors">
                     <Copy className="w-3.5 h-3.5" /> Copiar
                   </button>
-                  <button onClick={handleSalvar} disabled={saved} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary text-xs font-medium transition-colors disabled:opacity-50">
-                    <Save className="w-3.5 h-3.5" /> {saved ? "Salvo!" : "Salvar"}
-                  </button>
+                  {savedPetitionId && (
+                    <button
+                      onClick={() => navigate(`/peticoes/${savedPetitionId}`)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary text-xs font-medium transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Ver em Petições
+                    </button>
+                  )}
+                  {petitionForExport && (
+                    <ExportButtons petition={petitionForExport} petitionConfig={petitionConfig} />
+                  )}
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-2xl p-6 max-h-[600px] overflow-y-auto">
-                <pre className="text-sm text-card-foreground whitespace-pre-wrap font-sans leading-relaxed">{resultado}</pre>
+              {/* Papel timbrado preview */}
+              <div className="bg-card border border-border rounded-2xl p-6 max-h-[600px] overflow-y-auto" id="gerar-doc-print-area">
+                <LetterheadHeader config={petitionConfig} />
+                <div className="prose prose-sm prose-slate max-w-none text-card-foreground">
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ textAlign: "justify", marginBottom: "0.5em" }}>{children}</p>,
+                      h1: ({ children }) => <h1 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1.2em 0 0.4em" }}>{children}</h1>,
+                      h2: ({ children }) => <h2 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1em 0 0.4em" }}>{children}</h2>,
+                      h3: ({ children }) => <h3 style={{ fontWeight: "bold", margin: "0.8em 0 0.3em" }}>{children}</h3>,
+                    }}
+                  >
+                    {resultado}
+                  </ReactMarkdown>
+                </div>
+                <LetterheadFooter config={petitionConfig} />
               </div>
+
+              {savedPetitionId && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-xs text-green-700">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Salvo em <strong>Minhas Petições</strong> — não se perderá ao recarregar a página.</span>
+                </div>
+              )}
 
               <div className="flex items-start gap-2.5 p-3 rounded-xl border text-xs" style={{ background: "hsl(var(--warning) / 0.1)", borderColor: "hsl(var(--warning) / 0.3)", color: "hsl(var(--foreground))" }}>
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "hsl(var(--warning))" }} />
