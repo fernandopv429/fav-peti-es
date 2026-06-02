@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X } from "lucide-react";
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
+import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -14,15 +15,20 @@ export default function PetitionView() {
   const navigate = useNavigate();
   const [petition, setPetition] = useState(null);
   const [petitionContent, setPetitionContent] = useState("");
+  const [petitionConfig, setPetitionConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    base44.entities.Petition.filter({ id }).then(async (data) => {
+    Promise.all([
+      base44.entities.Petition.filter({ id }),
+      base44.entities.PetitionConfig.filter({ ativo: true }).catch(() => []),
+    ]).then(async ([data, configs]) => {
       const p = data[0];
       setPetition(p);
+      setPetitionConfig(configs[0] || null);
       if (p?.generated_content) {
         if (p.generated_content.startsWith("http")) {
           const res = await fetch(p.generated_content);
@@ -118,7 +124,7 @@ export default function PetitionView() {
             </span>
           )}
           {petitionContent && (
-            <ExportButtons petition={{...petition, generated_content: petitionContent}} />
+            <ExportButtons petition={{...petition, generated_content: petitionContent}} petitionConfig={petitionConfig} />
           )}
         </div>
       </div>
@@ -131,8 +137,9 @@ export default function PetitionView() {
         <InfoCard label="Documentos" value={`${petition.document_urls?.length || 0} arquivo(s)`} />
       </div>
 
-      {/* Content */}
-      <Card className="p-8 lg:p-12">
+      {/* Content — papel timbrado */}
+      <Card className="p-8 lg:p-12" id="petition-print-area">
+        <LetterheadHeader config={petitionConfig} />
         {editing ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
@@ -175,6 +182,7 @@ export default function PetitionView() {
             <p>Conteúdo da petição não disponível</p>
           </div>
         )}
+        <LetterheadFooter config={petitionConfig} />
       </Card>
 
       {/* Review Section */}
