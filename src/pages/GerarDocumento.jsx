@@ -89,17 +89,42 @@ export default function GerarDocumento() {
     setResultado("");
     setSaved(false);
 
-    const systemPrompt = espSelecionado.prompt_sistema || `Você é ${espSelecionado.titulo || espSelecionado.name}, especialista em ${espSelecionado.area}. Com base no contexto fornecido, elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
+    const baseSystemPrompt = espSelecionado.prompt_sistema || `Você é ${espSelecionado.titulo || espSelecionado.name}, especialista em ${espSelecionado.area}. Com base no contexto fornecido, elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
+
+    const documentAnalysisInstructions = arquivos.length > 0 ? `
+
+INSTRUÇÕES CRÍTICAS PARA ANÁLISE DOS DOCUMENTOS ANEXADOS:
+Você DEVE ler e analisar INTEGRALMENTE cada documento anexado antes de elaborar qualquer texto. Siga este protocolo obrigatório:
+
+1. EXTRAÇÃO COMPLETA: Leia cada documento do início ao fim. Extraia TODOS os dados numéricos, datas, nomes, valores, horários e qualquer informação relevante.
+
+2. CRUZAMENTO E COMPARAÇÃO: Compare ativamente os documentos entre si. Especialmente:
+   - Cartão de ponto / espelho de ponto vs. holerites: verifique se as horas registradas batem com as horas pagas. Identifique CADA divergência (dia, horário registrado x horário pago, diferença em minutos/horas).
+   - Salário contratual vs. valores pagos nos holerites: identifique descontos indevidos, diferenças de base de cálculo, faltas injustificadas.
+   - Datas de admissão/demissão vs. registros nos documentos: verifique inconsistências.
+   - Benefícios (VT, VR, plano de saúde) declarados vs. descontos aplicados.
+
+3. DIVERGÊNCIAS E IRREGULARIDADES: Liste TODAS as inconsistências encontradas com precisão. Para cada divergência: (a) qual documento apresenta o dado, (b) o que o outro documento diz, (c) a diferença exata calculada, (d) o prejuízo estimado ao trabalhador.
+
+4. DADOS CONCRETOS NA PEÇA: Use os dados reais extraídos dos documentos. NUNCA use valores genéricos ou exemplos hipotéticos quando os documentos contêm a informação real. Cite período, datas específicas e valores exatos encontrados.
+
+5. FUNDAMENTAÇÃO: Use as irregularidades encontradas como base fática concreta para os pedidos.` : "";
+
+    const systemPrompt = baseSystemPrompt + documentAnalysisInstructions;
 
     const userPrompt = `Especialista acionado: ${espSelecionado.titulo || espSelecionado.name}
 Área: ${espSelecionado.area}
 
 CONTEXTO DO CASO:
 ${contexto}
-${arquivos.length > 0 ? `\nDOCUMENTOS ANEXADOS (${arquivos.length}):\n${arquivos.map((a, i) => `${i + 1}. ${a.name}`).join("\n")}\n\nAnalise os documentos anexados junto com o contexto acima.` : ""}
-${templateSelecionado ? `\n\nMODELO ESTRUTURAL OBRIGATÓRIO — siga rigorosamente esta estrutura, preservando todos os tópicos e seções. Preencha com os dados do caso. Campos sem informação marque como [A PREENCHER: descrição]:\n\n${templateSelecionado.content}` : ""}
+${arquivos.length > 0 ? `
+DOCUMENTOS ANEXADOS PARA ANÁLISE OBRIGATÓRIA (${arquivos.length} arquivo(s)):
+${arquivos.map((a, i) => `${i + 1}. ${a.name}`).join("\n")}
 
-Com base no contexto acima, elabore o documento jurídico conforme sua especialidade. Seja completo, técnico e preciso.`;
+⚠️ ATENÇÃO: Você DEVE ler e extrair informações de TODOS os documentos acima antes de redigir qualquer texto. Cruze os dados entre os documentos para identificar divergências (ex: horas no cartão de ponto vs. horas pagas no holerite, salário contratual vs. salário recebido, etc.). Cada irregularidade encontrada deve ser citada com dados concretos na peça.` : ""}
+${templateSelecionado ? `\n\nMODELO ESTRUTURAL OBRIGATÓRIO — siga rigorosamente esta estrutura, preservando todos os tópicos e seções. Preencha com os dados extraídos dos documentos e do caso. Campos sem informação marque como [A PREENCHER: descrição]:\n\n${templateSelecionado.content}` : ""}
+
+Com base no contexto e nos documentos analisados, elabore o documento jurídico completo, citando dados concretos extraídos dos arquivos. Seja técnico, preciso e use os números reais encontrados.`;
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
