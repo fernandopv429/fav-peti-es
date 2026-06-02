@@ -212,61 +212,80 @@ export default function GerarDocumento() {
     }
 
     // ── PASSO 3: Monta o prompt ───────────────────────────────────────────
+    const nomeEsp = espSelecionado.titulo || espSelecionado.name;
     const baseSystemPrompt = espSelecionado.prompt_sistema ||
-      `Você é ${espSelecionado.titulo || espSelecionado.name}, especialista em ${espSelecionado.area}. Elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
+      `Você é ${nomeEsp}, especialista em ${espSelecionado.area}. Elabore o documento jurídico solicitado com precisão técnica, linguagem formal e fundamentação adequada.`;
 
-    const docInstructions = arquivos.length > 0 ? `
-
-PROTOCOLO OBRIGATÓRIO DE ANÁLISE DOS DOCUMENTOS ANEXADOS:
-Você DEVE ler e analisar integralmente cada documento antes de escrever qualquer texto.
-1. EXTRAÇÃO: Extraia TODOS os dados (datas, valores, horários, nomes, divergências).
-2. CRUZAMENTO: Compare cartão de ponto vs holerites, salário contratual vs recebido, benefícios declarados vs descontos.
-3. DIVERGÊNCIAS: Liste CADA irregularidade com dado exato (documento A diz X, documento B diz Y, diferença Z).
-4. DADOS REAIS: Use exclusivamente os dados extraídos dos documentos, nunca hipotéticos.
-5. PENDÊNCIAS: Se um documento não puder ser lido, liste em seção "PENDÊNCIAS" ao final.` : "";
-
-    const templateInstructions = templateSelecionado?.content ? `
-
-${"═".repeat(60)}
-MODELO ESTRUTURAL OBRIGATÓRIO — PRIORIDADE MÁXIMA:
-Você DEVE seguir EXATAMENTE a estrutura abaixo. Regras absolutas:
-- Preserve TODOS os títulos, subtítulos e seções na MESMA ORDEM.
-- NÃO suprima, renomeie, funda ou reordene nenhum tópico.
-- Substitua apenas os dados variáveis (partes, datas, salário, fatos).
-- Se um tópico não se aplicar ao caso, escreva: "Não aplicável ao presente caso." — mas NUNCA omita o título.
-- Campos sem informação: [A PREENCHER: descrição do dado necessário]
-${"═".repeat(60)}
-
-${templateSelecionado.content}
-
-${"═".repeat(60)}
-FIM DO MODELO — agora preencha cada seção acima com os dados do caso.` : "";
-
-    const docTextBlock = conteudosTexto.length > 0 ? `
-
-${"═".repeat(60)}
-CONTEÚDO INTEGRAL DOS DOCUMENTOS ANEXADOS — USE ESTES DADOS:
-${"═".repeat(60)}
-
-${conteudosTexto.join("\n\n")}` : "";
+    const docTextBlock = conteudosTexto.length > 0
+      ? `\n\n${"═".repeat(60)}\nCONTEÚDO INTEGRAL DOS DOCUMENTOS ANEXADOS — USE ESTES DADOS:\n${"═".repeat(60)}\n\n${conteudosTexto.join("\n\n")}`
+      : "";
 
     const docVisualNote = urlsVisuais.length > 0
-      ? `\n\nALÉM DO TEXTO ACIMA, analise os ${urlsVisuais.length} arquivo(s) PDF/imagem enviados como anexo visual. Extraia TODOS os dados: valores, datas, horários, divergências entre cartão de ponto e holerites. Use esses dados concretos na peça.`
+      ? `\n\nALÉM DO TEXTO ACIMA, analise os ${urlsVisuais.length} arquivo(s) PDF/imagem enviados como anexo visual. Extraia TODOS os dados: valores, datas, horários, divergências. Use esses dados concretos na peça.`
       : "";
 
     const naoLidosNote = naoPudeLer.length > 0
       ? `\n\nDOCUMENTOS NÃO LIDOS (inclua como PENDÊNCIA na peça): ${naoPudeLer.join(", ")}`
       : "";
 
-    const systemPrompt = baseSystemPrompt + docInstructions;
+    const docAnalysisInstructions = arquivos.length > 0 ? `
 
-    const userPrompt = `Especialista: ${espSelecionado.titulo || espSelecionado.name} | Área: ${espSelecionado.area}
+PROTOCOLO OBRIGATÓRIO DE ANÁLISE DOS DOCUMENTOS:
+1. EXTRAÇÃO: Extraia TODOS os dados (datas, valores, horários, nomes, divergências).
+2. CRUZAMENTO: Compare cartão de ponto vs holerites, salário contratual vs recebido, benefícios declarados vs descontos.
+3. DADOS REAIS: Use exclusivamente os dados extraídos, nunca hipotéticos.
+4. PENDÊNCIAS: Se um documento não puder ser lido, liste em "PENDÊNCIAS" ao final.` : "";
+
+    // Quando há modelo: o system prompt é EXCLUSIVAMENTE sobre seguir o modelo.
+    // O prompt do especialista vai no user prompt como contexto de expertise.
+    let systemPrompt;
+    let userPrompt;
+
+    if (templateSelecionado?.content) {
+      // MODO MODELO: instrução de seguir a estrutura domina o system prompt
+      systemPrompt = `Você é um assistente jurídico especializado em ${espSelecionado.area}.
+
+SUA ÚNICA TAREFA É PREENCHER O MODELO ABAIXO com os dados do caso fornecido pelo usuário.
+
+REGRAS ABSOLUTAS — SEM EXCEÇÃO:
+1. Copie CADA título, subtítulo e seção do modelo exatamente como estão, na MESMA ORDEM.
+2. NUNCA omita, renomeie, funda ou reordene nenhum tópico — mesmo que pareça não se aplicar.
+3. Se um tópico não se aplicar ao caso, escreva abaixo do título: "Não aplicável ao presente caso."
+4. Substitua apenas os dados variáveis: nomes das partes, datas, salário, jornada, fatos do caso.
+5. Campos sem informação suficiente: [A PREENCHER: descrição do dado necessário]
+6. Mantenha toda a linguagem jurídica formal e os fundamentos legais do modelo.
+7. NÃO invente estrutura nova. O modelo é lei.
+${docAnalysisInstructions}
+
+════════════════════════════════════════════════════════════
+MODELO OBRIGATÓRIO — PREENCHA CADA SEÇÃO ABAIXO:
+════════════════════════════════════════════════════════════
+
+${templateSelecionado.content}
+
+════════════════════════════════════════════════════════════
+FIM DO MODELO. Agora preencha cada seção acima com os dados do caso que o usuário irá fornecer.`;
+
+      userPrompt = `Especialista de referência: ${nomeEsp} | Área: ${espSelecionado.area}
+
+CONTEXTO DO CASO (use para preencher o modelo):
+${contexto}
+${docTextBlock}${docVisualNote}${naoLidosNote}
+
+Preencha agora o modelo com os dados acima. Siga rigorosamente a estrutura do modelo.`;
+
+    } else {
+      // MODO LIVRE: especialista decide a estrutura
+      systemPrompt = baseSystemPrompt + docAnalysisInstructions;
+
+      userPrompt = `Especialista: ${nomeEsp} | Área: ${espSelecionado.area}
 
 CONTEXTO DO CASO:
 ${contexto}
-${docTextBlock}${docVisualNote}${naoLidosNote}${templateInstructions}
+${docTextBlock}${docVisualNote}${naoLidosNote}
 
 Elabore o documento jurídico completo, usando obrigatoriamente os dados reais dos documentos acima.`;
+    }
 
     // ── PASSO 4: Chama a IA ───────────────────────────────────────────────
     let textoGerado = "";
