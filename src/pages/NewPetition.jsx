@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useEspecialista } from "@/hooks/useEspecialista";
 import { Card } from "@/components/ui/card";
@@ -72,6 +72,7 @@ export default function NewPetition() {
   const [generateError, setGenerateError] = useState(null);
   const [pendencias, setPendencias] = useState([]);
   const [form, setForm] = useState(getInitialForm);
+  const generatingRef = useRef(false);
 
   useEffect(() => {
     base44.entities.PetitionTemplate.filter({ is_active: true }).then(setTemplates).catch(() => {});
@@ -211,6 +212,66 @@ ${docCtx}`;
     }
   };
 
+  // Polling: verifica a cada 5s se o status saiu de "em_geracao"
+  const startPolling = (petitionId) => {
+    generatingRef.current = true;
+    setGeneratingStep("IA processando a petição em segundo plano...");
+    setGeneratingProgress(20);
+
+    const interval = setInterval(async () => {
+      try {
+        const results = await base44.entities.Petition.filter({ id: petitionId });
+        const p = results[0];
+        if (!p) return;
+
+        if (p.status === "em_geracao") {
+          setGeneratingProgress((prev) => prev < 90 ? prev + 2 : prev);
+          return;
+        }
+
+        clearInterval(interval);
+        generatingRef.current = false;
+        setGenerating(false);
+        setGeneratingProgress(100);
+
+        if (p.status === "rascunho") {
+          setGenerateError("A geração falhou no servidor. Seus dados foram preservados. Tente novamente.");
+          toast.error("Erro na geração. Seus dados foram preservados.");
+          return;
+        }
+
+        let content = p.generated_content || "";
+        if (content.startsWith("http")) {
+          const res = await fetch(content);
+          content = await res.text();
+        }
+
+        const foundPendencias = extractPendencias(content);
+        setPendencias(foundPendencias);
+        setGeneratedContent(content);
+        try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (_) {}
+
+        if (foundPendencias.length > 0) {
+          toast.warning(`Petição gerada com ${foundPendencias.length} pendência(s) — revise os marcadores [A PREENCHER].`);
+        } else {
+          toast.success("Petição gerada com sucesso!");
+        }
+      } catch (_) {
+        // erro de rede no polling — aguarda próxima tentativa
+      }
+    }, 5000);
+
+    // Timeout de segurança: 12 minutos
+    setTimeout(() => {
+      if (!generatingRef.current) return;
+      clearInterval(interval);
+      generatingRef.current = false;
+      setGenerating(false);
+      setGenerateError("A geração está demorando mais que o esperado. Verifique a lista de petições ou tente novamente.");
+      toast.error("Tempo de espera esgotado.");
+    }, 12 * 60 * 1000);
+  };
+
   const handleGenerate = async () => {
     // Validação: modelo obrigatório
     if (!selectedTemplate) {
@@ -220,11 +281,12 @@ ${docCtx}`;
     }
 
     setGenerating(true);
-    setGeneratingStep("Salvando rascunho...");
+    setGeneratingStep("Salvando petição...");
     setGenerateError(null);
     setGeneratingProgress(10);
     setPendencias([]);
 
+    // 1. Salvar/atualizar petição com status "em_geracao"
     let petitionId = savedPetitionId;
     try {
       const draftData = {
@@ -241,25 +303,15 @@ ${docCtx}`;
         setSavedPetitionId(p.id);
       }
     } catch (err) {
-      toast.error("Erro ao salvar rascunho: " + err.message);
+      toast.error("Erro ao salvar petição: " + err.message);
       setGenerating(false);
       return;
     }
 
-    setGeneratingStep("Carregando precedentes e configurações...");
-    setGeneratingProgress(25);
+    // 2. Montar prompt (sem precedentes para reduzir tamanho)
+    setGeneratingStep("Preparando prompt...");
+    setGeneratingProgress(15);
 
-    // Carregar precedentes (Precedent + PrecedentV2)
-    let precs = [];
-    try {
-      const [p1, p2] = await Promise.all([
-        base44.entities.Precedent.filter({ is_active: true }).catch(() => []),
-        base44.entities.PrecedentV2.filter({ is_active: true }).catch(() => []),
-      ]);
-      precs = [...p1, ...p2];
-    } catch (e) {}
-
-    // Contexto de cálculos
     let calcCtx = "";
     if (form.calculations?.formatted) {
       calcCtx = `\n\nCÁLCULOS DE VERBAS (USE ESTES VALORES — NÃO ESTIME):\n${form.calculations.formatted}`;
@@ -269,105 +321,32 @@ ${docCtx}`;
 
     let docCtx = "";
     if (form.document_urls.length > 0) {
-      docCtx = `\n\nDocumentos anexados para análise: ${form.document_names.join(", ")}`;
+      docCtx = `\n\nDocumentos anexados: ${form.document_names.join(", ")}`;
     }
 
-    const prompt = buildAnchoredPrompt(selectedTemplate, petitionConfig, precs, calcCtx, docCtx);
-    const startTime = Date.now();
+    // Passa precs vazio — sem precedentes para não estourar o contexto
+    const prompt = buildAnchoredPrompt(selectedTemplate, petitionConfig, [], calcCtx, docCtx);
 
+    // 3. Disparar geração em background via backend function
     try {
-      const fileUrls = form.document_urls.length > 0 ? form.document_urls : undefined;
-      setGeneratingStep("Enviando à IA (isso pode levar 2–4 minutos)...");
-      setGeneratingProgress(40);
-
-      const progressInterval = setInterval(() => {
-        setGeneratingProgress((prev) => prev < 85 ? prev + 3 : prev);
-      }, 3000);
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Tempo limite excedido (5 min). Tente novamente.")), 5 * 60 * 1000)
-      );
-
-      const result = await Promise.race([
-        base44.integrations.Core.InvokeLLM({
-          prompt,
-          file_urls: fileUrls,
-          model: "claude_sonnet_4_6",
-        }),
-        timeoutPromise,
-      ]);
-
-      clearInterval(progressInterval);
-      setGeneratingStep("Analisando pendências e salvando...");
-      setGeneratingProgress(90);
-
-      // Detectar pendências
-      const foundPendencias = extractPendencias(result);
-      setPendencias(foundPendencias);
-      const hasPendencias = foundPendencias.length > 0;
-      const finalStatus = hasPendencias ? "revisao_necessaria" : "concluida";
-
-      // Salvar conteúdo
-      const blob = new Blob([result], { type: "text/plain" });
-      const file = new File([blob], "peticao.txt", { type: "text/plain" });
-      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
-
-      await base44.entities.Petition.update(petitionId, {
-        generated_content: contentUrl,
-        template_used: selectedTemplate.name,
-        status: finalStatus,
+      setGeneratingStep("Disparando geração em segundo plano...");
+      await base44.functions.invoke("generatePetition", {
+        petitionId,
+        prompt,
+        templateName: selectedTemplate.name,
+        templateId: selectedTemplate.id,
       });
-
-      // Incrementar use_count do template
-      try {
-        await base44.entities.PetitionTemplate.update(selectedTemplate.id, {
-          use_count: (selectedTemplate.use_count || 0) + 1,
-        });
-      } catch (e) {}
-
-      // Log de geração
-      try {
-        await base44.entities.GenerationLog.create({
-          petition_id: petitionId,
-          petition_title: form.title,
-          status: "concluido",
-          model_used: "claude_sonnet_4_6",
-          template_id: selectedTemplate.id,
-          precedents_count: precs.length,
-          duration_seconds: Math.round((Date.now() - startTime) / 1000),
-          generated_at: new Date().toISOString(),
-        });
-      } catch (e) {}
-
-      try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (e) {}
-      setGeneratingProgress(100);
-      setGeneratedContent(result);
-      setGeneratingStep("concluido");
-
-      if (hasPendencias) {
-        toast.warning(`Petição gerada com ${foundPendencias.length} pendência(s) — revise os marcadores [A PREENCHER].`);
-      } else {
-        toast.success("Petição gerada com sucesso!");
-      }
     } catch (err) {
-      try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (e) {}
-      try {
-        await base44.entities.GenerationLog.create({
-          petition_id: petitionId,
-          petition_title: form.title,
-          status: "erro",
-          error_message: err.message,
-          model_used: "claude_sonnet_4_6",
-          duration_seconds: Math.round((Date.now() - startTime) / 1000),
-          generated_at: new Date().toISOString(),
-        });
-      } catch (e) {}
-      setGenerateError(err.message || "Erro desconhecido. Tente novamente.");
-      toast.error("Erro ao gerar petição. Seus dados foram preservados.");
-    } finally {
       setGenerating(false);
-      setGeneratingProgress(0);
+      setGenerateError("Erro ao iniciar geração: " + err.message);
+      toast.error("Não foi possível iniciar a geração.");
+      // reverter status
+      try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
+      return;
     }
+
+    // 4. Iniciar polling
+    startPolling(petitionId);
   };
 
   const canProceed = () => {
@@ -445,7 +424,16 @@ ${docCtx}`;
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
           <p className="font-semibold mb-1">Erro ao gerar petição</p>
           <p>{generateError}</p>
-          <p className="mt-2 text-xs text-red-600">Seus dados foram preservados. Tente novamente.</p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-red-300 text-red-700 hover:bg-red-100"
+              onClick={() => { setGenerateError(null); handleGenerate(); }}
+            >
+              <Sparkles className="w-4 h-4" /> Tentar novamente
+            </Button>
+          </div>
         </div>
       )}
 
