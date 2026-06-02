@@ -19,8 +19,10 @@ export default function GerarDocumento() {
   const preEspId = params.get("especialista") || "";
 
   const [todos, setTodos] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [area, setArea] = useState(preArea);
   const [espId, setEspId] = useState(preEspId);
+  const [templateId, setTemplateId] = useState("");
   const [contexto, setContexto] = useState("");
   const [resultado, setResultado] = useState("");
   const [gerando, setGerando] = useState(false);
@@ -39,10 +41,14 @@ export default function GerarDocumento() {
         }
       })
       .catch(() => {});
+    base44.entities.PetitionTemplate.filter({ is_active: true })
+      .then(data => setTemplates(data))
+      .catch(() => {});
   }, []);
 
   const espDaArea = todos.filter(e => !area || e.area === area);
   const espSelecionado = todos.find(e => e.id === espId);
+  const templateSelecionado = templates.find(t => t.id === templateId) || null;
 
   const handleAreaChange = (val) => {
     setArea(val);
@@ -91,6 +97,7 @@ export default function GerarDocumento() {
 CONTEXTO DO CASO:
 ${contexto}
 ${arquivos.length > 0 ? `\nDOCUMENTOS ANEXADOS (${arquivos.length}):\n${arquivos.map((a, i) => `${i + 1}. ${a.name}`).join("\n")}\n\nAnalise os documentos anexados junto com o contexto acima.` : ""}
+${templateSelecionado ? `\n\nMODELO ESTRUTURAL OBRIGATÓRIO — siga rigorosamente esta estrutura, preservando todos os tópicos e seções. Preencha com os dados do caso. Campos sem informação marque como [A PREENCHER: descrição]:\n\n${templateSelecionado.content}` : ""}
 
 Com base no contexto acima, elabore o documento jurídico conforme sua especialidade. Seja completo, técnico e preciso.`;
 
@@ -208,10 +215,39 @@ Com base no contexto acima, elabore o documento jurídico conforme sua especiali
             <p className="text-muted-foreground text-xs mt-1">{contexto.length} caracteres — quanto mais detalhado, melhor o resultado</p>
           </div>
 
-          {/* Step 4: Documentos */}
+          {/* Step 4: Modelo */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-              4. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
+              4. Modelo a seguir <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
+            </label>
+            <select
+              value={templateId}
+              onChange={e => setTemplateId(e.target.value)}
+              className="w-full bg-input border border-border text-foreground rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+            >
+              <option value="">Sem modelo — IA decide a estrutura</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name} ({t.case_type})</option>
+              ))}
+            </select>
+            {templateSelecionado && (
+              <div className="mt-2 flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <FileText className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{templateSelecionado.name}</p>
+                  {templateSelecionado.description && <p className="text-xs text-muted-foreground truncate">{templateSelecionado.description}</p>}
+                </div>
+              </div>
+            )}
+            {templates.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">Nenhum modelo cadastrado em <strong>Modelos</strong>.</p>
+            )}
+          </div>
+
+          {/* Step 5: Documentos */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+              5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
             </label>
 
             <div
