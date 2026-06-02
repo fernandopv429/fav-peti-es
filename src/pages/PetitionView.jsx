@@ -7,7 +7,7 @@ import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X } from "lucide-react
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
-import { getPetitionViewStyle } from "../hooks/usePetitionFormat.js";
+import { getPetitionViewStyle } from "@/hooks/usePetitionFormat.js";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
