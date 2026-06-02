@@ -155,17 +155,18 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-playfair font-bold flex items-center gap-3">
+    <div className="min-h-screen bg-[#0d1526] p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="pt-2">
+        <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-white flex items-center gap-3">
           <Shield className="w-7 h-7 text-amber-500" />
           Defesa — Contestação do Empregador
         </h1>
-        <p className="text-muted-foreground mt-1">Gere contestações trabalhistas com IA a partir da petição inicial recebida</p>
+        <p className="text-slate-500 mt-1">Gere contestações trabalhistas com IA a partir da petição inicial recebida</p>
       </div>
 
-      <Card className="p-6 lg:p-8 space-y-5">
-        <h2 className="font-semibold text-base">Dados do caso</h2>
+      <Card className="p-6 lg:p-8 space-y-5 bg-white/[0.04] border-white/[0.07]">
+        <h2 className="font-semibold text-base text-white">Dados do caso</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título *</Label>
@@ -225,10 +226,10 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
       </Card>
 
       {resultado && (
-        <Card className="p-6 lg:p-8 space-y-4">
+        <Card className="p-6 lg:p-8 space-y-4 bg-white/[0.04] border-white/[0.07]">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="font-semibold text-base flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" /> Contestação gerada
+            <h2 className="font-semibold text-base text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-amber-400" /> Contestação gerada
             </h2>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(resultado); toast.success("Copiado!"); }}>
@@ -253,8 +254,8 @@ Com base nos dados acima e no texto da inicial, elabore a contestação completa
       )}
 
       {/* Histórico */}
-      <Card className="p-6 lg:p-8">
-        <h2 className="font-semibold text-base mb-4">Defesas salvas</h2>
+      <Card className="p-6 lg:p-8 bg-white/[0.04] border-white/[0.07]">
+        <h2 className="font-semibold text-base mb-4 text-white">Defesas salvas</h2>
         {loadingList ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : defesas.length === 0 ? (

@@ -208,13 +208,14 @@ export default function AtualizacaoCalculoPage() {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-playfair font-bold flex items-center gap-3">
+    <div className="min-h-screen bg-[#0d1526] p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="pt-2">
+        <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-white flex items-center gap-3">
           <TrendingUp className="w-7 h-7 text-amber-500" />
           Atualização de Cálculo
         </h1>
-        <p className="text-muted-foreground mt-1">Correção monetária e juros com fundamento legal automático</p>
+        <p className="text-slate-500 mt-1">Correção monetária e juros com fundamento legal automático</p>
       </div>
 
       {/* Aviso sobre índices */}
@@ -226,8 +227,8 @@ export default function AtualizacaoCalculoPage() {
         </div>
       </div>
 
-      <Card className="p-6 lg:p-8 space-y-5">
-        <h2 className="font-semibold text-base">Dados do cálculo</h2>
+      <Card className="p-6 lg:p-8 space-y-5 bg-white/[0.04] border-white/[0.07]">
+        <h2 className="font-semibold text-base text-white">Dados do cálculo</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título</Label>
@@ -314,9 +315,9 @@ export default function AtualizacaoCalculoPage() {
       </Card>
 
       {resultado && (
-        <Card className="p-6 lg:p-8 space-y-4">
-          <h2 className="font-semibold text-base flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Resultado
+        <Card className="p-6 lg:p-8 space-y-4 bg-white/[0.04] border-white/[0.07]">
+          <h2 className="font-semibold text-base text-white flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-amber-400" /> Resultado
           </h2>
 
           {/* Sumário */}
@@ -388,8 +389,8 @@ export default function AtualizacaoCalculoPage() {
       )}
 
       {/* Histórico */}
-      <Card className="p-6 lg:p-8">
-        <h2 className="font-semibold text-base mb-4">Cálculos salvos</h2>
+      <Card className="p-6 lg:p-8 bg-white/[0.04] border-white/[0.07]">
+        <h2 className="font-semibold text-base mb-4 text-white">Cálculos salvos</h2>
         {loadingList ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
         ) : calculos.length === 0 ? (

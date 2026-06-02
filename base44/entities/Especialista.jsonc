@@ -1,0 +1,70 @@
+{
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "description": "Numero do agente (01-57)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome tecnico do agente"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "Titulo amigavel para exibicao"
+    },
+    "area": {
+      "type": "string",
+      "description": "Area do Direito",
+      "enum": [
+        "Gest\u00e3o & Prazos",
+        "Atendimento & Clientes",
+        "Pesquisa Jur\u00eddica",
+        "C\u00edvel",
+        "Recursos",
+        "Trabalhista",
+        "Fam\u00edlia & Sucess\u00f5es",
+        "Criminal",
+        "Tribut\u00e1rio",
+        "Empresarial & Contratos",
+        "Imobili\u00e1rio & Loca\u00e7\u00e3o",
+        "Previdenci\u00e1rio",
+        "Execu\u00e7\u00e3o & C\u00e1lculo"
+      ]
+    },
+    "icone": {
+      "type": "string",
+      "description": "Emoji da area"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descricao / gatilho do agente"
+    },
+    "tools": {
+      "type": "string",
+      "description": "Ferramentas que o agente usa"
+    },
+    "modelo_ia": {
+      "type": "string",
+      "description": "Modelo de IA",
+      "default": "sonnet"
+    },
+    "prompt_sistema": {
+      "type": "string",
+      "description": "Corpo do agente: conhecimento e metodo (system prompt)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se aparece no catalogo"
+    }
+  },
+  "required": [
+    "numero",
+    "name",
+    "area",
+    "descricao",
+    "prompt_sistema"
+  ],
+  "name": "Especialista"
+}

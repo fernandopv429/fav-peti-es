@@ -16,6 +16,9 @@ import Precedents from './pages/Precedents.jsx';
 import CalculadoraVerbas from './pages/CalculadoraVerbas';
 import Defesa from './pages/Defesa';
 import AtualizacaoCalculoPage from './pages/AtualizacaoCalculo';
+import Home from './pages/Home';
+import Catalogo from './pages/Catalogo';
+import GerarDocumento from './pages/GerarDocumento';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,7 +47,9 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/catalogo" element={<Catalogo />} />
+        <Route path="/gerar" element={<GerarDocumento />} />
         <Route path="/nova-peticao" element={<NewPetition />} />
         <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
