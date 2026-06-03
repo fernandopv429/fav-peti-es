@@ -1,10 +1,11 @@
 /**
- * Modal de extração de dados de documentos com IA (backend function) + revisão.
+ * Modal de extração de dados de documentos com IA — por lotes com progresso real.
  * NÃO preenche valores de pedidos (P01..P87) nem VALOR_CAUSA.
  *
  * Props:
- *   casoVigilanteId  — ID do CasoVigilante existente (opcional; se null cria novo)
- *   documentUrls     — URLs já anexadas à petição (passadas diretamente, sem re-upload)
+ *   casoVigilanteId  — ID do CasoVigilante existente (usa ele; se null cria UM novo)
+ *   petitionId       — ID da Petition vinculada (gravado na ficha ao criar)
+ *   documentUrls     — URLs já anexadas à petição
  *   onConfirmar(dados, casoId) — chamado após revisão humana
  *   onFechar()
  */
@@ -14,49 +15,51 @@ import { Loader2, Upload, X, FileText, Image, File, CheckCircle2, AlertTriangle,
 import { toast } from "sonner";
 
 const CAMPOS_EXTRAIVEIS = [
-  { key: "RECL_NOME",          label: "Nome completo" },
-  { key: "RECL_NACIONALIDADE", label: "Nacionalidade" },
-  { key: "RECL_ESTADOCIVIL",   label: "Estado civil" },
-  { key: "RECL_RG",            label: "RG" },
-  { key: "RECL_PIS",           label: "PIS" },
-  { key: "RECL_CTPS",          label: "CTPS" },
-  { key: "RECL_SERIE",         label: "Série CTPS" },
-  { key: "RECL_CPF",           label: "CPF" },
-  { key: "RECL_NASC",          label: "Data de nascimento" },
-  { key: "RECL_FILIACAO",      label: "Filiação" },
-  { key: "RECL_ENDERECO",      label: "Endereço" },
-  { key: "RECL_CEP",           label: "CEP" },
-  { key: "RECL1_NOME",         label: "1ª Reclamada — Razão social" },
-  { key: "RECL1_CNPJ",         label: "1ª Reclamada — CNPJ" },
-  { key: "RECL1_LOGRADOURO",   label: "1ª Reclamada — Logradouro" },
-  { key: "RECL1_ENDCOMPL",     label: "1ª Reclamada — Complemento" },
-  { key: "RECL2_NOME",         label: "2ª Reclamada — Razão social" },
-  { key: "RECL2_CNPJ",         label: "2ª Reclamada — CNPJ" },
-  { key: "RECL2_LOGRADOURO",   label: "2ª Reclamada — Logradouro" },
-  { key: "RECL2_ENDCOMPL",     label: "2ª Reclamada — Complemento" },
-  { key: "RECL3_NOME",         label: "3ª Reclamada — Razão social" },
-  { key: "RECL3_CNPJ",         label: "3ª Reclamada — CNPJ" },
-  { key: "RECL3_LOGRADOURO",   label: "3ª Reclamada — Logradouro" },
-  { key: "RECL3_ENDCOMPL",     label: "3ª Reclamada — Complemento" },
-  { key: "COMARCA_UF",         label: "Comarca/UF" },
-  { key: "REGIAO_TRT",         label: "Região TRT" },
-  { key: "FORO_COMPETENCIA",   label: "Foro de competência" },
-  { key: "LOCAL_PRESTACAO",    label: "Local de prestação" },
+  { key: "RECL_NOME",             label: "Nome completo" },
+  { key: "RECL_NACIONALIDADE",    label: "Nacionalidade" },
+  { key: "RECL_ESTADOCIVIL",      label: "Estado civil" },
+  { key: "RECL_RG",               label: "RG" },
+  { key: "RECL_PIS",              label: "PIS" },
+  { key: "RECL_CTPS",             label: "CTPS" },
+  { key: "RECL_SERIE",            label: "Série CTPS" },
+  { key: "RECL_CPF",              label: "CPF" },
+  { key: "RECL_NASC",             label: "Data de nascimento" },
+  { key: "RECL_FILIACAO",         label: "Filiação" },
+  { key: "RECL_ENDERECO",         label: "Endereço" },
+  { key: "RECL_CEP",              label: "CEP" },
+  { key: "RECL1_NOME",            label: "1ª Reclamada — Razão social" },
+  { key: "RECL1_CNPJ",            label: "1ª Reclamada — CNPJ" },
+  { key: "RECL1_LOGRADOURO",      label: "1ª Reclamada — Logradouro" },
+  { key: "RECL1_ENDCOMPL",        label: "1ª Reclamada — Complemento" },
+  { key: "RECL2_NOME",            label: "2ª Reclamada — Razão social" },
+  { key: "RECL2_CNPJ",            label: "2ª Reclamada — CNPJ" },
+  { key: "RECL2_LOGRADOURO",      label: "2ª Reclamada — Logradouro" },
+  { key: "RECL2_ENDCOMPL",        label: "2ª Reclamada — Complemento" },
+  { key: "RECL3_NOME",            label: "3ª Reclamada — Razão social" },
+  { key: "RECL3_CNPJ",            label: "3ª Reclamada — CNPJ" },
+  { key: "RECL3_LOGRADOURO",      label: "3ª Reclamada — Logradouro" },
+  { key: "RECL3_ENDCOMPL",        label: "3ª Reclamada — Complemento" },
+  { key: "COMARCA_UF",            label: "Comarca/UF" },
+  { key: "REGIAO_TRT",            label: "Região TRT" },
+  { key: "FORO_COMPETENCIA",      label: "Foro de competência" },
+  { key: "LOCAL_PRESTACAO",       label: "Local de prestação" },
   { key: "LOCAL_PRESTACAO_COMPL", label: "Complemento local prestação" },
-  { key: "DATA_ADMISSAO",      label: "Data de admissão (por extenso)" },
-  { key: "FUNCAO",             label: "Função" },
-  { key: "DATA_RESCISAO",      label: "Data de rescisão (por extenso)" },
-  { key: "SALARIO",            label: "Salário (ex: R$ 2.148,22)" },
-  { key: "JORNADA_HORARIO",    label: "Jornada (ex: 18:30 às 07:30)" },
-  { key: "JORNADA_EXTRAPOLA",  label: "Extrapolação de jornada" },
-  { key: "JORNADA_FREQ_EXTRA", label: "Frequência de extras" },
-  { key: "INTERVALO_GOZADO",   label: "Intervalo gozado" },
-  { key: "CCT_VIGENCIA",       label: "Vigência CCT" },
-  { key: "ADIC_CONV",          label: "Adicional convencional HE" },
-  { key: "VAL_FT",             label: "Valor FT/folga trabalhada" },
-  { key: "VAL_CONDUCAO",       label: "Valor condução/dia" },
-  { key: "VAL_ALIMENTACAO",    label: "Valor alimentação/dia" },
+  { key: "DATA_ADMISSAO",         label: "Data de admissão (por extenso)" },
+  { key: "FUNCAO",                label: "Função" },
+  { key: "DATA_RESCISAO",         label: "Data de rescisão (por extenso)" },
+  { key: "SALARIO",               label: "Salário (ex: R$ 2.148,22)" },
+  { key: "JORNADA_HORARIO",       label: "Jornada (ex: 18:30 às 07:30)" },
+  { key: "JORNADA_EXTRAPOLA",     label: "Extrapolação de jornada" },
+  { key: "JORNADA_FREQ_EXTRA",    label: "Frequência de extras" },
+  { key: "INTERVALO_GOZADO",      label: "Intervalo gozado" },
+  { key: "CCT_VIGENCIA",          label: "Vigência CCT" },
+  { key: "ADIC_CONV",             label: "Adicional convencional HE" },
+  { key: "VAL_FT",                label: "Valor FT/folga trabalhada" },
+  { key: "VAL_CONDUCAO",          label: "Valor condução/dia" },
+  { key: "VAL_ALIMENTACAO",       label: "Valor alimentação/dia" },
 ];
+
+const LOTE_SIZE = 2;
 
 function getFileIcon(type) {
   if (type?.startsWith("image/")) return <Image className="w-4 h-4 text-blue-500" />;
@@ -64,14 +67,15 @@ function getFileIcon(type) {
   return <File className="w-4 h-4 text-muted-foreground" />;
 }
 
-export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onConfirmar, onFechar }) {
-  // Arquivos extras que o usuário pode adicionar além dos já anexados
+export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUrls = [], onConfirmar, onFechar }) {
   const [arquivosExtras, setArquivosExtras] = useState([]);
   const [uploadando, setUploadando] = useState(false);
-  const [extraindo, setExtraindo] = useState(false);
+  const [fase, setFase] = useState("inicio"); // "inicio" | "extraindo" | "revisao"
+  const [progresso, setProgresso] = useState({ atual: 0, total: 0, pct: 0, msg: "" });
   const [dadosExtraidos, setDadosExtraidos] = useState(null);
   const [dadosEditados, setDadosEditados] = useState({});
-  const [casoIdRetornado, setCasoIdRetornado] = useState(casoVigilanteId || null);
+  // ID da ficha — nunca muda após o primeiro clique em "Extrair"
+  const [fichaId, setFichaId] = useState(casoVigilanteId || null);
   const fileInputRef = useRef(null);
 
   const handleAddArquivos = async (files) => {
@@ -89,63 +93,117 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
   };
 
   const handleExtrair = async () => {
-    const todasUrls = [
-      ...documentUrls,
-      ...arquivosExtras.map(a => a.url),
-    ];
-
+    const todasUrls = [...documentUrls, ...arquivosExtras.map(a => a.url)];
     if (todasUrls.length === 0) {
       toast.error("Nenhum documento disponível. Adicione arquivos ou anexe documentos à petição.");
       return;
     }
 
-    // Usa sempre o mesmo casoId (prop original ou o retornado em extração anterior)
-    const idParaUsar = casoIdRetornado || casoVigilanteId || null;
-
-    setExtraindo(true);
+    setFase("extraindo");
     setDadosExtraidos(null);
     setDadosEditados({});
 
-    try {
-      const resp = await base44.functions.invoke("extrairDadosVigilante", {
-        casoVigilanteId: idParaUsar,
-        documentUrls: todasUrls,
-      });
-
-      // resp.data pode ser o objeto direto ou estar aninhado
-      const payload = resp?.data ?? resp;
-
-      if (!payload || payload.error) {
-        toast.error("Erro na extração: " + (payload?.error || "Resposta inválida da função."));
+    // ── PASSO 1: Garantir UMA ficha única ──────────────────────────────────
+    let idFicha = fichaId;
+    if (!idFicha) {
+      try {
+        setProgresso({ atual: 0, total: todasUrls.length, pct: 0, msg: "Criando ficha do caso..." });
+        const novaFicha = await base44.entities.CasoVigilante.create({
+          titulo: `Caso Vigilante — ${new Date().toLocaleDateString("pt-BR")}`,
+          status: "rascunho",
+          ...(petitionId ? { petition_id: petitionId } : {}),
+        });
+        idFicha = novaFicha.id;
+        setFichaId(idFicha);
+      } catch (e) {
+        toast.error("Erro ao criar ficha: " + e.message);
+        setFase("inicio");
         return;
       }
+    }
 
-      const campos = payload.campos || {};
-      const idRetornado = payload.casoVigilanteId || idParaUsar;
-      const totalExtraidos = payload.totalExtraidos ?? Object.keys(campos).length;
+    // ── PASSO 2: Lotes de 2 docs com progresso ────────────────────────────
+    const totalDocs = todasUrls.length;
+    const lotes = [];
+    for (let i = 0; i < totalDocs; i += LOTE_SIZE) {
+      lotes.push(todasUrls.slice(i, i + LOTE_SIZE));
+    }
 
-      setCasoIdRetornado(idRetornado);
-      setDadosExtraidos(campos);
-      setDadosEditados({ ...campos });
+    let camposMerged = {};
+    let docsProcessados = 0;
 
-      if (totalExtraidos === 0) {
-        toast.warning("A IA não conseguiu extrair dados. Verifique se os arquivos estão legíveis.");
+    for (let li = 0; li < lotes.length; li++) {
+      const lote = lotes[li];
+      const pct = Math.round((docsProcessados / totalDocs) * 100);
+      setProgresso({
+        atual: docsProcessados,
+        total: totalDocs,
+        pct,
+        msg: `Lendo ${docsProcessados + 1}–${Math.min(docsProcessados + lote.length, totalDocs)} de ${totalDocs} documentos — ${pct}%`,
+      });
+
+      try {
+        const resp = await base44.functions.invoke("extrairDadosVigilante", {
+          casoVigilanteId: idFicha,
+          documentUrls: lote,
+        });
+        const payload = resp?.data ?? resp;
+        const campos = payload?.campos || {};
+        // Merge: não sobrescreve campos já preenchidos em lotes anteriores
+        for (const [k, v] of Object.entries(campos)) {
+          if (v && v.trim() && !camposMerged[k]) camposMerged[k] = v.trim();
+        }
+      } catch (e) {
+        // Lote com falha — continua para os demais
+        console.error(`Lote ${li} falhou:`, e.message);
+      }
+
+      docsProcessados += lote.length;
+    }
+
+    // ── PASSO 3: Atualiza barra para 100% e relê a ficha do banco ─────────
+    setProgresso({ atual: totalDocs, total: totalDocs, pct: 100, msg: "Finalizando — relendo ficha..." });
+
+    try {
+      // Relê a ficha para pegar o estado real gravado (merge acumulativo do backend)
+      const fichaAtualizada = await base44.entities.CasoVigilante.filter({ id: idFicha });
+      const fichaData = fichaAtualizada?.[0] || {};
+
+      // Monta os campos relevantes a partir da ficha
+      const camposDaFicha = {};
+      for (const c of CAMPOS_EXTRAIVEIS) {
+        if (fichaData[c.key]) camposDaFicha[c.key] = fichaData[c.key];
+      }
+      // Complementa com o que foi mergeado localmente (caso a leitura seja parcial)
+      const camposFinais = { ...camposMerged, ...camposDaFicha };
+
+      const total = Object.keys(camposFinais).length;
+      setDadosExtraidos(camposFinais);
+      setDadosEditados({ ...camposFinais });
+      setFase("revisao");
+
+      if (total === 0) {
+        toast.warning("A IA não encontrou dados nos documentos. Verifique se os arquivos estão legíveis.");
       } else {
-        toast.success(`${totalExtraidos} campos extraídos e salvos — revise antes de confirmar.`);
+        toast.success(`${total} campos extraídos — revise antes de confirmar.`);
       }
     } catch (e) {
-      toast.error("Erro na extração: " + e.message);
-    } finally {
-      setExtraindo(false);
+      // Falha na releitura — usa o merge local mesmo
+      const camposFinais = { ...camposMerged };
+      setDadosExtraidos(camposFinais);
+      setDadosEditados({ ...camposFinais });
+      setFase("revisao");
+      toast.warning("Extração concluída. Não foi possível reler a ficha do banco — usando dados locais.");
     }
   };
 
   const handleConfirmar = () => {
-    onConfirmar(dadosEditados, casoIdRetornado);
+    onConfirmar(dadosEditados, fichaId);
     onFechar();
   };
 
   const totalDocs = documentUrls.length + arquivosExtras.length;
+  const camposPreenchidos = dadosExtraidos ? Object.keys(dadosExtraidos).filter(k => dadosExtraidos[k]).length : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -156,39 +214,31 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
             <Wand2 className="w-5 h-5 text-primary" />
             <h2 className="font-bold text-foreground">Extrair dados dos documentos com IA</h2>
           </div>
-          <button onClick={onFechar} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
+          {fase !== "extraindo" && (
+            <button onClick={onFechar} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Aviso */}
+          {/* Aviso permanente */}
           <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Atenção:</strong> A IA extrai dados dos documentos (OCR + visão), mas pode cometer erros. <strong>Revise todos os campos antes de confirmar.</strong> Os valores dos pedidos (P01–P87) e VALOR_CAUSA <strong>não são preenchidos automaticamente</strong>.
+              <strong>Atenção:</strong> A IA extrai dados por OCR/visão, mas pode cometer erros. <strong>Revise todos os campos antes de confirmar.</strong> Os valores dos pedidos (P01–P87) e VALOR_CAUSA <strong>não são preenchidos automaticamente</strong>.
             </div>
           </div>
 
-          {/* Documentos da petição já disponíveis */}
-          {documentUrls.length > 0 && (
-            <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-xs text-green-800">
-              <strong>✓ {documentUrls.length} documento(s) da petição</strong> serão analisados automaticamente.
-            </div>
-          )}
-
-          {/* Spinner de loading — cobre a área toda enquanto extrai */}
-          {extraindo && (
-            <div className="flex flex-col items-center justify-center gap-3 py-10">
-              <Loader2 className="w-10 h-10 animate-spin text-primary" />
-              <p className="text-foreground font-semibold text-sm">Extraindo com IA...</p>
-              <p className="text-muted-foreground text-xs text-center max-w-xs">Lendo documentos com visão e OCR. Pode levar 30–60 segundos.</p>
-            </div>
-          )}
-
-          {!dadosExtraidos && !extraindo && (
+          {/* ── FASE: INÍCIO ── */}
+          {fase === "inicio" && (
             <>
-              {/* Upload de arquivos extras */}
+              {documentUrls.length > 0 && (
+                <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-xs text-green-800">
+                  <strong>✓ {documentUrls.length} documento(s) da petição</strong> serão analisados automaticamente.
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
                   Adicionar mais documentos <span className="normal-case font-normal">(opcional)</span>
@@ -244,13 +294,39 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
             </>
           )}
 
-          {/* Tela de revisão */}
-          {dadosExtraidos && (
+          {/* ── FASE: EXTRAINDO (barra de progresso) ── */}
+          {fase === "extraindo" && (
+            <div className="py-6 space-y-5">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <p className="text-foreground font-semibold text-sm">Extraindo com IA...</p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{progresso.msg || "Iniciando..."}</span>
+                  <span className="font-bold text-primary">{progresso.pct}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-primary h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${progresso.pct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Cada lote de 2 documentos leva ~20–40s. Não feche esta janela.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── FASE: REVISÃO ── */}
+          {fase === "revisao" && dadosExtraidos && (
             <>
               <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>
-                  <strong>{Object.keys(dadosExtraidos).length} campos extraídos e gravados.</strong> Revise e edite abaixo antes de confirmar.
+                  <strong>{camposPreenchidos} campo(s) extraídos e gravados na ficha.</strong> Revise e edite abaixo antes de confirmar.
                 </span>
               </div>
 
@@ -268,16 +344,16 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
                       type="text"
                       value={dadosEditados[c.key] || ""}
                       onChange={e => setDadosEditados(prev => ({ ...prev, [c.key]: e.target.value }))}
-                      placeholder={dadosExtraidos[c.key] ? "" : "Não encontrado — preencha manualmente"}
+                      placeholder="Não encontrado — preencha manualmente se necessário"
                       className="w-full bg-input border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 sticky bottom-0 bg-card pb-2">
                 <button
-                  onClick={() => { setDadosExtraidos(null); setDadosEditados({}); /* casoIdRetornado mantido para reusar a mesma ficha */ }}
+                  onClick={() => { setFase("inicio"); setDadosExtraidos(null); setDadosEditados({}); }}
                   className="px-4 py-2.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-semibold transition-colors"
                 >
                   ← Tentar novamente

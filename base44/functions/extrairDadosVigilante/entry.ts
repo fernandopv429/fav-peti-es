@@ -16,7 +16,21 @@ Deno.serve(async (req) => {
   const { casoVigilanteId, documentUrls } = await req.json();
   if (!documentUrls || !documentUrls.length) return Response.json({ error: "Sem documentos." }, { status: 400 });
 
-  const merged = {};
+  // Lê campos já salvos na ficha para não sobrescrever com vazio (merge acumulativo)
+  let camposExistentes = {};
+  if (casoVigilanteId) {
+    try {
+      const fichas = await base44.asServiceRole.entities.CasoVigilante.filter({ id: casoVigilanteId });
+      if (fichas?.[0]) {
+        for (const c of CAMPOS) {
+          if (fichas[0][c]) camposExistentes[c] = fichas[0][c];
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Processa os documentos recebidos (o front já divide em lotes; aceita N docs)
+  const merged = { ...camposExistentes };
 
   for (let i = 0; i < documentUrls.length; i += 2) {
     const lote = documentUrls.slice(i, i + 2);
@@ -29,6 +43,7 @@ Deno.serve(async (req) => {
       });
       if (res && typeof res === "object") {
         for (const c of CAMPOS) {
+          // Só preenche se ainda não temos o campo (prioriza dados anteriores)
           if (res[c] && res[c].trim() && !merged[c]) merged[c] = res[c].trim();
         }
       }
@@ -44,6 +59,7 @@ Deno.serve(async (req) => {
   const extraidos = Object.fromEntries(Object.entries(merged).filter(([, v]) => v));
   const total = Object.keys(extraidos).length;
 
+  // Salva na ficha (merge com o que já havia)
   if (casoVigilanteId) {
     await base44.asServiceRole.entities.CasoVigilante.update(casoVigilanteId, {
       ...extraidos,
@@ -51,5 +67,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  return Response.json({ campos: extraidos, casoVigilanteId, totalExtraidos: total });
+  // Retorna apenas os campos novos extraídos nesta chamada (sem os pré-existentes)
+  const novos = Object.fromEntries(
+    Object.entries(extraidos).filter(([k, v]) => !camposExistentes[k] && v)
+  );
+
+  return Response.json({ campos: extraidos, camposNovos: novos, casoVigilanteId, totalExtraidos: total });
 });

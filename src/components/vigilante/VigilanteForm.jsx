@@ -89,7 +89,7 @@ function Field({ label, name, value, onChange, full }) {
   );
 }
 
-export default function VigilanteForm({ onGerarComDados, templateDocxUrl, documentUrls = [] }) {
+export default function VigilanteForm({ onGerarComDados, templateDocxUrl, documentUrls = [], petitionId }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
@@ -201,8 +201,8 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   const handleConfirmarExtracao = (dadosExtraidos, casoIdRetornado) => {
     setDados(prev => ({ ...prev, ...dadosExtraidos }));
-    // Se a função backend criou/atualizou o caso, registra o ID localmente
-    if (casoIdRetornado && !casoId) {
+    // Registra sempre o ID da ficha criada/usada na extração
+    if (casoIdRetornado && casoIdRetornado !== casoId) {
       setCasoId(casoIdRetornado);
       base44.entities.CasoVigilante.list().then(list => setCasos(list || [])).catch(() => {});
     }
@@ -217,11 +217,13 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       {mostrarExtrair && (
         <ExtrairDadosIA
           casoVigilanteId={casoId || null}
+          petitionId={petitionId || null}
           documentUrls={documentUrls}
           onConfirmar={handleConfirmarExtracao}
           onFechar={() => setMostrarExtrair(false)}
         />
       )}
+
 
       {/* Seletor de caso existente */}
       <div className="flex gap-2 items-end">
