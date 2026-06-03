@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { ChevronDown, ChevronRight, Save, Download, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -87,12 +88,13 @@ function Field({ label, name, value, onChange, full }) {
   );
 }
 
-export default function VigilanteForm({ onGerarComDados }) {
+export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
   const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, pedidos: false });
   const [salvando, setSalvando] = useState(false);
+  const [gerandoDocx, setGerandoDocx] = useState(false);
 
   useEffect(() => {
     base44.entities.CasoVigilante.list().then(list => {
@@ -151,6 +153,31 @@ export default function VigilanteForm({ onGerarComDados }) {
   };
 
   const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
+
+  const handleGerarDocxIdêntico = async () => {
+    if (!templateDocxUrl) return;
+    setGerandoDocx(true);
+    try {
+      const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dados);
+      // Download automático
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${dados.RECL_NOME || "vigilante"}_peticao.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      if (tokensFaltando.length > 0) {
+        toast.warning(`DOCX gerado! Tokens não preenchidos: ${tokensFaltando.join(", ")}`);
+      } else {
+        toast.success("DOCX gerado com sucesso — idêntico ao modelo oficial!");
+      }
+    } catch (e) {
+      toast.error("Erro ao gerar DOCX: " + e.message);
+    } finally {
+      setGerandoDocx(false);
+    }
+  };
 
   const pedidosKeys = Array.from({ length: 87 }, (_, i) => `P${String(i + 1).padStart(2, "0")}`);
 
@@ -281,12 +308,25 @@ export default function VigilanteForm({ onGerarComDados }) {
           {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {salvando ? "Salvando..." : "Salvar caso"}
         </button>
+
+        {templateDocxUrl && (
+          <button
+            type="button"
+            onClick={handleGerarDocxIdêntico}
+            disabled={gerandoDocx}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
+          >
+            {gerandoDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            {gerandoDocx ? "Gerando DOCX..." : "Gerar DOCX Idêntico ao Modelo"}
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => onGerarComDados(dados)}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
         >
-          Gerar Petição com estes dados →
+          Gerar Petição com IA →
         </button>
       </div>
     </div>

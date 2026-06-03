@@ -265,6 +265,8 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
     tags: initialData?.tags || [],
   });
   const [tagInput, setTagInput] = useState("");
+  const [docxFile, setDocxFile] = useState(null);
+  const docxRef = useRef(null);
 
   const addTag = (e) => {
     if (e.key === "Enter" && tagInput.trim()) {
@@ -286,6 +288,8 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
     let fileUrl = initialData?.file_url || "";
     let fileName = initialData?.file_name || "";
     let content = form.content;
+    let modeloDocxUrl = initialData?.modelo_docx_url || "";
+    let modeloDocxName = initialData?.modelo_docx_name || "";
 
     if (file) {
       const t = toast.loading("Enviando arquivo...");
@@ -322,7 +326,24 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
       }
     }
 
-    const data = { ...form, file_url: fileUrl, file_name: fileName, content };
+    // Upload do .docx oficial se fornecido
+    if (docxFile) {
+      const t2 = toast.loading("Enviando modelo DOCX oficial...");
+      try {
+        const result = await base44.integrations.Core.UploadFile({ file: docxFile });
+        modeloDocxUrl = result.file_url;
+        modeloDocxName = docxFile.name;
+        toast.dismiss(t2);
+        toast.success("Modelo DOCX enviado!");
+      } catch (err) {
+        toast.dismiss(t2);
+        toast.error("Erro ao enviar modelo DOCX: " + err.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    const data = { ...form, file_url: fileUrl, file_name: fileName, content, modelo_docx_url: modeloDocxUrl, modelo_docx_name: modeloDocxName };
 
     if (isEdit) {
       await base44.entities.PetitionTemplate.update(initialData.id, data);
@@ -390,6 +411,39 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
             </>
           )}
           <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" onChange={(e) => setFile(e.target.files[0])} className="hidden" />
+        </div>
+      </div>
+
+      {/* Upload do modelo DOCX oficial tokenizado */}
+      <div className="border border-amber-300 bg-amber-50/50 rounded-xl p-4 space-y-2">
+        <Label className="text-amber-800 font-bold">📄 Modelo DOCX Oficial (tokenizado com {"{{tokens}}"})</Label>
+        <p className="text-xs text-amber-700">Para geração determinística byte-idêntica (Vigilante 12x36). O arquivo .docx deve conter os tokens no formato {"{{CAMPO}}"}.</p>
+        <div
+          onClick={() => docxRef.current?.click()}
+          className="border-2 border-dashed border-amber-300 rounded-xl p-4 text-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-colors"
+        >
+          {docxFile ? (
+            <div className="flex items-center justify-center gap-2">
+              <FileText className="w-4 h-4 text-amber-700" />
+              <span className="text-sm font-medium text-amber-800">{docxFile.name}</span>
+              <button onClick={(e) => { e.stopPropagation(); setDocxFile(null); }} className="p-1 hover:bg-amber-100 rounded">
+                <X className="w-3.5 h-3.5 text-amber-700" />
+              </button>
+            </div>
+          ) : initialData?.modelo_docx_name ? (
+            <div className="text-sm text-amber-700">
+              <FileText className="w-4 h-4 mx-auto mb-1 text-amber-600" />
+              <span className="font-medium">{initialData.modelo_docx_name}</span>
+              <p className="text-xs mt-1">Clique para substituir</p>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-6 h-6 mx-auto text-amber-500 mb-1" />
+              <p className="text-sm font-medium text-amber-700">Clique para enviar o modelo .docx oficial</p>
+              <p className="text-xs text-amber-600 mt-0.5">Apenas .docx tokenizado</p>
+            </>
+          )}
+          <input ref={docxRef} type="file" accept=".docx" onChange={(e) => setDocxFile(e.target.files[0])} className="hidden" />
         </div>
       </div>
 

@@ -572,7 +572,7 @@ Retorne a petição completa e corrigida, sem comentários adicionais.`;
                 )}
               </div>
 
-              <VigilanteForm onGerarComDados={handleGerarVigilante} />
+              <VigilanteForm onGerarComDados={handleGerarVigilante} templateDocxUrl={templateSelecionado?.modelo_docx_url || ""} />
             </>
           ) : (
             <>
