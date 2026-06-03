@@ -7,6 +7,31 @@ import {
 import { toast } from "sonner";
 import { getPetitionFormat } from "@/hooks/usePetitionFormat.js";
 
+/**
+ * Classifica uma linha do texto da petição no padrão FAV:
+ *  - "heading"   : tudo maiúsculo, sem *, > 3 chars → caixa alta + negrito + sublinhado
+ *  - "ementa"    : começa com ">" → bloco recuado 4cm, sem itálico, negrito na ênfase
+ *  - "pedido"    : começa com aluno) ou letra) ou número. → minúsculas, negrito
+ *  - "fecho"     : contém "Nestes termos" ou "Pede deferimento" → centralizado
+ *  - "body"      : parágrafo normal → justificado, recuo 3cm na 1ª linha
+ */
+function classifyLine(line) {
+  const t = line.trim();
+  if (!t) return { type: "empty" };
+  if (t.startsWith(">")) return { type: "ementa", text: t.slice(1).trim() };
+  if (/^(nestes termos|pede deferimento|e\.e\.d\.|termos em que|a\.e\.d\.)/i.test(t))
+    return { type: "fecho", text: t };
+  // heading: tudo maiúsculo (sem asteriscos, mínimo 4 chars, sem pontuação terminal dominante)
+  const noMd = t.replace(/\*\*/g, "").replace(/^#{1,6}\s/, "");
+  if (noMd === noMd.toUpperCase() && noMd.length > 3 && !/^[a-z]/.test(noMd))
+    return { type: "heading", text: noMd };
+  // pedido: linha que começa com letra/número seguido de ) ou .
+  if (/^[a-z]\)|^\d+\.\s|^[ivxlc]+\)/i.test(t.replace(/\*\*/g, "")))
+    return { type: "pedido", text: noMd };
+  const clean = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/^#{1,6}\s/, "");
+  return { type: "body", text: clean, raw: t };
+}
+
 export default function ExportButtons({ petition, petitionConfig }) {
   const [exporting, setExporting] = useState(null);
 
@@ -15,15 +40,13 @@ export default function ExportButtons({ petition, petitionConfig }) {
   const cm2mm   = (v) => v * 10;
   const cm2twip = (v) => Math.round(v * 567);
 
-  // Carrega uma imagem e retorna { dataUrl, width, height } em pixels
   const loadImage = (url) =>
     new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = img.width; canvas.height = img.height;
         canvas.getContext("2d").drawImage(img, 0, 0);
         resolve({ dataUrl: canvas.toDataURL("image/png"), width: img.width, height: img.height });
       };
@@ -39,25 +62,35 @@ export default function ExportButtons({ petition, petitionConfig }) {
       ? `<img src="${fmt.logoUrl}" style="max-height:90px;display:block;margin:0 auto;" crossorigin="anonymous"/>`
       : "";
 
-    // Rodapé: imagem de largura total ou texto
     const footerHtml = fmt.footerImageUrl
       ? `<img src="${fmt.footerImageUrl}" style="width:100%;display:block;" crossorigin="anonymous"/>`
       : fmt.footerText
-      ? `<p style="white-space:pre-line;margin:0;font-size:${Math.max(fmt.fontSize - 2, 8)}pt;">${fmt.footerText.replace(/</g, "&lt;")}</p>`
+      ? `<p style="white-space:pre-line;margin:0;font-size:10pt;">${fmt.footerText.replace(/</g, "&lt;")}</p>`
       : "";
 
-    const bodyHtml = content
-      .split("\n")
-      .map((line) => {
-        const t = line.trim();
-        if (!t) return "<br/>";
-        const clean = t.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/#{1,6}\s/g, "");
-        const isHeading = t === t.toUpperCase() && t.length > 3 && !t.startsWith("*");
-        if (isHeading)
-          return `<p style="text-align:center;font-weight:bold;text-transform:uppercase;margin:1em 0 0.4em;">${clean}</p>`;
-        return `<p style="text-indent:1.25cm;margin:0 0 0.3em;text-align:justify;">${clean}</p>`;
-      })
-      .join("");
+    const bodyHtml = content.split("\n").map((line) => {
+      const cl = classifyLine(line);
+      if (cl.type === "empty") return "<br/>";
+
+      if (cl.type === "heading") {
+        const txt = cl.text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        return `<p class="heading">${txt}</p>`;
+      }
+      if (cl.type === "ementa") {
+        const txt = cl.text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        return `<p class="ementa">${txt}</p>`;
+      }
+      if (cl.type === "pedido") {
+        const txt = cl.text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").toLowerCase();
+        return `<p class="pedido"><strong>${txt}</strong></p>`;
+      }
+      if (cl.type === "fecho") {
+        return `<p class="fecho">${cl.text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")}</p>`;
+      }
+      // body
+      const txt = (cl.raw || cl.text).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/^#{1,6}\s/, "");
+      return `<p class="body">${txt}</p>`;
+    }).join("");
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -71,16 +104,38 @@ export default function ExportButtons({ petition, petitionConfig }) {
     }
     * { box-sizing: border-box; }
     body {
-      font-family: "${fmt.font}", Arial, sans-serif;
-      font-size: ${fmt.fontSize}pt;
-      line-height: ${fmt.lineHeight};
+      font-family: Arial, sans-serif;
+      font-size: 12pt;
+      line-height: 1.5;
       color: #000;
       margin: 0;
     }
     .header { text-align:center; border-bottom:1px solid #ccc; padding-bottom:10px; margin-bottom:16px; }
-    .footer {
-      position: fixed; bottom: 0; left: 0; right: 0;
+    .footer { position:fixed; bottom:0; left:0; right:0; text-align:center; }
+    p { margin: 0 0 0.3em; }
+    .heading {
       text-align: center;
+      font-weight: bold;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 1em 0 0.4em;
+    }
+    .ementa {
+      margin-left: 4cm;
+      text-align: justify;
+      font-style: normal;
+    }
+    .pedido {
+      text-align: justify;
+      text-indent: ${fmt.firstIndent}cm;
+    }
+    .fecho {
+      text-align: center;
+      margin-top: 1em;
+    }
+    .body {
+      text-align: justify;
+      text-indent: ${fmt.firstIndent}cm;
     }
   </style>
 </head>
@@ -105,60 +160,45 @@ export default function ExportButtons({ petition, petitionConfig }) {
     try {
       const { jsPDF } = await import("jspdf");
 
-      const PW = 210;
-      const PH = 297;
+      const PW = 210, PH = 297;
       const ML = cm2mm(fmt.marginLeft);
       const MR = cm2mm(fmt.marginRight);
       const MT = cm2mm(fmt.marginTop);
       const MB = cm2mm(fmt.marginBottom);
       const maxW = PW - ML - MR;
+      const indentMm = cm2mm(fmt.firstIndent);
+      const ementaIndentMm = 40; // 4cm
 
-      // jsPDF só suporta helvetica/times/courier nativamente
-      const jsPdfFont = fmt.font.toLowerCase().includes("times")   ? "times"
-                      : fmt.font.toLowerCase().includes("courier") ? "courier"
-                      : "helvetica";
+      // jsPDF só suporta helvetica/times/courier nativamente; Arial → helvetica
+      const jsPdfFont = "helvetica";
+      const fs = fmt.fontSize;
+      const lineH = fs * 0.352778 * fmt.lineHeight;
 
-      // Pré-carrega imagens
-      let logoImg = null;
-      let footerImg = null;
+      let logoImg = null, footerImg = null;
+      if (fmt.logoUrl) { try { logoImg = await loadImage(fmt.logoUrl); } catch (_) {} }
+      if (fmt.footerImageUrl) { try { footerImg = await loadImage(fmt.footerImageUrl); } catch (_) {} }
 
-      if (fmt.logoUrl) {
-        try { logoImg = await loadImage(fmt.logoUrl); } catch (_) {}
-      }
-      if (fmt.footerImageUrl) {
-        try { footerImg = await loadImage(fmt.footerImageUrl); } catch (_) {}
-      }
-
-      // Altura do rodapé em mm
       const footerImgH = footerImg
-        ? Math.min((footerImg.height / footerImg.width) * (PW - ML - MR), 25) // máx 25mm
-        : 0;
+        ? Math.min((footerImg.height / footerImg.width) * maxW, 25) : 0;
       const footerTextH = !footerImg && fmt.footerText ? 14 : 0;
       const footerReserve = footerImgH || footerTextH;
       const bodyBottom = PH - MB - footerReserve;
 
       const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const fs = fmt.fontSize;
-      const lineH = fs * 0.352778 * fmt.lineHeight;
-
       let y = MT;
 
       const drawFooter = () => {
-        const footerY = PH - MB - footerReserve;
+        const fy = PH - MB - footerReserve;
         if (footerImg) {
-          const imgW = PW - ML - MR;
-          doc.addImage(footerImg.dataUrl, "PNG", ML, footerY, imgW, footerImgH);
+          doc.addImage(footerImg.dataUrl, "PNG", ML, fy, maxW, footerImgH);
         } else if (fmt.footerText) {
           doc.setDrawColor(150, 150, 150);
-          doc.line(ML, footerY, PW - MR, footerY);
+          doc.line(ML, fy, PW - MR, fy);
           doc.setFont(jsPdfFont, "normal");
-          doc.setFontSize(Math.max(fs - 2, 8));
+          doc.setFontSize(10);
           const fLines = doc.splitTextToSize(fmt.footerText, maxW);
-          let fy = footerY + 4;
-          fLines.forEach((fl) => {
-            doc.text(fl, PW / 2, fy, { align: "center" });
-            fy += 4;
-          });
+          let fcy = fy + 4;
+          fLines.forEach(fl => { doc.text(fl, PW / 2, fcy, { align: "center" }); fcy += 4; });
         }
       };
 
@@ -166,8 +206,7 @@ export default function ExportButtons({ petition, petitionConfig }) {
         let hy = MT;
         if (withLogo && logoImg) {
           const ratio = logoImg.width / logoImg.height;
-          const imgH = 18;
-          const imgW = imgH * ratio;
+          const imgH = 18, imgW = imgH * ratio;
           doc.addImage(logoImg.dataUrl, "PNG", (PW - imgW) / 2, hy, imgW, imgH);
           hy += imgH + 3;
         }
@@ -178,47 +217,89 @@ export default function ExportButtons({ petition, petitionConfig }) {
       };
 
       const newPage = () => {
-        doc.addPage();
-        y = MT;
-        drawFooter();
-        drawHeader(false);
+        doc.addPage(); y = MT;
+        drawFooter(); drawHeader(false);
       };
 
-      const checkPage = (needed) => {
-        if (y + needed > bodyBottom) { newPage(); return true; }
-        return false;
-      };
+      const checkPage = (needed) => { if (y + needed > bodyBottom) { newPage(); return true; } return false; };
 
-      // Página 1
       drawHeader(true);
       drawFooter();
 
-      // Conteúdo
       const content = petition.generated_content || "";
       for (const line of content.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          y += lineH * 0.5;
-          checkPage(0);
+        const cl = classifyLine(line);
+        if (cl.type === "empty") { y += lineH * 0.5; checkPage(0); continue; }
+
+        const cleanText = cl.text.replace(/\*\*/g, "");
+
+        if (cl.type === "heading") {
+          doc.setFont(jsPdfFont, "bold");
+          doc.setFontSize(fs);
+          const split = doc.splitTextToSize(cleanText.toUpperCase(), maxW);
+          y += lineH * 0.3;
+          for (const sl of split) {
+            checkPage(lineH);
+            // underline manual: draw line under text
+            const tw = doc.getTextWidth(sl);
+            doc.text(sl, PW / 2, y, { align: "center" });
+            doc.setDrawColor(0);
+            doc.line((PW - tw) / 2, y + 0.5, (PW + tw) / 2, y + 0.5);
+            y += lineH;
+          }
+          y += lineH * 0.3;
           continue;
         }
-        const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
-        const isBold = trimmed.startsWith("**") || isHeading;
-        const clean = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
+
+        if (cl.type === "ementa") {
+          doc.setFont(jsPdfFont, "normal");
+          doc.setFontSize(fs);
+          const ew = maxW - ementaIndentMm;
+          const split = doc.splitTextToSize(cleanText, ew);
+          for (const sl of split) {
+            checkPage(lineH);
+            doc.text(sl, ML + ementaIndentMm, y);
+            y += lineH;
+          }
+          continue;
+        }
+
+        if (cl.type === "pedido") {
+          doc.setFont(jsPdfFont, "bold");
+          doc.setFontSize(fs);
+          const pText = cleanText.toLowerCase();
+          const split = doc.splitTextToSize(pText, maxW - indentMm);
+          for (let i = 0; i < split.length; i++) {
+            checkPage(lineH);
+            doc.text(split[i], i === 0 ? ML + indentMm : ML, y);
+            y += lineH;
+          }
+          continue;
+        }
+
+        if (cl.type === "fecho") {
+          doc.setFont(jsPdfFont, "normal");
+          doc.setFontSize(fs);
+          const split = doc.splitTextToSize(cleanText, maxW);
+          y += lineH * 0.5;
+          for (const sl of split) {
+            checkPage(lineH);
+            doc.text(sl, PW / 2, y, { align: "center" });
+            y += lineH;
+          }
+          continue;
+        }
+
+        // body
+        const isBold = line.trim().startsWith("**");
         doc.setFont(jsPdfFont, isBold ? "bold" : "normal");
         doc.setFontSize(fs);
-        const splitLines = doc.splitTextToSize(clean, isHeading ? maxW : maxW - 12.5);
-        for (let i = 0; i < splitLines.length; i++) {
+        const split = doc.splitTextToSize(cleanText, maxW - indentMm);
+        for (let i = 0; i < split.length; i++) {
           checkPage(lineH);
-          if (isHeading) {
-            doc.text(splitLines[i], PW / 2, y, { align: "center" });
-          } else {
-            const x = i === 0 ? ML + 12.5 : ML;
-            doc.text(splitLines[i], x, y);
-          }
+          doc.text(split[i], i === 0 ? ML + indentMm : ML, y);
           y += lineH;
         }
-        if (isHeading) y += lineH * 0.4;
       }
 
       doc.save(`${petition.title || "peticao"}.pdf`);
@@ -234,52 +315,111 @@ export default function ExportButtons({ petition, petitionConfig }) {
   const handleExportDOCX = async () => {
     setExporting("docx");
     try {
-      const { Document, Paragraph, TextRun, Packer, AlignmentType, Header, Footer, ImageRun } = await import("docx");
+      const {
+        Document, Paragraph, TextRun, Packer,
+        AlignmentType, Header, Footer, ImageRun, UnderlineType,
+      } = await import("docx");
 
-      const halfPt = fmt.fontSize * 2;
-      const lineSpacingTwip = Math.round(240 * fmt.lineHeight);
-      const indentTwip = cm2twip(1.25);
+      const halfPt = 24; // 12pt × 2
+      const lineSpacingTwip = Math.round(240 * 1.5); // 360
+      const indentTwip = cm2twip(fmt.firstIndent);   // 3cm
+      const ementaIndentTwip = cm2twip(4.0);          // 4cm
 
       const content = petition.generated_content || "";
+
       const bodyParagraphs = content.split("\n").map((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
-        const clean = trimmed.replace(/\*\*/g, "").replace(/#{1,6}\s/g, "");
-        const isHeading = trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith("*");
-        const isBold = trimmed.startsWith("**") || isHeading;
+        const cl = classifyLine(line);
+        const cleanText = cl.text ? cl.text.replace(/\*\*/g, "") : "";
+
+        if (cl.type === "empty") {
+          return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
+        }
+
+        if (cl.type === "heading") {
+          return new Paragraph({
+            children: [new TextRun({
+              text: cleanText.toUpperCase(),
+              bold: true,
+              underline: { type: UnderlineType.SINGLE },
+              size: halfPt,
+              font: "Arial",
+            })],
+            alignment: AlignmentType.CENTER,
+            spacing: { line: lineSpacingTwip, before: 240, after: 120 },
+          });
+        }
+
+        if (cl.type === "ementa") {
+          return new Paragraph({
+            children: [new TextRun({ text: cleanText, size: halfPt, font: "Arial" })],
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { left: ementaIndentTwip },
+            spacing: { line: lineSpacingTwip, after: 60 },
+          });
+        }
+
+        if (cl.type === "pedido") {
+          return new Paragraph({
+            children: [new TextRun({
+              text: cleanText.toLowerCase(),
+              bold: true, size: halfPt, font: "Arial",
+            })],
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { firstLine: indentTwip },
+            spacing: { line: lineSpacingTwip, after: 60 },
+          });
+        }
+
+        if (cl.type === "fecho") {
+          return new Paragraph({
+            children: [new TextRun({ text: cleanText, size: halfPt, font: "Arial" })],
+            alignment: AlignmentType.CENTER,
+            spacing: { line: lineSpacingTwip, before: 240, after: 60 },
+          });
+        }
+
+        // body — detecta trechos **negrito**
+        const rawLine = line.trim();
+        const parts = rawLine.replace(/^#{1,6}\s/, "").split(/(\*\*.*?\*\*)/g);
+        const runs = parts.map(p => {
+          if (p.startsWith("**") && p.endsWith("**")) {
+            return new TextRun({ text: p.slice(2, -2), bold: true, size: halfPt, font: "Arial" });
+          }
+          return new TextRun({ text: p, size: halfPt, font: "Arial" });
+        });
+
         return new Paragraph({
-          children: [new TextRun({ text: clean, bold: isBold, size: halfPt, font: fmt.font })],
-          alignment: isHeading ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
-          spacing: { line: lineSpacingTwip, before: isHeading ? 240 : 0, after: isHeading ? 120 : 60 },
-          indent: isHeading ? undefined : { firstLine: indentTwip },
+          children: runs,
+          alignment: AlignmentType.JUSTIFIED,
+          indent: { firstLine: indentTwip },
+          spacing: { line: lineSpacingTwip, after: 60 },
         });
       });
 
-      // Cabeçalho DOCX — só logo como imagem
+      // Cabeçalho DOCX
       let headerChildren = [];
       if (fmt.logoUrl) {
         try {
           const logoData = await loadImage(fmt.logoUrl);
           const resp = await fetch(fmt.logoUrl);
           const buf = await resp.arrayBuffer();
-          const maxLogoW = cm2twip(8); // máx 8cm
+          const maxLogoW = cm2twip(8);
           const ratio = logoData.width / logoData.height;
           const logoH = Math.round(maxLogoW / ratio);
-          headerChildren = [
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: buf,
-                  transformation: { width: maxLogoW / 914400 * 12700 * 72, height: logoH / 914400 * 12700 * 72 },
-                }),
-              ],
-              alignment: AlignmentType.CENTER,
-            }),
-          ];
+          headerChildren = [new Paragraph({
+            children: [new ImageRun({
+              data: buf,
+              transformation: {
+                width: Math.round(maxLogoW / 914400 * 12700 * 72),
+                height: Math.round(logoH / 914400 * 12700 * 72),
+              },
+            })],
+            alignment: AlignmentType.CENTER,
+          })];
         } catch (_) {}
       }
 
-      // Rodapé DOCX — imagem de largura total ou texto
+      // Rodapé DOCX
       let footerChildren = [];
       if (fmt.footerImageUrl) {
         try {
@@ -288,37 +428,25 @@ export default function ExportButtons({ petition, petitionConfig }) {
           const footerImgData = await loadImage(fmt.footerImageUrl);
           const pageW = cm2twip(21 - fmt.marginLeft - fmt.marginRight);
           const ratio = footerImgData.width / footerImgData.height;
-          // Converte twip → EMU (1 twip = 635 EMU, 1 pt = 12700 EMU)
           const wEmu = Math.round(pageW * 635);
           const hEmu = Math.round(wEmu / ratio);
-          footerChildren = [
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: buf,
-                  transformation: { width: Math.round(wEmu / 9144), height: Math.round(hEmu / 9144) },
-                }),
-              ],
-              alignment: AlignmentType.CENTER,
-            }),
-          ];
+          footerChildren = [new Paragraph({
+            children: [new ImageRun({
+              data: buf,
+              transformation: { width: Math.round(wEmu / 9144), height: Math.round(hEmu / 9144) },
+            })],
+            alignment: AlignmentType.CENTER,
+          })];
         } catch (_) {
-          // fallback texto
           if (fmt.footerText) {
-            footerChildren = fmt.footerText.split("\n").map((l) =>
-              new Paragraph({
-                children: [new TextRun({ text: l, size: Math.max(halfPt - 4, 16), font: fmt.font })],
-                alignment: AlignmentType.CENTER,
-              })
+            footerChildren = fmt.footerText.split("\n").map(l =>
+              new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER })
             );
           }
         }
       } else if (fmt.footerText) {
-        footerChildren = fmt.footerText.split("\n").map((l) =>
-          new Paragraph({
-            children: [new TextRun({ text: l, size: Math.max(halfPt - 4, 16), font: fmt.font })],
-            alignment: AlignmentType.CENTER,
-          })
+        footerChildren = fmt.footerText.split("\n").map(l =>
+          new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER })
         );
       }
 
