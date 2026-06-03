@@ -40,10 +40,12 @@ export default function ExportButtons({ petition, petitionConfig }) {
   const cm2mm   = (v) => v * 10;
   const cm2twip = (v) => Math.round(v * 567);
 
+  // Carrega imagem a partir de URL ou data-URI base64
   const loadImage = (url) =>
     new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = "anonymous";
+      // Só setar crossOrigin para URLs remotas (não base64)
+      if (!url.startsWith("data:")) img.crossOrigin = "anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width; canvas.height = img.height;
@@ -53,6 +55,20 @@ export default function ExportButtons({ petition, petitionConfig }) {
       img.onerror = reject;
       img.src = url;
     });
+
+  // Converte URL ou data-URI base64 para ArrayBuffer (usado no DOCX)
+  const urlToArrayBuffer = async (url) => {
+    if (url.startsWith("data:")) {
+      // data:image/png;base64,XXXX → ArrayBuffer
+      const base64 = url.split(",")[1];
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    }
+    const resp = await fetch(url);
+    return resp.arrayBuffer();
+  };
 
   // ── IMPRESSÃO HTML ──────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -401,8 +417,7 @@ export default function ExportButtons({ petition, petitionConfig }) {
       if (fmt.logoUrl) {
         try {
           const logoData = await loadImage(fmt.logoUrl);
-          const resp = await fetch(fmt.logoUrl);
-          const buf = await resp.arrayBuffer();
+          const buf = await urlToArrayBuffer(fmt.logoUrl);
           const maxLogoW = cm2twip(8);
           const ratio = logoData.width / logoData.height;
           const logoH = Math.round(maxLogoW / ratio);
@@ -423,8 +438,7 @@ export default function ExportButtons({ petition, petitionConfig }) {
       let footerChildren = [];
       if (fmt.footerImageUrl) {
         try {
-          const resp = await fetch(fmt.footerImageUrl);
-          const buf = await resp.arrayBuffer();
+          const buf = await urlToArrayBuffer(fmt.footerImageUrl);
           const footerImgData = await loadImage(fmt.footerImageUrl);
           const pageW = cm2twip(21 - fmt.marginLeft - fmt.marginRight);
           const ratio = footerImgData.width / footerImgData.height;
