@@ -267,6 +267,7 @@ export default function GerarDocumento() {
       setGerandoStep("IA completando narrativa fática...");
 
       // A IA só completa trechos que ficaram em [colchetes] e redige narrativa fática
+      const contextoBlock = contexto.trim() ? `\n\nCONTEXTO ADICIONAL DO CASO:\n${contexto}` : "";
       const promptIA = `Você é um advogado trabalhista. Abaixo está uma petição já montada deterministicamente com dados do formulário.
 Sua tarefa: APENAS preencher os campos que ainda estão entre [colchetes] usando os dados fornecidos abaixo, e expandir com linguagem jurídica formal as seções descritivas de fatos (DO DANO MORAL, DA RESCISÃO INDIRETA, DA JORNADA) com base nos dados concretos do caso.
 
@@ -275,7 +276,7 @@ REGRAS:
 - NÃO altere qualificação das partes, datas, fundamentos legais, súmulas ou artigos.
 - APENAS expanda narrativa fática descritiva e preencha [colchetes] restantes.
 - Mantenha estrutura e títulos exatamente como estão.
-${docBlock}${docVisual}${pendencias}
+${contextoBlock}${docBlock}${docVisual}${pendencias}
 
 DADOS DO CASO:
 - Reclamante: ${dadosVigilante.RECL_NOME}
@@ -525,6 +526,15 @@ Retorne a petição completa e corrigida, sem comentários adicionais.`;
             )}
           </div>
 
+          {/* Step 4: Contexto do caso — sempre visível */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">4. Contexto do caso</label>
+            <textarea value={contexto} onChange={e => setContexto(e.target.value)}
+              placeholder="Descreva detalhadamente o caso, as partes envolvidas, os fatos relevantes..."
+              className="w-full bg-input border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors min-h-[160px] resize-y leading-relaxed" />
+            <p className="text-muted-foreground text-xs mt-1">{contexto.length} caracteres</p>
+          </div>
+
           {/* MODO VIGILANTE: Formulário estruturado */}
           {modoVigilante ? (
             <>
@@ -535,7 +545,7 @@ Retorne a petição completa e corrigida, sem comentários adicionais.`;
               {/* Documentos para análise */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                  Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
+                  5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
                 </label>
                 <div className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
@@ -567,14 +577,6 @@ Retorne a petição completa e corrigida, sem comentários adicionais.`;
           ) : (
             <>
               {/* MODO NORMAL */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">4. Contexto do caso</label>
-                <textarea value={contexto} onChange={e => setContexto(e.target.value)}
-                  placeholder="Descreva detalhadamente o caso, as partes envolvidas, os fatos relevantes..."
-                  className="w-full bg-input border border-border text-foreground placeholder:text-muted-foreground rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors min-h-[200px] resize-y leading-relaxed" />
-                <p className="text-muted-foreground text-xs mt-1">{contexto.length} caracteres</p>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
                   5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
