@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown } from "lucide-react";
+import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
+import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -95,6 +96,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
   const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, pedidos: false });
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
+  const [mostrarExtrair, setMostrarExtrair] = useState(false);
 
   useEffect(() => {
     base44.entities.CasoVigilante.list().then(list => {
@@ -156,10 +158,28 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
 
   const handleGerarDocxIdêntico = async () => {
     if (!templateDocxUrl) return;
+
+    // Validação: campos essenciais
+    const ESSENCIAIS = [
+      { key: "RECL_NOME",   label: "Nome do reclamante" },
+      { key: "RECL1_NOME",  label: "1ª Reclamada (razão social)" },
+      { key: "COMARCA_UF",  label: "Comarca/UF" },
+      { key: "DATA_ADMISSAO", label: "Data de admissão" },
+      { key: "SALARIO",     label: "Salário" },
+      { key: "VALOR_CAUSA", label: "Valor da causa" },
+    ];
+    const faltando = ESSENCIAIS.filter(e => !dados[e.key] || dados[e.key].trim() === "");
+    if (faltando.length > 0) {
+      toast.error(
+        `Campos obrigatórios em branco — preencha antes de gerar:\n• ${faltando.map(f => f.label).join("\n• ")}`,
+        { duration: 6000 }
+      );
+      return;
+    }
+
     setGerandoDocx(true);
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dados);
-      // Download automático
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -179,10 +199,24 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
     }
   };
 
+  const handleConfirmarExtracao = (dadosExtraidos) => {
+    setDados(prev => ({ ...prev, ...dadosExtraidos }));
+    toast.success("Campos preenchidos! Revise e salve o caso.");
+    // Abre seções relevantes para o usuário revisar
+    setSections(prev => ({ ...prev, reclamante: true, reclamadas: true, contrato: true }));
+  };
+
   const pedidosKeys = Array.from({ length: 87 }, (_, i) => `P${String(i + 1).padStart(2, "0")}`);
 
   return (
     <div className="space-y-4">
+      {mostrarExtrair && (
+        <ExtrairDadosIA
+          onConfirmar={handleConfirmarExtracao}
+          onFechar={() => setMostrarExtrair(false)}
+        />
+      )}
+
       {/* Seletor de caso existente */}
       <div className="flex gap-2 items-end">
         <div className="flex-1">
@@ -204,6 +238,15 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
           <Download className="w-3.5 h-3.5" /> dados.json
         </button>
       </div>
+
+      {/* Botão extrair com IA */}
+      <button
+        type="button"
+        onClick={() => setMostrarExtrair(true)}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 text-primary text-sm font-semibold transition-colors"
+      >
+        <Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA
+      </button>
 
       {/* Título do caso */}
       <div>
