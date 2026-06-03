@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId } = await req.json();
+    const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId, modeloIA } = await req.json();
     if (!petitionId || !templateParts) {
       return Response.json({ error: 'petitionId e templateParts são obrigatórios' }, { status: 400 });
     }
@@ -162,7 +162,7 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
         try {
           aiResponse = await base44.integrations.Core.InvokeLLM({
             prompt: finalPrompt,
-            model: "claude_sonnet_4_6",
+            model: modeloIA || "claude_sonnet_4_6",
             // Passa PDFs e imagens diretamente para a IA quando houver
             file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
           });

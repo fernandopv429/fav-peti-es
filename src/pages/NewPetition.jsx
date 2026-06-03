@@ -263,6 +263,7 @@ export default function NewPetition() {
         templateContent: selectedTemplate?.content || "",
         templateName: selectedTemplate.name,
         templateId: selectedTemplate.id,
+        modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
       });
     } catch (err) {
       setGenerating(false);
@@ -603,8 +604,8 @@ function StepDetails({ form, updateForm }) {
       </div>
 
       <div>
-        <Label>Fatos Adicionais</Label>
-        <Textarea value={form.additional_facts} onChange={(e) => updateForm("additional_facts", e.target.value)} placeholder="Quaisquer fatos adicionais relevantes para a petição..." className="mt-1.5 min-h-[100px]" />
+        <Label>Contexto do Caso</Label>
+        <Textarea value={form.additional_facts} onChange={(e) => updateForm("additional_facts", e.target.value)} placeholder="Descreva detalhadamente o contexto do caso, os fatos relevantes e quaisquer informações adicionais que ajudem na redação da narrativa fática..." className="mt-1.5 min-h-[160px]" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

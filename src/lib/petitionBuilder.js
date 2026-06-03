@@ -192,16 +192,17 @@ ${form.additional_facts || "Nenhum"}`;
 - Advogado: ${advogado} | ${oab}
 - Cidade/data: ${cidade}, ${hoje}`;
 
+  // Usa prompt_sistema do PetitionConfig se disponível, senão fallback padrão
+  const baseSystemPrompt = config?.prompt_sistema?.trim()
+    ? config.prompt_sistema.trim()
+    : "Você é um advogado trabalhista brasileiro experiente.";
+
   if (!templateContent || templateContent.trim().length < 50) {
     // Fallback mínimo — sem modelo disponível
-    return `Você é um advogado trabalhista brasileiro experiente. Redija uma petição inicial trabalhista completa usando APENAS os dados abaixo. Para qualquer dado ausente use [PENDÊNCIA: descrição].
-
-${caseData}
-
-${contextualSlots}`;
+    return `${baseSystemPrompt}\n\nRedija uma petição inicial trabalhista completa usando APENAS os dados abaixo. Para qualquer dado ausente use [PENDÊNCIA: descrição].\n\n${caseData}\n\n${contextualSlots}`;
   }
 
-  return `Você é um advogado trabalhista brasileiro experiente.
+  return `${baseSystemPrompt}
 
 SUA TAREFA: Preencher o modelo de petição abaixo com os dados do caso.
 
