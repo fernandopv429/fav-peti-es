@@ -99,14 +99,30 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
       return;
     }
 
+    // Usa sempre o mesmo casoId (prop original ou o retornado em extração anterior)
+    const idParaUsar = casoIdRetornado || casoVigilanteId || null;
+
     setExtraindo(true);
+    setDadosExtraidos(null);
+    setDadosEditados({});
+
     try {
       const resp = await base44.functions.invoke("extrairDadosVigilante", {
-        casoVigilanteId: casoVigilanteId || null,
+        casoVigilanteId: idParaUsar,
         documentUrls: todasUrls,
       });
 
-      const { campos, casoVigilanteId: idRetornado, totalExtraidos } = resp.data;
+      // resp.data pode ser o objeto direto ou estar aninhado
+      const payload = resp?.data ?? resp;
+
+      if (!payload || payload.error) {
+        toast.error("Erro na extração: " + (payload?.error || "Resposta inválida da função."));
+        return;
+      }
+
+      const campos = payload.campos || {};
+      const idRetornado = payload.casoVigilanteId || idParaUsar;
+      const totalExtraidos = payload.totalExtraidos ?? Object.keys(campos).length;
 
       setCasoIdRetornado(idRetornado);
       setDadosExtraidos(campos);
@@ -161,7 +177,16 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
             </div>
           )}
 
-          {!dadosExtraidos && (
+          {/* Spinner de loading — cobre a área toda enquanto extrai */}
+          {extraindo && (
+            <div className="flex flex-col items-center justify-center gap-3 py-10">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+              <p className="text-foreground font-semibold text-sm">Extraindo com IA...</p>
+              <p className="text-muted-foreground text-xs text-center max-w-xs">Lendo documentos com visão e OCR. Pode levar 30–60 segundos.</p>
+            </div>
+          )}
+
+          {!dadosExtraidos && !extraindo && (
             <>
               {/* Upload de arquivos extras */}
               <div>
@@ -211,14 +236,10 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
 
               <button
                 onClick={handleExtrair}
-                disabled={extraindo || uploadando || totalDocs === 0}
+                disabled={uploadando || totalDocs === 0}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground font-bold text-sm transition-colors"
               >
-                {extraindo ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo com IA (pode levar 30-60s)...</>
-                ) : (
-                  <><Wand2 className="w-4 h-4" /> Extrair dados de {totalDocs} documento(s)</>
-                )}
+                <Wand2 className="w-4 h-4" /> Extrair dados de {totalDocs} documento(s)
               </button>
             </>
           )}
@@ -256,7 +277,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onC
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => { setDadosExtraidos(null); setDadosEditados({}); }}
+                  onClick={() => { setDadosExtraidos(null); setDadosEditados({}); /* casoIdRetornado mantido para reusar a mesma ficha */ }}
                   className="px-4 py-2.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-semibold transition-colors"
                 >
                   ← Tentar novamente
