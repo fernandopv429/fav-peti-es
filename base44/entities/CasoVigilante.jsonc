@@ -1,0 +1,189 @@
+{
+  "name": "CasoVigilante",
+  "type": "object",
+  "description": "Dados estruturados de um caso de Reclama\u00e7\u00e3o Trabalhista Vigilante 12x36 \u2014 espelha os tokens do modelo MODELO_BASE_Vigilante_12x36.docx (campos + valores_pedidos). Usado para preenchimento determin\u00edstico e exporta\u00e7\u00e3o de dados.json compat\u00edvel com o gerador local preencher_modelo.py.",
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "Identifica\u00e7\u00e3o do caso (ex: Fernando x Belfort)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "rascunho",
+        "preenchido",
+        "gerado",
+        "exportado"
+      ],
+      "default": "rascunho",
+      "description": "Status do caso"
+    },
+    "petition_id": {
+      "type": "string",
+      "description": "ID da Petition vinculada"
+    },
+    "COMARCA_UF": {
+      "type": "string",
+      "description": "Comarca/UF da Vara (ex: ARUJ\u00c1/SP)"
+    },
+    "REGIAO_TRT": {
+      "type": "string",
+      "description": "Regi\u00e3o do TRT (ex: SEGUNDA REGI\u00c3O)"
+    },
+    "RECL_NOME": {
+      "type": "string",
+      "description": "Nome do reclamante"
+    },
+    "RECL_NACIONALIDADE": {
+      "type": "string",
+      "default": "brasileiro"
+    },
+    "RECL_ESTADOCIVIL": {
+      "type": "string"
+    },
+    "RECL_RG": {
+      "type": "string"
+    },
+    "RECL_PIS": {
+      "type": "string"
+    },
+    "RECL_SERIE": {
+      "type": "string",
+      "description": "S\u00e9rie da CTPS"
+    },
+    "RECL_CTPS": {
+      "type": "string"
+    },
+    "RECL_CPF": {
+      "type": "string"
+    },
+    "RECL_NASC": {
+      "type": "string",
+      "description": "Data de nascimento (ex: 29/03/1988)"
+    },
+    "RECL_FILIACAO": {
+      "type": "string"
+    },
+    "RECL_ENDERECO": {
+      "type": "string"
+    },
+    "RECL_CEP": {
+      "type": "string"
+    },
+    "RECL1_NOME": {
+      "type": "string",
+      "description": "1\u00aa Reclamada (empregadora) - raz\u00e3o social"
+    },
+    "RECL1_CNPJ": {
+      "type": "string"
+    },
+    "RECL1_LOGRADOURO": {
+      "type": "string"
+    },
+    "RECL1_ENDCOMPL": {
+      "type": "string"
+    },
+    "RECL2_NOME": {
+      "type": "string",
+      "description": "2\u00aa Reclamada (tomadora) - raz\u00e3o social"
+    },
+    "RECL2_CNPJ": {
+      "type": "string"
+    },
+    "RECL2_LOGRADOURO": {
+      "type": "string"
+    },
+    "RECL2_ENDCOMPL": {
+      "type": "string"
+    },
+    "RECL3_NOME": {
+      "type": "string",
+      "description": "3\u00aa Reclamada (tomadora) - raz\u00e3o social"
+    },
+    "RECL3_CNPJ": {
+      "type": "string"
+    },
+    "RECL3_LOGRADOURO": {
+      "type": "string"
+    },
+    "RECL3_ENDCOMPL": {
+      "type": "string"
+    },
+    "FORO_COMPETENCIA": {
+      "type": "string"
+    },
+    "LOCAL_PRESTACAO": {
+      "type": "string"
+    },
+    "LOCAL_PRESTACAO_COMPL": {
+      "type": "string"
+    },
+    "DATA_ADMISSAO": {
+      "type": "string",
+      "description": "Ex: 04 de junho de 2012"
+    },
+    "FUNCAO": {
+      "type": "string",
+      "default": "Vigilante"
+    },
+    "DATA_RESCISAO": {
+      "type": "string",
+      "description": "Ex: 15 de julho de 2025"
+    },
+    "SALARIO": {
+      "type": "string",
+      "description": "Ex: R$ 2.148,22"
+    },
+    "JORNADA_HORARIO": {
+      "type": "string",
+      "description": "Ex: 18:30 \u00e0s 07:30"
+    },
+    "JORNADA_EXTRAPOLA": {
+      "type": "string",
+      "description": "Ex: 09:00"
+    },
+    "JORNADA_FREQ_EXTRA": {
+      "type": "string",
+      "description": "Ex: 4 a 6 vezes por m\u00eas"
+    },
+    "INTERVALO_GOZADO": {
+      "type": "string",
+      "description": "Ex: 10 (dez) a 15 (quinze) minutos"
+    },
+    "LOCAL_DATA_ASSINATURA": {
+      "type": "string",
+      "description": "Ex: S\u00e3o Paulo, 11 de agosto de 2025"
+    },
+    "CCT_VIGENCIA": {
+      "type": "string",
+      "default": "2024/2025"
+    },
+    "ADIC_CONV": {
+      "type": "string",
+      "default": "60%"
+    },
+    "VAL_FT": {
+      "type": "string",
+      "description": "Valor da FT/folga trabalhada (ex: R$ 180,00)"
+    },
+    "VAL_CONDUCAO": {
+      "type": "string",
+      "description": "Ex: R$ 10,00"
+    },
+    "VAL_ALIMENTACAO": {
+      "type": "string",
+      "description": "Ex: R$ 39,00"
+    },
+    "VALOR_CAUSA": {
+      "type": "string",
+      "description": "Valor da causa (ex: R$ 399.391,86)"
+    },
+    "valores_pedidos": {
+      "type": "object",
+      "description": "Valores do rol de pedidos P01 a P87 (chave: valor em texto, ex: P01: 'R$ 21.482,20')"
+    }
+  },
+  "required": [
+    "titulo"
+  ]
+}
