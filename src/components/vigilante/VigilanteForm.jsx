@@ -89,7 +89,7 @@ function Field({ label, name, value, onChange, full }) {
   );
 }
 
-export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
+export default function VigilanteForm({ onGerarComDados, templateDocxUrl, documentUrls = [] }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
@@ -199,10 +199,14 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
     }
   };
 
-  const handleConfirmarExtracao = (dadosExtraidos) => {
+  const handleConfirmarExtracao = (dadosExtraidos, casoIdRetornado) => {
     setDados(prev => ({ ...prev, ...dadosExtraidos }));
+    // Se a função backend criou/atualizou o caso, registra o ID localmente
+    if (casoIdRetornado && !casoId) {
+      setCasoId(casoIdRetornado);
+      base44.entities.CasoVigilante.list().then(list => setCasos(list || [])).catch(() => {});
+    }
     toast.success("Campos preenchidos! Revise e salve o caso.");
-    // Abre seções relevantes para o usuário revisar
     setSections(prev => ({ ...prev, reclamante: true, reclamadas: true, contrato: true }));
   };
 
@@ -212,6 +216,8 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl }) {
     <div className="space-y-4">
       {mostrarExtrair && (
         <ExtrairDadosIA
+          casoVigilanteId={casoId || null}
+          documentUrls={documentUrls}
           onConfirmar={handleConfirmarExtracao}
           onFechar={() => setMostrarExtrair(false)}
         />

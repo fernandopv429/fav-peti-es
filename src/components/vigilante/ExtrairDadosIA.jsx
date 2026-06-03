@@ -1,6 +1,12 @@
 /**
- * Modal de extração de dados de documentos com IA + revisão antes de confirmar.
- * NÃO preenche valores de pedidos (P01..P87).
+ * Modal de extração de dados de documentos com IA (backend function) + revisão.
+ * NÃO preenche valores de pedidos (P01..P87) nem VALOR_CAUSA.
+ *
+ * Props:
+ *   casoVigilanteId  — ID do CasoVigilante existente (opcional; se null cria novo)
+ *   documentUrls     — URLs já anexadas à petição (passadas diretamente, sem re-upload)
+ *   onConfirmar(dados, casoId) — chamado após revisão humana
+ *   onFechar()
  */
 import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
@@ -30,14 +36,26 @@ const CAMPOS_EXTRAIVEIS = [
   { key: "RECL2_ENDCOMPL",     label: "2ª Reclamada — Complemento" },
   { key: "RECL3_NOME",         label: "3ª Reclamada — Razão social" },
   { key: "RECL3_CNPJ",         label: "3ª Reclamada — CNPJ" },
+  { key: "RECL3_LOGRADOURO",   label: "3ª Reclamada — Logradouro" },
+  { key: "RECL3_ENDCOMPL",     label: "3ª Reclamada — Complemento" },
+  { key: "COMARCA_UF",         label: "Comarca/UF" },
+  { key: "REGIAO_TRT",         label: "Região TRT" },
+  { key: "FORO_COMPETENCIA",   label: "Foro de competência" },
+  { key: "LOCAL_PRESTACAO",    label: "Local de prestação" },
+  { key: "LOCAL_PRESTACAO_COMPL", label: "Complemento local prestação" },
   { key: "DATA_ADMISSAO",      label: "Data de admissão (por extenso)" },
   { key: "FUNCAO",             label: "Função" },
   { key: "DATA_RESCISAO",      label: "Data de rescisão (por extenso)" },
   { key: "SALARIO",            label: "Salário (ex: R$ 2.148,22)" },
   { key: "JORNADA_HORARIO",    label: "Jornada (ex: 18:30 às 07:30)" },
-  { key: "COMARCA_UF",         label: "Comarca/UF" },
-  { key: "FORO_COMPETENCIA",   label: "Foro de competência" },
-  { key: "LOCAL_PRESTACAO",    label: "Local de prestação" },
+  { key: "JORNADA_EXTRAPOLA",  label: "Extrapolação de jornada" },
+  { key: "JORNADA_FREQ_EXTRA", label: "Frequência de extras" },
+  { key: "INTERVALO_GOZADO",   label: "Intervalo gozado" },
+  { key: "CCT_VIGENCIA",       label: "Vigência CCT" },
+  { key: "ADIC_CONV",          label: "Adicional convencional HE" },
+  { key: "VAL_FT",             label: "Valor FT/folga trabalhada" },
+  { key: "VAL_CONDUCAO",       label: "Valor condução/dia" },
+  { key: "VAL_ALIMENTACAO",    label: "Valor alimentação/dia" },
 ];
 
 function getFileIcon(type) {
@@ -46,12 +64,14 @@ function getFileIcon(type) {
   return <File className="w-4 h-4 text-muted-foreground" />;
 }
 
-export default function ExtrairDadosIA({ onConfirmar, onFechar }) {
-  const [arquivos, setArquivos] = useState([]);
+export default function ExtrairDadosIA({ casoVigilanteId, documentUrls = [], onConfirmar, onFechar }) {
+  // Arquivos extras que o usuário pode adicionar além dos já anexados
+  const [arquivosExtras, setArquivosExtras] = useState([]);
   const [uploadando, setUploadando] = useState(false);
   const [extraindo, setExtraindo] = useState(false);
-  const [dadosExtraidos, setDadosExtraidos] = useState(null); // null = ainda não extraiu
+  const [dadosExtraidos, setDadosExtraidos] = useState(null);
   const [dadosEditados, setDadosEditados] = useState({});
+  const [casoIdRetornado, setCasoIdRetornado] = useState(casoVigilanteId || null);
   const fileInputRef = useRef(null);
 
   const handleAddArquivos = async (files) => {
@@ -59,7 +79,7 @@ export default function ExtrairDadosIA({ onConfirmar, onFechar }) {
     for (const file of Array.from(files)) {
       try {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        setArquivos(prev => [...prev, { name: file.name, url: file_url, type: file.type }]);
+        setArquivosExtras(prev => [...prev, { name: file.name, url: file_url, type: file.type }]);
       } catch (e) {
         toast.error(`Erro ao enviar ${file.name}: ` + e.message);
       }
@@ -69,57 +89,33 @@ export default function ExtrairDadosIA({ onConfirmar, onFechar }) {
   };
 
   const handleExtrair = async () => {
-    if (arquivos.length === 0) { toast.error("Adicione pelo menos um documento."); return; }
+    const todasUrls = [
+      ...documentUrls,
+      ...arquivosExtras.map(a => a.url),
+    ];
+
+    if (todasUrls.length === 0) {
+      toast.error("Nenhum documento disponível. Adicione arquivos ou anexe documentos à petição.");
+      return;
+    }
+
     setExtraindo(true);
     try {
-      // Separa URLs visuais (imagem/PDF) de texto
-      const urlsVisuais = arquivos
-        .filter(a => a.type?.startsWith("image/") || a.type?.includes("pdf") ||
-          a.url.toLowerCase().endsWith(".pdf") || a.url.toLowerCase().endsWith(".png") ||
-          a.url.toLowerCase().endsWith(".jpg") || a.url.toLowerCase().endsWith(".jpeg"))
-        .map(a => a.url);
-
-      const camposSchema = {};
-      CAMPOS_EXTRAIVEIS.forEach(c => { camposSchema[c.key] = { type: "string" }; });
-
-      const prompt = `Você é um extrator de dados jurídicos. Analise os documentos trabalhistas fornecidos (CTPS, contracheque, TRCT, rescisão, holerite, etc.) e extraia os seguintes campos quando presentes.
-
-IMPORTANTE:
-- Datas devem ser formatadas por extenso em português (ex: "04 de junho de 2012")
-- Salário deve incluir "R$" e usar vírgula decimal (ex: "R$ 2.148,22")
-- Se um campo não aparecer nos documentos, retorne string vazia ""
-- NÃO invente dados. Apenas extraia o que está explícito.
-- Para Comarca/UF, infira da localidade da empresa ou do local de trabalho
-- CTPS e Série são campos separados da carteira de trabalho
-
-Campos a extrair:
-${CAMPOS_EXTRAIVEIS.map(c => `- ${c.key}: ${c.label}`).join("\n")}
-
-Retorne JSON com exatamente essas chaves.`;
-
-      const resultado = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        model: "claude_sonnet_4_6",
-        file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
-        response_json_schema: {
-          type: "object",
-          properties: camposSchema,
-        },
+      const resp = await base44.functions.invoke("extrairDadosVigilante", {
+        casoVigilanteId: casoVigilanteId || null,
+        documentUrls: todasUrls,
       });
 
-      // Filtra apenas campos não-vazios para mostrar na revisão
-      const extraidos = {};
-      CAMPOS_EXTRAIVEIS.forEach(c => {
-        if (resultado[c.key]) extraidos[c.key] = resultado[c.key];
-      });
+      const { campos, casoVigilanteId: idRetornado, totalExtraidos } = resp.data;
 
-      setDadosExtraidos(extraidos);
-      setDadosEditados({ ...extraidos });
+      setCasoIdRetornado(idRetornado);
+      setDadosExtraidos(campos);
+      setDadosEditados({ ...campos });
 
-      if (Object.keys(extraidos).length === 0) {
-        toast.warning("A IA não conseguiu extrair dados dos documentos. Verifique se os arquivos estão legíveis.");
+      if (totalExtraidos === 0) {
+        toast.warning("A IA não conseguiu extrair dados. Verifique se os arquivos estão legíveis.");
       } else {
-        toast.success(`${Object.keys(extraidos).length} campos extraídos — revise antes de confirmar.`);
+        toast.success(`${totalExtraidos} campos extraídos e salvos — revise antes de confirmar.`);
       }
     } catch (e) {
       toast.error("Erro na extração: " + e.message);
@@ -129,9 +125,11 @@ Retorne JSON com exatamente essas chaves.`;
   };
 
   const handleConfirmar = () => {
-    onConfirmar(dadosEditados);
+    onConfirmar(dadosEditados, casoIdRetornado);
     onFechar();
   };
+
+  const totalDocs = documentUrls.length + arquivosExtras.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -152,26 +150,33 @@ Retorne JSON com exatamente essas chaves.`;
           <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
-              <strong>Atenção:</strong> A IA extrai dados dos documentos automaticamente, mas pode cometer erros. <strong>Revise todos os campos antes de confirmar.</strong> Os valores dos pedidos (P01–P87) NÃO são preenchidos automaticamente — devem ser informados manualmente.
+              <strong>Atenção:</strong> A IA extrai dados dos documentos (OCR + visão), mas pode cometer erros. <strong>Revise todos os campos antes de confirmar.</strong> Os valores dos pedidos (P01–P87) e VALOR_CAUSA <strong>não são preenchidos automaticamente</strong>.
             </div>
           </div>
 
-          {/* Upload de documentos */}
+          {/* Documentos da petição já disponíveis */}
+          {documentUrls.length > 0 && (
+            <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-xs text-green-800">
+              <strong>✓ {documentUrls.length} documento(s) da petição</strong> serão analisados automaticamente.
+            </div>
+          )}
+
           {!dadosExtraidos && (
             <>
+              {/* Upload de arquivos extras */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                  Documentos (CTPS, contracheque, TRCT, rescisão...)
+                  Adicionar mais documentos <span className="normal-case font-normal">(opcional)</span>
                 </label>
                 <div
-                  className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); handleAddArquivos(e.dataTransfer.files); }}
                 >
-                  <Upload className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                  <Upload className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
                   <p className="text-sm text-muted-foreground">Clique ou arraste arquivos aqui</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">PDF, imagens, Word — a IA lerá e extrairá os dados</p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">JPEG, PNG, PDF, Word</p>
                   <input
                     ref={fileInputRef} type="file" multiple
                     accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt"
@@ -186,14 +191,14 @@ Retorne JSON com exatamente essas chaves.`;
                   </div>
                 )}
 
-                {arquivos.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    {arquivos.map((arq, i) => (
+                {arquivosExtras.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {arquivosExtras.map((arq, i) => (
                       <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
                         {getFileIcon(arq.type)}
                         <span className="text-xs text-foreground flex-1 truncate">{arq.name}</span>
                         <button
-                          onClick={() => setArquivos(prev => prev.filter((_, idx) => idx !== i))}
+                          onClick={() => setArquivosExtras(prev => prev.filter((_, idx) => idx !== i))}
                           className="p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
                         >
                           <X className="w-3 h-3" />
@@ -206,13 +211,13 @@ Retorne JSON com exatamente essas chaves.`;
 
               <button
                 onClick={handleExtrair}
-                disabled={extraindo || arquivos.length === 0 || uploadando}
+                disabled={extraindo || uploadando || totalDocs === 0}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground font-bold text-sm transition-colors"
               >
                 {extraindo ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo com IA (pode levar 20-40s)...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo com IA (pode levar 30-60s)...</>
                 ) : (
-                  <><Wand2 className="w-4 h-4" /> Extrair dados dos documentos</>
+                  <><Wand2 className="w-4 h-4" /> Extrair dados de {totalDocs} documento(s)</>
                 )}
               </button>
             </>
@@ -223,7 +228,9 @@ Retorne JSON com exatamente essas chaves.`;
             <>
               <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span><strong>{Object.keys(dadosExtraidos).length} campos extraídos.</strong> Revise e edite abaixo antes de confirmar.</span>
+                <span>
+                  <strong>{Object.keys(dadosExtraidos).length} campos extraídos e gravados.</strong> Revise e edite abaixo antes de confirmar.
+                </span>
               </div>
 
               <div className="space-y-3">
@@ -233,14 +240,14 @@ Retorne JSON com exatamente essas chaves.`;
                       <span className="font-semibold text-foreground">{c.label}</span>
                       {dadosExtraidos[c.key]
                         ? <span className="ml-2 text-green-600">✓ extraído</span>
-                        : <span className="ml-2 text-muted-foreground/60">não encontrado</span>
+                        : <span className="ml-2 text-muted-foreground/50">não encontrado</span>
                       }
                     </label>
                     <input
                       type="text"
                       value={dadosEditados[c.key] || ""}
                       onChange={e => setDadosEditados(prev => ({ ...prev, [c.key]: e.target.value }))}
-                      placeholder={dadosExtraidos[c.key] ? "" : "Não encontrado nos documentos"}
+                      placeholder={dadosExtraidos[c.key] ? "" : "Não encontrado — preencha manualmente"}
                       className="w-full bg-input border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
