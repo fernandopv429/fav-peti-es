@@ -107,17 +107,21 @@ export async function gerarDocxVigilante(modeloDocxUrl, dados) {
     delimiters: { start: "{{", end: "}}" },
     paragraphLoop: true,
     linebreaks: true,
+    // nullGetter: retorna "" para QUALQUER token ausente — nunca lança erro
     nullGetter: (part) => {
-      // Registra tokens não preenchidos
-      if (part.module === undefined) {
+      if (part && part.module === undefined && part.value) {
         tokensFaltando.push(part.value);
       }
       return "";
     },
+    // errorLogging: false evita que erros de template interrompam o render
+    errorLogging: false,
   });
 
   // 4. Monta e injeta os dados
   const dadosTemplate = montarDadosTemplate(dados);
+
+  // render pode lançar TemplateError — deixamos propagar para o caller tratar
   doc.render(dadosTemplate);
 
   // 5. Gera o blob

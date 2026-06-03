@@ -205,22 +205,57 @@ export default function GerarDocumento() {
     return { conteudosTexto, urlsVisuais, naoPudeLer };
   };
 
-  // ── GERAÇÃO MODO VIGILANTE (determinística) ───────────────────────────────
+  // ── GERAÇÃO MODO VIGILANTE (determinística + DOCX) ───────────────────────
   const handleGerarVigilante = async (dadosVigilante) => {
-    if (!templateSelecionado?.content) {
-      toast.error("Modelo Vigilante sem conteúdo. Verifique em Modelos.");
-      return;
-    }
-
     setGerando(true);
     setResultado("");
     setSavedPetitionId(null);
+    setGerandoStep("");
 
-    const titulo = dadosVigilante.titulo || `${dadosVigilante.RECL_NOME || "Vigilante"} — ${new Date().toLocaleDateString("pt-BR")}`;
-
-    // PASSO 1: Cria registro Petition
-    let petitionId = null;
     try {
+      const titulo = dadosVigilante.titulo || `${dadosVigilante.RECL_NOME || "Vigilante"} — ${new Date().toLocaleDateString("pt-BR")}`;
+
+      // PASSO 1: DOCX byte-idêntico ao modelo (prioridade) ─────────────────
+      const modeloDocxUrl = templateSelecionado?.modelo_docx_url;
+      if (modeloDocxUrl) {
+        setGerandoStep("Gerando DOCX a partir do modelo oficial...");
+        try {
+          const { gerarDocxVigilante } = await import("@/lib/gerarDocxVigilante.js");
+          const { blob, tokensFaltando } = await gerarDocxVigilante(modeloDocxUrl, dadosVigilante);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${dadosVigilante.RECL_NOME || "vigilante"}_peticao.docx`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          if (tokensFaltando.length > 0) {
+            toast.warning(`DOCX gerado! Tokens em branco: ${tokensFaltando.slice(0, 8).join(", ")}${tokensFaltando.length > 8 ? "..." : ""}`);
+          } else {
+            toast.success("DOCX gerado com sucesso — idêntico ao modelo oficial!");
+          }
+          // Se gerou DOCX com sucesso, encerra aqui sem gerar texto/IA
+          return;
+        } catch (docxErr) {
+          const detalhe = docxErr?.properties?.errors?.map(er => er.message).join("; ") || docxErr.message || String(docxErr);
+          base44.entities.ErrorLog.create({
+            context: "Geração DOCX Vigilante",
+            error_type: "template",
+            message: detalhe,
+          }).catch(() => {});
+          toast.error("Erro no DOCX: " + detalhe + " — gerando versão texto com IA.", { duration: 7000 });
+          // Cai para geração em texto abaixo
+        }
+      }
+
+      // PASSO 2: Fallback — texto determinístico + IA ───────────────────────
+      if (!templateSelecionado?.content) {
+        toast.error("Modelo Vigilante sem conteúdo. Verifique em Modelos.");
+        return;
+      }
+
+      // Cria registro Petition
+      let petitionId = null;
       setGerandoStep("Criando registro...");
       const created = await base44.entities.Petition.create({
         title: titulo, case_type: "trabalhista",
@@ -233,119 +268,81 @@ export default function GerarDocumento() {
       });
       petitionId = created.id;
       setSavedPetitionId(petitionId);
-    } catch (e) {
-      toast.error("Erro ao criar registro: " + e.message);
-      setGerando(false);
-      return;
-    }
 
-    // PASSO 2: Substitui tokens deterministicamente
-    setGerandoStep("Preenchendo modelo com dados do formulário...");
-    let textoBase = montarPeticaoDeterministica(templateSelecionado.content, dadosVigilante);
+      // Substituição determinística de tokens
+      setGerandoStep("Preenchendo modelo com dados do formulário...");
+      let textoBase = montarPeticaoDeterministica(templateSelecionado.content, dadosVigilante);
+      let textoFinal = textoBase;
+      let statusFinal = "concluida";
 
-    // PASSO 3: IA redige apenas a narrativa fática + analisa documentos
-    let textoFinal = textoBase;
-    let statusFinal = "concluida";
+      // IA completa narrativa fática
+      try {
+        setGerandoStep("IA completando narrativa fática...");
+        let urlsVisuais = [];
+        if (arquivos.length > 0) {
+          const extracted = await extractDocumentContents();
+          urlsVisuais = extracted.urlsVisuais;
+        }
+        const contextoBlock = contexto.trim() ? `\n\nCONTEXTO ADICIONAL DO CASO:\n${contexto}` : "";
+        const promptIA = `Você é um advogado trabalhista. Preencha os [colchetes] restantes e expanda a narrativa fática das seções descritivas. NÃO altere valores monetários (P01-P87, VALOR_CAUSA, SALARIO). Mantenha estrutura e títulos.
+${contextoBlock}
+DADOS: Reclamante: ${dadosVigilante.RECL_NOME} | Reclamada: ${dadosVigilante.RECL1_NOME} | Admissão: ${dadosVigilante.DATA_ADMISSAO} | Rescisão: ${dadosVigilante.DATA_RESCISAO} | Salário: ${dadosVigilante.SALARIO} | Jornada: ${dadosVigilante.JORNADA_HORARIO} | Intervalo: ${dadosVigilante.INTERVALO_GOZADO}
 
-    try {
-      setGerandoStep("Extraindo dados dos documentos...");
-      let conteudosTexto = [], urlsVisuais = [], naoPudeLer = [];
-      if (arquivos.length > 0) {
-        const extracted = await extractDocumentContents();
-        conteudosTexto = extracted.conteudosTexto;
-        urlsVisuais = extracted.urlsVisuais;
-        naoPudeLer = extracted.naoPudeLer;
-      }
-
-      const docBlock = conteudosTexto.length > 0
-        ? `\n\nDOCUMENTOS ANEXADOS:\n${conteudosTexto.join("\n\n")}` : "";
-      const docVisual = urlsVisuais.length > 0
-        ? `\n\nAnálise os ${urlsVisuais.length} arquivo(s) PDF/imagem em anexo e extraia TODOS os fatos concretos.` : "";
-      const pendencias = naoPudeLer.length > 0
-        ? `\n\nDOCUMENTOS NÃO LIDOS (registre como PENDÊNCIA no documento): ${naoPudeLer.join(", ")}` : "";
-
-      setGerandoStep("IA completando narrativa fática...");
-
-      // A IA só completa trechos que ficaram em [colchetes] e redige narrativa fática
-      const contextoBlock = contexto.trim() ? `\n\nCONTEXTO ADICIONAL DO CASO:\n${contexto}` : "";
-      const promptIA = `Você é um advogado trabalhista. Abaixo está uma petição já montada deterministicamente com dados do formulário.
-Sua tarefa: APENAS preencher os campos que ainda estão entre [colchetes] usando os dados fornecidos abaixo, e expandir com linguagem jurídica formal as seções descritivas de fatos (DO DANO MORAL, DA RESCISÃO INDIRETA, DA JORNADA) com base nos dados concretos do caso.
-
-REGRAS:
-- NÃO altere nenhum valor monetário (P01 a P87, VALOR_CAUSA, SALARIO). Eles já estão corretos.
-- NÃO altere qualificação das partes, datas, fundamentos legais, súmulas ou artigos.
-- APENAS expanda narrativa fática descritiva e preencha [colchetes] restantes.
-- Mantenha estrutura e títulos exatamente como estão.
-${contextoBlock}${docBlock}${docVisual}${pendencias}
-
-DADOS DO CASO:
-- Reclamante: ${dadosVigilante.RECL_NOME}
-- Reclamada: ${dadosVigilante.RECL1_NOME}
-- Admissão: ${dadosVigilante.DATA_ADMISSAO}
-- Rescisão: ${dadosVigilante.DATA_RESCISAO}
-- Salário: ${dadosVigilante.SALARIO}
-- Jornada: ${dadosVigilante.JORNADA_HORARIO}
-- Intervalo gozado: ${dadosVigilante.INTERVALO_GOZADO}
-- Extrapolação: ${dadosVigilante.JORNADA_EXTRAPOLA} em média ${dadosVigilante.JORNADA_FREQ_EXTRA}
-- Local prestação: ${dadosVigilante.LOCAL_PRESTACAO}, ${dadosVigilante.LOCAL_PRESTACAO_COMPL}
-- Valor da causa: ${dadosVigilante.VALOR_CAUSA}
-
-PETIÇÃO A COMPLETAR:
+PETIÇÃO:
 ${textoBase}
 
-Retorne a petição completa e corrigida, sem comentários adicionais.`;
-
-      textoFinal = await base44.integrations.Core.InvokeLLM({
-        prompt: promptIA,
-        model: "claude_sonnet_4_6",
-        file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
-      });
-
-      if (/\[A PREENCHER|\[PENDÊNCIA/i.test(textoFinal)) statusFinal = "revisao_necessaria";
-
-    } catch (e) {
-      // Falha na IA: usa texto determinístico puro
-      textoFinal = textoBase;
-      statusFinal = "revisao_necessaria";
-      toast.warning("IA indisponível — petição gerada com dados do formulário apenas.");
-    }
-
-    // PASSO 4: Persiste Petition
-    try {
-      setGerandoStep("Salvando...");
-      const blob = new Blob([textoFinal], { type: "text/plain" });
-      const fileObj = new File([blob], "peticao.txt", { type: "text/plain" });
-      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file: fileObj });
-      await base44.entities.Petition.update(petitionId, {
-        generated_content: contentUrl, status: statusFinal,
-        claimant_name: dadosVigilante.RECL_NOME || "—",
-        defendant_name: dadosVigilante.RECL1_NOME || "—",
-      });
-      // Atualiza petition_id no CasoVigilante se salvo
-      if (dadosVigilante.id) {
-        base44.entities.CasoVigilante.update(dadosVigilante.id, { petition_id: petitionId, status: "gerado" }).catch(() => {});
-      }
-      // Incrementa use_count
-      base44.entities.PetitionTemplate.update(templateSelecionado.id, {
-        use_count: (templateSelecionado.use_count || 0) + 1,
-      }).catch(() => {});
-    } catch (saveErr) {
-      try {
-        await base44.entities.Petition.update(petitionId, {
-          generated_content: textoFinal.slice(0, 50000), status: statusFinal,
+Retorne a petição completa, sem comentários adicionais.`;
+        textoFinal = await base44.integrations.Core.InvokeLLM({
+          prompt: promptIA,
+          model: "claude_sonnet_4_6",
+          file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
         });
-      } catch (_) {}
-      toast.error("Aviso: problema ao salvar arquivo.");
-    }
+        if (/\[A PREENCHER|\[PENDÊNCIA/i.test(textoFinal)) statusFinal = "revisao_necessaria";
+      } catch (_) {
+        textoFinal = textoBase;
+        statusFinal = "revisao_necessaria";
+        toast.warning("IA indisponível — petição gerada com dados do formulário apenas.");
+      }
 
-    setResultado(textoFinal);
-    setGerando(false);
-    setGerandoStep("");
+      // Persiste
+      setGerandoStep("Salvando...");
+      try {
+        const blob = new Blob([textoFinal], { type: "text/plain" });
+        const fileObj = new File([blob], "peticao.txt", { type: "text/plain" });
+        const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file: fileObj });
+        await base44.entities.Petition.update(petitionId, {
+          generated_content: contentUrl, status: statusFinal,
+          claimant_name: dadosVigilante.RECL_NOME || "—",
+          defendant_name: dadosVigilante.RECL1_NOME || "—",
+        });
+        if (dadosVigilante.id) {
+          base44.entities.CasoVigilante.update(dadosVigilante.id, { petition_id: petitionId, status: "gerado" }).catch(() => {});
+        }
+        base44.entities.PetitionTemplate.update(templateSelecionado.id, {
+          use_count: (templateSelecionado.use_count || 0) + 1,
+        }).catch(() => {});
+      } catch (_) {
+        try { await base44.entities.Petition.update(petitionId, { generated_content: textoFinal.slice(0, 50000), status: statusFinal }); } catch (_e) {}
+      }
 
-    if (statusFinal === "revisao_necessaria") {
-      toast.warning("Petição gerada com pendências — revise antes de protocolar.");
-    } else {
-      toast.success("Petição gerada e salva com sucesso!");
+      setResultado(textoFinal);
+      if (statusFinal === "revisao_necessaria") {
+        toast.warning("Petição gerada com pendências — revise antes de protocolar.");
+      } else {
+        toast.success("Petição gerada e salva com sucesso!");
+      }
+
+    } catch (fatalErr) {
+      const msg = fatalErr?.message || String(fatalErr);
+      toast.error("Erro inesperado na geração: " + msg);
+      base44.entities.ErrorLog.create({
+        context: "Geração DOCX Vigilante",
+        error_type: "template",
+        message: msg,
+      }).catch(() => {});
+    } finally {
+      setGerando(false);
+      setGerandoStep("");
     }
   };
 

@@ -158,25 +158,6 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   const handleGerarDocxIdêntico = async () => {
     if (!templateDocxUrl) return;
-
-    // Validação: campos essenciais
-    const ESSENCIAIS = [
-      { key: "RECL_NOME",   label: "Nome do reclamante" },
-      { key: "RECL1_NOME",  label: "1ª Reclamada (razão social)" },
-      { key: "COMARCA_UF",  label: "Comarca/UF" },
-      { key: "DATA_ADMISSAO", label: "Data de admissão" },
-      { key: "SALARIO",     label: "Salário" },
-      { key: "VALOR_CAUSA", label: "Valor da causa" },
-    ];
-    const faltando = ESSENCIAIS.filter(e => !dados[e.key] || dados[e.key].trim() === "");
-    if (faltando.length > 0) {
-      toast.error(
-        `Campos obrigatórios em branco — preencha antes de gerar:\n• ${faltando.map(f => f.label).join("\n• ")}`,
-        { duration: 6000 }
-      );
-      return;
-    }
-
     setGerandoDocx(true);
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dados);
@@ -188,12 +169,19 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       URL.revokeObjectURL(url);
 
       if (tokensFaltando.length > 0) {
-        toast.warning(`DOCX gerado! Tokens não preenchidos: ${tokensFaltando.join(", ")}`);
+        toast.warning(`DOCX gerado! Tokens em branco: ${tokensFaltando.slice(0, 10).join(", ")}${tokensFaltando.length > 10 ? "..." : ""}`);
       } else {
         toast.success("DOCX gerado com sucesso — idêntico ao modelo oficial!");
       }
     } catch (e) {
-      toast.error("Erro ao gerar DOCX: " + e.message);
+      // Docxtemplater lança TemplateError com .properties.errors
+      const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
+      toast.error("Erro ao gerar DOCX: " + detalhe, { duration: 8000 });
+      base44.entities.ErrorLog.create({
+        context: "Geração DOCX Vigilante",
+        error_type: "template",
+        message: detalhe,
+      }).catch(() => {});
     } finally {
       setGerandoDocx(false);
     }
@@ -377,7 +365,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
           onClick={() => onGerarComDados(dados)}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
         >
-          Gerar Petição com IA →
+          <Wand2 className="w-4 h-4" /> Gerar Petição com IA →
         </button>
       </div>
     </div>
