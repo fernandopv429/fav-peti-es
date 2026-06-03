@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Wand2, Scale, X, LogOut, ChevronRight,
-  FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp
+  FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
@@ -29,6 +29,12 @@ const NAV = [
       { label: "Calculadora de Verbas", icon: Calculator, path: "/calculadora-verbas" },
       { label: "Defesa / Contestação", icon: Shield, path: "/defesa" },
       { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo" },
+    ],
+  },
+  {
+    group: "Ferramentas",
+    items: [
+      { label: "Backup e Restauração", icon: ShieldCheck, path: "/backup" },
     ],
   },
 ];

@@ -19,6 +19,7 @@ import AtualizacaoCalculoPage from './pages/AtualizacaoCalculo';
 import Home from './pages/Home';
 import Catalogo from './pages/Catalogo';
 import GerarDocumento from './pages/GerarDocumento';
+import BackupRestauracao from './pages/BackupRestauracao';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
         <Route path="/calculadora-verbas" element={<CalculadoraVerbas />} />
         <Route path="/defesa" element={<Defesa />} />
         <Route path="/atualizacao-calculo" element={<AtualizacaoCalculoPage />} />
+        <Route path="/backup" element={<BackupRestauracao />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

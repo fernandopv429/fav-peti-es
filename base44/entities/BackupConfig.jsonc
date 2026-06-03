@@ -1,0 +1,31 @@
+{
+  "name": "BackupConfig",
+  "type": "object",
+  "description": "Configura\u00e7\u00e3o do agendamento de backup autom\u00e1tico",
+  "properties": {
+    "ativo": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o backup autom\u00e1tico est\u00e1 ativo"
+    },
+    "frequencia": {
+      "type": "string",
+      "enum": [
+        "diario",
+        "semanal"
+      ],
+      "default": "diario",
+      "description": "Frequ\u00eancia do backup autom\u00e1tico"
+    },
+    "dia_semana": {
+      "type": "number",
+      "description": "Dia da semana para backup semanal (0=Dom, 1=Seg... 6=S\u00e1b)"
+    },
+    "hora": {
+      "type": "string",
+      "default": "02:00",
+      "description": "Hora do dia para o backup (HH:MM)"
+    }
+  },
+  "required": []
+}

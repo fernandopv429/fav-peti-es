@@ -1,0 +1,47 @@
+{
+  "name": "Backup",
+  "type": "object",
+  "description": "Snapshot dos dados do app para backup e restaura\u00e7\u00e3o",
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "automatico",
+        "pre_restauracao"
+      ],
+      "default": "manual",
+      "description": "Tipo de backup"
+    },
+    "total_registros": {
+      "type": "number",
+      "description": "Total de registros inclu\u00eddos no snapshot"
+    },
+    "tamanho_bytes": {
+      "type": "number",
+      "description": "Tamanho estimado do JSON em bytes"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL do arquivo .json salvo via UploadFile (usado quando conte\u00fado \u00e9 grande)"
+    },
+    "conteudo_json": {
+      "type": "string",
+      "description": "Conte\u00fado serializado JSON do snapshot (usado quando pequeno o suficiente)"
+    },
+    "entidades_incluidas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de entidades inclu\u00eddas no snapshot"
+    },
+    "observacao": {
+      "type": "string",
+      "description": "Observa\u00e7\u00e3o opcional"
+    }
+  },
+  "required": [
+    "tipo"
+  ]
+}
