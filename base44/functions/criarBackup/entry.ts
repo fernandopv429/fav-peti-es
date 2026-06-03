@@ -55,13 +55,11 @@ Deno.serve(async (req) => {
 
   const tamanhoBytes = new TextEncoder().encode(jsonStr).length;
 
-  // Upload SEMPRE como arquivo via multipart/form-data
+  // Upload SEMPRE como arquivo via File explícito
   let fileUrl;
   try {
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const form = new FormData();
-    form.append("file", blob, "backup.json");
-    const result = await base44.asServiceRole.integrations.Core.UploadFile({ file: form.get("file") });
+    const file = new File([jsonStr], "backup.json", { type: "application/json" });
+    const result = await base44.asServiceRole.integrations.Core.UploadFile({ file });
     fileUrl = result.file_url;
   } catch (e) {
     const errMsg = `Falha no upload do snapshot (${(tamanhoBytes / 1024).toFixed(0)} KB): ${e.message}`;

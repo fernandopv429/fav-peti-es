@@ -66,10 +66,11 @@ export default function BackupRestauracao() {
     setCriando(true);
     try {
       const res = await base44.functions.invoke("criarBackup", { tipo: "manual" });
+      if (res.data?.error) throw new Error(res.data.error);
       toast.success(`Backup criado! ${res.data.total_registros} registros salvos.`);
       await carregar();
     } catch (e) {
-      toast.error("Erro ao criar backup: " + e.message);
+      toast.error("Erro ao criar backup: " + (e.message || String(e)));
     } finally {
       setCriando(false);
     }
