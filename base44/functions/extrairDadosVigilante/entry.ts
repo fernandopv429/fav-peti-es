@@ -4,8 +4,34 @@ const CAMPOS = ["RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","R
 
 const SCHEMA = { type: "object", properties: Object.fromEntries(CAMPOS.map(c => [c, { type: "string" }])) };
 
-const PROMPT = `Extrator de dados juridicos trabalhistas. Analise os documentos com visao/OCR.
-REGRAS: extraia apenas o que esta nos documentos, nunca invente. Campo ausente = "". Datas por extenso em portugues (ex: "04 de junho de 2012"). Salario: "R$ 2.148,22". 1a Reclamada = empregadora direta.
+const PROMPT = `Voce e um extrator de dados juridicos trabalhistas. Analise os documentos com visao/OCR e extraia os campos abaixo.
+
+REGRAS GERAIS:
+- Extraia APENAS o que consta nos documentos. Nunca invente.
+- Campo ausente ou incerto = "" (string vazia). Nunca escreva "nao", "sim", "optante", "habitual", "frequente" ou similares.
+- Datas por extenso em portugues (ex: "04 de junho de 2012").
+- Salario: formato "R$ 2.148,22".
+- 1a Reclamada = empregadora direta (quem assina a CTPS/holerite).
+
+REGRAS ESPECIFICAS POR CAMPO:
+- RECL_NOME: nome completo do trabalhador/reclamante.
+- RECL_NASC: data de nascimento por extenso.
+- COMARCA_UF: formato CIDADE/UF em maiusculas, ex: "SAO PAULO/SP" ou "ARUJA/SP". Nao retorne so a UF.
+- REGIAO_TRT: por extenso em maiusculas, ex: "SEGUNDA REGIAO" ou "TERCEIRA REGIAO". Nunca retorne so o numero.
+- DATA_ADMISSAO: data de admissao por extenso.
+- DATA_RESCISAO: data de rescisao por extenso.
+- SALARIO: salario base mensal, formato "R$ 2.148,22".
+- JORNADA_HORARIO: horario da escala de trabalho, ex: "18:30 as 07:30".
+- JORNADA_EXTRAPOLA: horario ate quando a jornada se estendia alem do previsto, ex: "09:00". Se a informacao nao existir, retorne "". NUNCA retorne "Sim" ou "Nao".
+- JORNADA_FREQ_EXTRA: procure na ENTREVISTA ou relato do trabalhador quantas vezes por mes fazia hora extra. Retorne no formato "X a Y vezes por mes" (ex: "7 a 8 vezes por mes"). NUNCA retorne palavras genericas como "Habitual", "Frequente", "Sim" ou "Nao".
+- INTERVALO_GOZADO: tempo de intervalo efetivamente gozado, ex: "10 (dez) a 15 (quinze) minutos".
+- VAL_FT: valor pago por folga trabalhada/FT, formato "R$ 230,00". Procure nos holerites ou relato. NUNCA retorne uma data. Se nao encontrar valor monetario em R$, retorne "".
+- VAL_CONDUCAO: valor do beneficio de conducao/VT por dia em R$, ex: "R$ 10,00". Se a pessoa for optante por VT em cartao ou nao houver valor diario claro, retorne "".
+- VAL_ALIMENTACAO: valor do beneficio de alimentacao/VA por dia em R$, ex: "R$ 39,00". Se nao houver valor diario claro, retorne "".
+- RECL1_NOME: razao social da 1a reclamada (empregadora direta).
+- RECL2_NOME: razao social da 2a reclamada (tomadora de servicos), se houver.
+- RECL3_NOME: razao social da 3a reclamada, se houver.
+
 Retorne JSON com: ${CAMPOS.join(",")}`;
 
 Deno.serve(async (req) => {
