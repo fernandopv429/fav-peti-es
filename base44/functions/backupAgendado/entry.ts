@@ -7,55 +7,59 @@ const ENTIDADES = [
 ];
 
 Deno.serve(async (req) => {
-  try {
-    const base44 = createClientFromRequest(req);
+  const base44 = createClientFromRequest(req);
 
-    // Verifica se backup automático está ativo
-    const configs = await base44.asServiceRole.entities.BackupConfig.list();
-    const config = configs?.[0];
-    if (!config?.ativo) {
-      return Response.json({ skipped: true, reason: "Backup automático desativado" });
-    }
-
-    // Coleta dados
-    const snapshot = {};
-    let totalRegistros = 0;
-
-    for (const entidade of ENTIDADES) {
-      try {
-        const registros = await base44.asServiceRole.entities[entidade].list();
-        snapshot[entidade] = registros || [];
-        totalRegistros += (registros || []).length;
-      } catch (_) {
-        snapshot[entidade] = [];
-      }
-    }
-
-    const jsonStr = JSON.stringify(snapshot, null, 2);
-    const tamanhoBytes = new TextEncoder().encode(jsonStr).length;
-
-    let fileUrl = null;
-    let conteudoJson = null;
-
-    if (tamanhoBytes > 400000) {
-      const blob = new Blob([jsonStr], { type: "application/json" });
-      const { file_url } = await base44.asServiceRole.integrations.Core.UploadFile({ file: blob });
-      fileUrl = file_url;
-    } else {
-      conteudoJson = jsonStr;
-    }
-
-    const backup = await base44.asServiceRole.entities.Backup.create({
-      tipo: "automatico",
-      total_registros: totalRegistros,
-      tamanho_bytes: tamanhoBytes,
-      file_url: fileUrl,
-      conteudo_json: conteudoJson,
-      entidades_incluidas: ENTIDADES,
-    });
-
-    return Response.json({ success: true, backup_id: backup.id, total_registros: totalRegistros });
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  // Verifica se backup automático está ativo
+  const configs = await base44.asServiceRole.entities.BackupConfig.list();
+  const config = configs?.[0];
+  if (!config?.ativo) {
+    return Response.json({ skipped: true, reason: "Backup automático desativado" });
   }
+
+  // Coleta dados
+  const snapshot = {};
+  let totalRegistros = 0;
+  const entidadesIncluidas = [];
+
+  for (const entidade of ENTIDADES) {
+    try {
+      const registros = await base44.asServiceRole.entities[entidade].list();
+      snapshot[entidade] = registros || [];
+      totalRegistros += (registros || []).length;
+      entidadesIncluidas.push(entidade);
+    } catch (e) {
+      snapshot[entidade] = [];
+    }
+  }
+
+  const jsonStr = JSON.stringify(snapshot);
+  const tamanhoBytes = new TextEncoder().encode(jsonStr).length;
+
+  // Upload SEMPRE como arquivo via multipart/form-data
+  let fileUrl;
+  try {
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const form = new FormData();
+    form.append("file", blob, "backup.json");
+    const result = await base44.asServiceRole.integrations.Core.UploadFile({ file: form.get("file") });
+    fileUrl = result.file_url;
+  } catch (e) {
+    await base44.asServiceRole.entities.ErrorLog.create({
+      context: "Backup",
+      error_type: "api",
+      message: `Backup agendado falhou no upload (${(tamanhoBytes / 1024).toFixed(0)} KB): ${e.message}`,
+    }).catch(() => {});
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+
+  const backup = await base44.asServiceRole.entities.Backup.create({
+    tipo: "automatico",
+    total_registros: totalRegistros,
+    tamanho_bytes: tamanhoBytes,
+    file_url: fileUrl,
+    conteudo_json: null,
+    entidades_incluidas: entidadesIncluidas,
+  });
+
+  return Response.json({ success: true, backup_id: backup.id, total_registros: totalRegistros });
 });
