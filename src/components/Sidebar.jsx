@@ -17,7 +17,6 @@ const NAV = [
   {
     group: "Petições",
     items: [
-      { label: "Nova Petição", icon: FilePlus, path: "/nova-peticao" },
       { label: "Minhas Petições", icon: FileText, path: "/peticoes" },
       { label: "Modelos", icon: FolderOpen, path: "/modelos" },
       { label: "Precedentes", icon: BookMarked, path: "/precedentes" },
