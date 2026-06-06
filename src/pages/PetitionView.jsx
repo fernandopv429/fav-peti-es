@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, AlertTriangle, Download } from "lucide-react";
+import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, AlertTriangle, Download, FileDown } from "lucide-react";
 import ExportButtons from "../components/petition/ExportButtons";
 import ReviewSectionPanel from "../components/petition/ReviewSection";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
@@ -224,6 +224,16 @@ export default function PetitionView() {
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-100 text-green-700 text-sm font-medium">
               <Clock className="w-4 h-4" /> Pronto para Protocolo
             </span>
+          )}
+          {/* Botão download DOCX — se houver arquivo .docx salvo */}
+          {petition.document_urls?.length > 0 && petition.document_urls.some(u => u?.endsWith(".docx")) && (
+            <a
+              href={petition.document_urls.find(u => u?.endsWith(".docx"))}
+              download={petition.document_names?.find(n => n?.endsWith(".docx")) || "peticao.docx"}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-blue-300 bg-blue-50 text-blue-700 text-sm hover:bg-blue-100 transition-colors font-medium"
+            >
+              <FileDown className="w-4 h-4" /> Baixar DOCX
+            </a>
           )}
           {petitionContent && (
             <>

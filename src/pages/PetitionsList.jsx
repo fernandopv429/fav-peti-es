@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { FileText, Search, FilePlus, ArrowRight, Trash2, AlertTriangle } from "lucide-react";
+import { FileText, Search, FilePlus, ArrowRight, Trash2, AlertTriangle, FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -150,9 +150,16 @@ export default function PetitionsList() {
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {p.claimant_name} vs {p.defendant_name} • {CASE_LABELS[p.case_type] || p.case_type}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(p.created_date).toLocaleDateString("pt-BR")} {new Date(p.created_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(p.created_date).toLocaleDateString("pt-BR")} {new Date(p.created_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          {p.document_urls?.some(u => u?.endsWith(".docx")) && (
+                            <span className="inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+                              <FileDown className="w-3 h-3" /> DOCX
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">

@@ -167,20 +167,71 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
     setGerandoDocx(true);
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dadosFinais);
+
+      // Nome do arquivo
+      const nomeArquivo = `${dadosFinais.RECL_NOME || "vigilante"}_peticao.docx`;
+
+      // 1. Download imediato para o advogado
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${dadosFinais.RECL_NOME || "vigilante"}_peticao.docx`;
+      a.download = nomeArquivo;
       a.click();
       URL.revokeObjectURL(url);
 
+      // 2. Upload para salvar na petição
+      let docxUrl = null;
+      try {
+        const file = new File([blob], nomeArquivo, {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        docxUrl = file_url;
+      } catch (uploadErr) {
+        toast.warning("Download OK, mas falha ao salvar na petição: " + uploadErr.message);
+      }
+
+      // 3. Cria ou atualiza o registro Petition
+      if (docxUrl) {
+        const titulo = dadosFinais.titulo ||
+          `${dadosFinais.RECL_NOME || "Vigilante"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+        const petitionPayload = {
+          title: titulo,
+          case_type: "trabalhista",
+          claimant_name: dadosFinais.RECL_NOME || "—",
+          defendant_name: dadosFinais.RECL1_NOME || "—",
+          status: "revisao_necessaria",
+          document_urls: [docxUrl],
+          document_names: [nomeArquivo],
+          template_used: "vigilante_unificado",
+        };
+
+        const idAtual = casoId
+          ? (await base44.entities.CasoVigilante.filter({ id: casoId }).catch(() => []))[0]?.petition_id
+          : null;
+
+        let petitionId = idAtual;
+        if (petitionId) {
+          await base44.entities.Petition.update(petitionId, petitionPayload).catch(() => {});
+        } else {
+          const criada = await base44.entities.Petition.create(petitionPayload).catch(() => null);
+          petitionId = criada?.id;
+        }
+
+        // Vincula petition_id no CasoVigilante
+        if (petitionId && casoId) {
+          base44.entities.CasoVigilante.update(casoId, { petition_id: petitionId, status: "gerado" }).catch(() => {});
+        }
+
+        if (petitionId) {
+          toast.success(`DOCX salvo em Minhas Petições como "Revisão Necessária"!`);
+        }
+      }
+
       if (tokensFaltando.length > 0) {
-        toast.warning(`DOCX gerado! Tokens em branco: ${tokensFaltando.slice(0, 10).join(", ")}${tokensFaltando.length > 10 ? "..." : ""}`);
-      } else {
-        toast.success("DOCX gerado com sucesso — idêntico ao modelo oficial!");
+        toast.warning(`Tokens em branco: ${tokensFaltando.slice(0, 8).join(", ")}${tokensFaltando.length > 8 ? "..." : ""}`);
       }
     } catch (e) {
-      // Docxtemplater lança TemplateError com .properties.errors
       const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
       toast.error("Erro ao gerar DOCX: " + detalhe, { duration: 8000 });
       base44.entities.ErrorLog.create({
