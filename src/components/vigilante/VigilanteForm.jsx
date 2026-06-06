@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } f
 import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
 import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
+import ConfirmarTeses from "./ConfirmarTeses.jsx";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -97,6 +98,9 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
   const [mostrarExtrair, setMostrarExtrair] = useState(false);
+  // Estado do modal de confirmação de teses
+  // modo: null | "docx" | "ia"
+  const [confirmandoTeses, setConfirmandoTeses] = useState(null);
 
   useEffect(() => {
     base44.entities.CasoVigilante.list().then(list => {
@@ -156,15 +160,17 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
-  const handleGerarDocxIdêntico = async () => {
+  // Chamado após confirmação do modal (modo "docx")
+  const handleGerarDocxIdêntico = async (dadosConfirmados) => {
+    const dadosFinais = dadosConfirmados || dados;
     if (!templateDocxUrl) return;
     setGerandoDocx(true);
     try {
-      const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dados);
+      const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dadosFinais);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${dados.RECL_NOME || "vigilante"}_peticao.docx`;
+      a.download = `${dadosFinais.RECL_NOME || "vigilante"}_peticao.docx`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -202,6 +208,24 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   return (
     <div className="space-y-4">
+      {/* Modal de confirmação de teses */}
+      {confirmandoTeses && (
+        <ConfirmarTeses
+          dadosIniciais={dados}
+          onCancelar={() => setConfirmandoTeses(null)}
+          onConfirmar={(dadosConfirmados) => {
+            // Persiste as escolhas no estado local
+            setDados(dadosConfirmados);
+            setConfirmandoTeses(null);
+            if (confirmandoTeses === "docx") {
+              handleGerarDocxIdêntico(dadosConfirmados);
+            } else {
+              onGerarComDados(dadosConfirmados);
+            }
+          }}
+        />
+      )}
+
       {mostrarExtrair && (
         <ExtrairDadosIA
           casoVigilanteId={casoId || null}
@@ -351,7 +375,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         {templateDocxUrl && (
           <button
             type="button"
-            onClick={handleGerarDocxIdêntico}
+            onClick={() => setConfirmandoTeses("docx")}
             disabled={gerandoDocx}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
           >
@@ -362,7 +386,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
         <button
           type="button"
-          onClick={() => onGerarComDados(dados)}
+          onClick={() => setConfirmandoTeses("ia")}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
         >
           <Wand2 className="w-4 h-4" /> Gerar Petição com IA →
