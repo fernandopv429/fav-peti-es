@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Wand2, Scale, X, LogOut, ChevronRight,
-  FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck
+  FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck, BarChart2
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
@@ -34,6 +34,7 @@ const NAV = [
   {
     group: "Ferramentas",
     items: [
+      { label: "Painel / Análise", icon: BarChart2, path: "/analise" },
       { label: "Backup e Restauração", icon: ShieldCheck, path: "/backup" },
     ],
   },

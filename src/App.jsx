@@ -20,6 +20,7 @@ import Home from './pages/Home';
 import Catalogo from './pages/Catalogo';
 import GerarDocumento from './pages/GerarDocumento';
 import BackupRestauracao from './pages/BackupRestauracao';
+import Analise from './pages/Analise';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -60,6 +61,7 @@ const AuthenticatedApp = () => {
         <Route path="/defesa" element={<Defesa />} />
         <Route path="/atualizacao-calculo" element={<AtualizacaoCalculoPage />} />
         <Route path="/backup" element={<BackupRestauracao />} />
+        <Route path="/analise" element={<Analise />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
