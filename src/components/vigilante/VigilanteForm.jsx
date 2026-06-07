@@ -168,7 +168,6 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dadosFinais);
 
-      // Nome do arquivo
       const nomeArquivo = `${dadosFinais.RECL_NOME || "vigilante"}_peticao.docx`;
 
       // 1. Download imediato para o advogado
@@ -179,38 +178,32 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       a.click();
       URL.revokeObjectURL(url);
 
-      // 2. Upload para salvar na petição
-      let docxUrl = null;
+      // 2. Upload e persistência na entidade Petition (sempre)
       try {
         const file = new File([blob], nomeArquivo, {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         });
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        docxUrl = file_url;
-      } catch (uploadErr) {
-        toast.warning("Download OK, mas falha ao salvar na petição: " + uploadErr.message);
-      }
+        const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-      // 3. Cria ou atualiza o registro Petition
-      if (docxUrl) {
         const titulo = dadosFinais.titulo ||
           `${dadosFinais.RECL_NOME || "Vigilante"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+
         const petitionPayload = {
           title: titulo,
           case_type: "trabalhista",
           claimant_name: dadosFinais.RECL_NOME || "—",
           defendant_name: dadosFinais.RECL1_NOME || "—",
+          defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
           status: "revisao_necessaria",
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: "vigilante_unificado",
         };
 
-        const idAtual = casoId
-          ? (await base44.entities.CasoVigilante.filter({ id: casoId }).catch(() => []))[0]?.petition_id
-          : null;
+        // Usa petition_id já vinculado ao caso (estado local tem o campo)
+        const existingPetitionId = dadosFinais.petition_id || null;
 
-        let petitionId = idAtual;
+        let petitionId = existingPetitionId;
         if (petitionId) {
           await base44.entities.Petition.update(petitionId, petitionPayload).catch(() => {});
         } else {
@@ -220,12 +213,16 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
         // Vincula petition_id no CasoVigilante
         if (petitionId && casoId) {
-          base44.entities.CasoVigilante.update(casoId, { petition_id: petitionId, status: "gerado" }).catch(() => {});
+          await base44.entities.CasoVigilante.update(casoId, { petition_id: petitionId, status: "gerado" }).catch(() => {});
+          // Atualiza estado local para evitar duplicata na próxima geração
+          setDados(prev => ({ ...prev, petition_id: petitionId }));
         }
 
         if (petitionId) {
           toast.success(`DOCX salvo em Minhas Petições como "Revisão Necessária"!`);
         }
+      } catch (uploadErr) {
+        toast.warning("Download OK, mas falha ao salvar na petição: " + uploadErr.message);
       }
 
       if (tokensFaltando.length > 0) {
