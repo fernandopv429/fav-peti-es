@@ -260,6 +260,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       {confirmandoTeses && (
         <ConfirmarTeses
           dadosIniciais={dados}
+          documentUrls={documentUrls}
           onCancelar={() => setConfirmandoTeses(null)}
           onConfirmar={(dadosConfirmados) => {
             // Persiste as escolhas no estado local
