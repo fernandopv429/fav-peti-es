@@ -413,9 +413,28 @@ Deno.serve(async (req) => {
             .replace(/claude-3-5-sonnet/g, "claude_sonnet_4_6")
             .replace(/claude-sonnet/g, "claude_sonnet_4_6");
 
+          // Dados imutáveis das partes — NUNCA podem ser alterados pela IA
+          const partesImutaveis = {
+            RECL_NOME: baseTokens.RECL_NOME,
+            RECL1_NOME: baseTokens.RECL1_NOME,
+            RECL1_CNPJ: baseTokens.RECL1_CNPJ,
+            RECL2_NOME: baseTokens.RECL2_NOME,
+            RECL2_CNPJ: baseTokens.RECL2_CNPJ,
+            RECL3_NOME: baseTokens.RECL3_NOME,
+            RECL3_CNPJ: baseTokens.RECL3_CNPJ,
+            COMARCA_UF: baseTokens.COMARCA_UF,
+            FORO_COMPETENCIA: baseTokens.FORO_COMPETENCIA,
+            LOCAL_PRESTACAO: baseTokens.LOCAL_PRESTACAO,
+          };
+
           const promptIA = `Você é um extrator de dados jurídicos. Analise os documentos do caso abaixo e retorne APENAS um JSON com dados CURTOS e OBJETIVOS extraídos.
 
-DADOS JÁ PREENCHIDOS (não retorne estes):
+⚠️ INSTRUÇÃO CRÍTICA — DADOS IMUTÁVEIS DAS PARTES:
+Os dados abaixo são OFICIAIS e VINCULANTES. NUNCA retorne, substitua ou inferia outros valores para estas chaves. Se encontrar nomes/CEPs/endereços diferentes nos documentos, IGNORE — mantenha os dados oficiais:
+
+${JSON.stringify(partesImutaveis, null, 2)}
+
+DADOS JÁ PREENCHIDOS (não retorne estes — use apenas como contexto):
 ${JSON.stringify(baseTokens, null, 2)}
 
 ${laudoAnalise ? `LAUDO:\n${laudoAnalise.slice(0, 3000)}\n\n` : ""}
@@ -424,12 +443,13 @@ ${imageOrPdfUrls.length > 0 ? `${imageOrPdfUrls.length} arquivo(s) PDF/imagem em
 
 REGRAS ABSOLUTAS:
 1. Retorne SOMENTE JSON puro, sem markdown, sem comentários.
-2. Extraia APENAS valores CURTOS e OBJETIVOS: datas (ex: "04 de junho de 2012"), valores monetários (ex: "R$ 2.148,22"), horários (ex: "18:30 às 07:30"), nomes, CNPJs, endereços, cidades.
+2. Extraia APENAS valores CURTOS e OBJETIVOS: datas (ex: "04 de junho de 2012"), valores monetários (ex: "R$ 2.148,22"), horários (ex: "18:30 às 07:30").
 3. PROIBIDO retornar texto narrativo longo, parágrafos, fundamentação jurídica, ou qualquer texto com mais de 2 linhas num token.
 4. NÃO transcreva nem descreva imagens (cartões de ponto, holerites) — extraia apenas os NÚMEROS/VALORES presentes nelas.
-5. Tokens permitidos: DATA_ADMISSAO, DATA_RESCISAO, SALARIO, JORNADA_HORARIO, JORNADA_EXTRAPOLA, JORNADA_FREQ_EXTRA, INTERVALO_GOZADO, COMARCA_UF, FORO_COMPETENCIA, REGIAO_TRT, LOCAL_PRESTACAO, LOCAL_DATA_ASSINATURA, CCT_VIGENCIA, ADIC_CONV, VAL_FT, VAL_CONDUCAO, VAL_ALIMENTACAO, VALOR_CAUSA, RECL_SERIE, RECL_CEP, RECL_FILIACAO, RECL_ESTADOCIVIL, RECL2_NOME, RECL2_CNPJ, RECL2_LOGRADOURO, RECL3_NOME, RECL3_CNPJ, RECL3_LOGRADOURO, P01 até P87 (apenas valores monetários, ex: "R$ 21.482,20").
-6. Para campos não encontrados nos documentos, NÃO inclua no JSON.
-7. TIPO_RESCISAO deve ser um destes valores exatos: "dispensa_sem_justa_causa", "rescisao_indireta", "reversao_justa_causa", "pedido_demissao".`;
+5. Tokens permitidos: DATA_ADMISSAO, DATA_RESCISAO, SALARIO, JORNADA_HORARIO, JORNADA_EXTRAPOLA, JORNADA_FREQ_EXTRA, INTERVALO_GOZADO, CCT_VIGENCIA, ADIC_CONV, VAL_FT, VAL_CONDUCAO, VAL_ALIMENTACAO, VALOR_CAUSA, RECL_SERIE, RECL_FILIACAO, RECL_ESTADOCIVIL, P01 até P87 (apenas valores monetários, ex: "R$ 21.482,20").
+6. PROIBIDO RETORNAR DADOS DAS PARTES: NUNCA retorne RECL_NOME, RECL1_NOME, RECL2_NOME, RECL3_NOME, CNPJs, endereços, CEPs, COMARCA_UF, FORO_COMPETENCIA — estes dados já estão definidos e são IMUTÁVEIS.
+7. Para campos não encontrados nos documentos, NÃO inclua no JSON.
+8. TIPO_RESCISAO deve ser um destes valores exatos: "dispensa_sem_justa_causa", "rescisao_indireta", "reversao_justa_causa", "pedido_demissao".`;
 
           const iaResp = await base44.integrations.Core.InvokeLLM({
             prompt: promptIA,

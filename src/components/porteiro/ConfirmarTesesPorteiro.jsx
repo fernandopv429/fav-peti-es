@@ -161,10 +161,18 @@ export default function ConfirmarTesesPorteiro({
     const isSiemaco = templateId === "6a23a23e1899bb8695af99c4";
     const nomeCct = isSiemaco ? "CCT SIEMACO-SP 2026/2027" : "CCT SINDEEPRES (citar apenas CLT)";
 
-    const contexto = [
+    // Dados imutáveis das partes — NUNCA podem ser alterados pela IA
+    const partesImutaveis = [
       d.RECL_NOME       && `Reclamante: ${d.RECL_NOME}`,
-      d.RECL1_NOME      && `1ª Reclamada: ${d.RECL1_NOME}`,
-      d.RECL2_NOME      && `2ª Reclamada: ${d.RECL2_NOME}`,
+      d.RECL1_NOME      && `1ª Reclamada: ${d.RECL1_NOME} ${d.RECL1_CNPJ ? `(CNPJ: ${d.RECL1_CNPJ})` : ""}`,
+      d.RECL2_NOME      && `2ª Reclamada (tomadora): ${d.RECL2_NOME} ${d.RECL2_CNPJ ? `(CNPJ: ${d.RECL2_CNPJ})` : ""}`,
+      d.RECL3_NOME      && `3ª Reclamada (tomadora): ${d.RECL3_NOME} ${d.RECL3_CNPJ ? `(CNPJ: ${d.RECL3_CNPJ})` : ""}`,
+      d.COMARCA_UF      && `Comarca/UF: ${d.COMARCA_UF}`,
+      d.FORO_COMPETENCIA && `Foro de competência: ${d.FORO_COMPETENCIA}`,
+      d.LOCAL_PRESTACAO && `Local de prestação de serviços: ${d.LOCAL_PRESTACAO}`,
+    ].filter(Boolean).join("\n");
+
+    const contextoContratual = [
       d.DATA_ADMISSAO   && `Admissão: ${d.DATA_ADMISSAO}`,
       d.DATA_RESCISAO   && `Rescisão: ${d.DATA_RESCISAO}`,
       d.FUNCAO          && `Função: ${d.FUNCAO}`,
@@ -174,18 +182,25 @@ export default function ConfirmarTesesPorteiro({
 
     const prompt = `Você é advogado trabalhista. Analise o caso de porteiro/controlador de acesso (${nomeCct}) e retorne JSON com a classificação de TODAS as flags abaixo.
 
-DADOS DO CASO:
-${contexto}
+⚠️ INSTRUÇÃO CRÍTICA — DADOS IMUTÁVEIS DAS PARTES:
+As informações abaixo são OFICIAIS e VINCULANTES. NUNCA crie, substitua, complemente ou inferia outras partes/empregadores/endereços/CEPs/foros. Use EXCLUSIVAMENTE estes dados:
 
-INSTRUÇÕES:
-- Exatamente UMA flag de rescisão = true (t_dispensa, t_coacao, t_indireta, t_reversao).
-  * t_dispensa = dispensa sem justa causa
-  * t_coacao   = pedido de demissão por coação/pressão
-  * t_indireta = rescisão indireta (art. 483 CLT)
-  * t_reversao = reversão da justa causa
-- Exatamente UMA flag de jornada = true (jornada_12x36, jornada_5x2).
-- Para SINDEEPRES: não sugira teses de CCT não cadastrada. Use apenas CLT.
-- Baseie-se SOMENTE nos dados fornecidos. Não invente fatos.
+${partesImutaveis}
+
+DADOS CONTRATUAIS:
+${contextoContratual}
+
+INSTRUÇÕES ABSOLUTAS:
+1. Exatamente UMA flag de rescisão = true (t_dispensa, t_coacao, t_indireta, t_reversao).
+   * t_dispensa = dispensa sem justa causa
+   * t_coacao   = pedido de demissão por coação/pressão
+   * t_indireta = rescisão indireta (art. 483 CLT)
+   * t_reversao = reversão da justa causa
+2. Exatamente UMA flag de jornada = true (jornada_12x36, jornada_5x2).
+3. Para SINDEEPRES: não sugira teses de CCT não cadastrada. Use apenas CLT.
+4. PROIBIDO INVENTAR PARTES: Não crie, substitua ou adicione reclamadas, endereços, CEPs, foros ou empregadores que não estejam listados acima. Se houver outros nomes em documentos anexos (ex.: CTPS com múltiplos empregadores), IGNORE — use APENAS as 1ª/2ª/3ª reclamadas listadas.
+5. PROIBIDO INFERIR ENDEREÇOS: Não extraia CEPs/endereços de boletos, contratos ou outros documentos. Use APENAS o foro/comarca listado.
+6. Baseie-se SOMENTE nos dados fornecidos acima. Não invente fatos.
 
 Retorne SOMENTE JSON válido (sem markdown):
 {
