@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight, Eye, Pencil, Tag, Search } from "lucide-react";
+import { FolderOpen, Plus, Upload, Loader2, FileText, Trash2, X, ToggleLeft, ToggleRight, Eye, Pencil, Tag, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const CASE_TYPE_LABELS = {
@@ -24,6 +24,9 @@ export default function Templates() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [viewTemplate, setViewTemplate] = useState(null);
   const [editTemplate, setEditTemplate] = useState(null);
+  const [uploadingDocxId, setUploadingDocxId] = useState(null);
+  const docxInputRef = useRef(null);
+  const docxUploadTargetId = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCaseType, setFilterCaseType] = useState("all");
   const [filterTag, setFilterTag] = useState("");
@@ -41,6 +44,35 @@ export default function Templates() {
     await base44.entities.PetitionTemplate.delete(id);
     setTemplates((prev) => prev.filter((t) => t.id !== id));
     toast.success("Modelo excluído");
+  };
+
+  const handleSubstituirDocx = (templateId) => {
+    docxUploadTargetId.current = templateId;
+    docxInputRef.current?.click();
+  };
+
+  const handleDocxFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !docxUploadTargetId.current) return;
+    const id = docxUploadTargetId.current;
+    setUploadingDocxId(id);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      await base44.entities.PetitionTemplate.update(id, {
+        modelo_docx_url: file_url,
+        modelo_docx_name: file.name,
+      });
+      setTemplates(prev => prev.map(t =>
+        t.id === id ? { ...t, modelo_docx_url: file_url, modelo_docx_name: file.name } : t
+      ));
+      toast.success(`Modelo DOCX atualizado: ${file.name}`);
+    } catch (err) {
+      toast.error("Erro ao enviar DOCX: " + err.message);
+    } finally {
+      setUploadingDocxId(null);
+      docxUploadTargetId.current = null;
+      if (docxInputRef.current) docxInputRef.current.value = "";
+    }
   };
 
   const handleToggle = async (id, currentState) => {
@@ -69,6 +101,8 @@ export default function Templates() {
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+      {/* Input oculto global para substituição rápida de DOCX */}
+      <input ref={docxInputRef} type="file" accept=".docx" className="hidden" onChange={handleDocxFileChange} />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Modelos de Petição</h1>
@@ -160,6 +194,30 @@ export default function Templates() {
                   <span className="truncate">{t.file_name}</span>
                 </div>
               )}
+
+              {/* Bloco DOCX tokenizado — substituição rápida */}
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 px-3 py-2.5 space-y-1.5">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wide">Modelo DOCX (merge)</p>
+                {t.modelo_docx_name ? (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                    <FileText className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                    <span className="truncate flex-1 font-medium">{t.modelo_docx_name}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-600/80 italic">Nenhum arquivo vinculado</p>
+                )}
+                <button
+                  onClick={() => handleSubstituirDocx(t.id)}
+                  disabled={uploadingDocxId === t.id}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-bold transition-colors"
+                >
+                  {uploadingDocxId === t.id
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</>
+                    : <><RefreshCw className="w-3.5 h-3.5" /> Substituir arquivo .docx</>
+                  }
+                </button>
+              </div>
+
               {(t.tags || []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {(t.tags || []).map(tag => (
