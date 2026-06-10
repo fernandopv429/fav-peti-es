@@ -10,7 +10,7 @@ import { LetterheadHeader, LetterheadFooter } from "../components/petition/Petit
 import { getPetitionViewStyle } from "@/hooks/usePetitionFormat.js";
 import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import PetitionRenderer from "@/components/petition/PetitionRenderer";
 
 export default function PetitionView() {
   const { id } = useParams();
@@ -277,52 +277,7 @@ export default function PetitionView() {
             />
           </div>
         ) : petitionContent ? (
-          <div style={{ fontFamily: "Arial, sans-serif", fontSize: "12pt", lineHeight: 1.5, textAlign: "justify" }} className="petition-content">
-            {petitionContent.split("\n").map((line, idx) => {
-              const t = line.trim();
-              if (!t) return <br key={idx} />;
-              const noMd = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/^#{1,6}\s/, "");
-              const isHeading = noMd === noMd.toUpperCase() && noMd.length > 3 && !/^[a-z]/.test(noMd) && !t.startsWith(">");
-              const isEmenta = t.startsWith(">");
-              const isFecho = /^(nestes termos|pede deferimento|e\.e\.d\.|termos em que|a\.e\.d\.)/i.test(t);
-              const isPedido = /^[a-z]\)|^\d+\.\s|^[ivxlc]+\)/i.test(noMd);
-
-              const renderInline = (raw) => {
-                const parts = raw.split(/(\*\*.*?\*\*)/g);
-                return parts.map((p, i) =>
-                  p.startsWith("**") && p.endsWith("**")
-                    ? <strong key={i}>{p.slice(2, -2)}</strong>
-                    : <span key={i}>{p}</span>
-                );
-              };
-
-              if (isHeading) return (
-                <p key={idx} style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", textDecoration: "underline", margin: "1em 0 0.4em" }}>
-                  {noMd}
-                </p>
-              );
-              if (isEmenta) return (
-                <p key={idx} style={{ marginLeft: "4cm", textAlign: "justify", marginBottom: "0.4em" }}>
-                  {renderInline(t.slice(1).trim())}
-                </p>
-              );
-              if (isFecho) return (
-                <p key={idx} style={{ textAlign: "center", marginTop: "1em", marginBottom: "0.4em" }}>
-                  {renderInline(noMd)}
-                </p>
-              );
-              if (isPedido) return (
-                <p key={idx} style={{ textAlign: "justify", textIndent: "3cm", fontWeight: "bold", marginBottom: "0.3em" }}>
-                  {noMd.toLowerCase()}
-                </p>
-              );
-              return (
-                <p key={idx} style={{ textAlign: "justify", textIndent: "3cm", marginBottom: "0.3em" }}>
-                  {renderInline(noMd)}
-                </p>
-              );
-            })}
-          </div>
+          <PetitionRenderer content={petitionContent} />
         ) : (
           <div className="text-center py-16 text-muted-foreground space-y-4">
             <FileText className="w-14 h-14 mx-auto opacity-30" />

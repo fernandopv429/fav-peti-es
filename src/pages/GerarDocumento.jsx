@@ -8,7 +8,7 @@ import {
 import { toast } from "sonner";
 import ExportButtons from "../components/petition/ExportButtons";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
-import ReactMarkdown from "react-markdown";
+import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import VigilanteForm from "../components/vigilante/VigilanteForm";
 
 const AREAS_ORDER = [
@@ -696,14 +696,7 @@ Retorne a petição completa, sem comentários adicionais.`;
 
               <div className="bg-card border border-border rounded-2xl p-6 max-h-[600px] overflow-y-auto" id="gerar-doc-print-area">
                 <LetterheadHeader config={petitionConfig} />
-                <div className="prose prose-sm prose-slate max-w-none text-card-foreground">
-                  <ReactMarkdown components={{
-                    p: ({ children }) => <p style={{ textAlign: "justify", marginBottom: "0.5em" }}>{children}</p>,
-                    h1: ({ children }) => <h1 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1.2em 0 0.4em" }}>{children}</h1>,
-                    h2: ({ children }) => <h2 style={{ textAlign: "center", fontWeight: "bold", textTransform: "uppercase", margin: "1em 0 0.4em" }}>{children}</h2>,
-                    h3: ({ children }) => <h3 style={{ fontWeight: "bold", margin: "0.8em 0 0.3em" }}>{children}</h3>,
-                  }}>{resultado}</ReactMarkdown>
-                </div>
+                <PetitionRenderer content={resultado} />
                 <LetterheadFooter config={petitionConfig} />
               </div>
 
