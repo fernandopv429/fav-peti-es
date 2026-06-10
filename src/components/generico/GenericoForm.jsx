@@ -8,10 +8,10 @@
  *   documentUrls     : URLs dos documentos anexados (para IA)
  *   onGerar          : fn(dados: Record<string,string|bool>) => void — chamado ao gerar
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { extractTokensFromUrl, groupTokens } from "@/lib/extractDocxTokens.js";
-import { ChevronDown, ChevronRight, Save, Download, Upload, Loader2, Wand2, FileDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Save, Download, Upload, Loader2, Wand2, FileDown, AlertTriangle, Paperclip, X, FileText, Image, File } from "lucide-react";
 import { toast } from "sonner";
 
 // Entidade de persistência de casos genéricos (reutilizamos CasoVigilante com campo titulo)
@@ -77,18 +77,21 @@ function FieldBool({ label, token, value, onChange }) {
 // ---------- componente principal ----------
 
 export default function GenericoForm({ templateDocxUrl, templateId, templateName, documentUrls = [], onGerar }) {
-  const [tokens, setTokens] = useState([]);        // lista flat de strings
-  const [grupos, setGrupos] = useState([]);         // agrupados
+  const [tokens, setTokens] = useState([]);
+  const [grupos, setGrupos] = useState([]);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const [dados, setDados] = useState({});
   const [titulo, setTitulo] = useState("");
   const [openSections, setOpenSections] = useState({});
-  // Lista de casos salvos para este template
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [extraindoIA, setExtraindoIA] = useState(false);
+  // Documentos internos ao formulário (upload próprio)
+  const [arquivosIA, setArquivosIA] = useState([]);
+  const [uploadingIA, setUploadingIA] = useState(false);
+  const fileInputIARef = useRef(null);
 
   // 1. Extrai tokens do DOCX ao montar (ou quando URL mudar)
   useEffect(() => {
@@ -181,6 +184,27 @@ export default function GenericoForm({ templateDocxUrl, templateId, templateName
     toast.success("dados.json baixado!");
   };
 
+  const getFileIcon = (type) => {
+    if (type?.startsWith("image/")) return <Image className="w-4 h-4 text-blue-500" />;
+    if (type?.includes("pdf")) return <FileText className="w-4 h-4 text-red-500" />;
+    return <File className="w-4 h-4 text-muted-foreground" />;
+  };
+
+  const handleAddArquivosIA = async (files) => {
+    const lista = Array.from(files);
+    setUploadingIA(true);
+    for (const file of lista) {
+      try {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        setArquivosIA(prev => [...prev, { name: file.name, url: file_url, type: file.type }]);
+      } catch (e) {
+        toast.error(`Erro ao enviar ${file.name}: ` + e.message);
+      }
+    }
+    setUploadingIA(false);
+    if (fileInputIARef.current) fileInputIARef.current.value = "";
+  };
+
   const handleCarregarJson = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -205,8 +229,14 @@ export default function GenericoForm({ templateDocxUrl, templateId, templateName
 
   // Extração IA: preenche campos curtos deterministicamente, narrativos via IA
   const handleExtrairIA = async () => {
-    if (!documentUrls || documentUrls.length === 0) {
-      toast.error("Adicione pelo menos um documento para extrair dados com IA.");
+    // Combina documentos internos com os externos passados pelo pai
+    const todasUrls = [
+      ...arquivosIA.map(a => a.url),
+      ...(documentUrls || []),
+    ];
+    if (todasUrls.length === 0) {
+      // Se não há documentos, abre o seletor de arquivos primeiro
+      fileInputIARef.current?.click();
       return;
     }
     setExtraindoIA(true);
@@ -216,8 +246,8 @@ export default function GenericoForm({ templateDocxUrl, templateId, templateName
         const l = url.toLowerCase().split("?")[0];
         return l.endsWith(".pdf") || l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg") || l.endsWith(".webp");
       };
-      const urlsVisuais = documentUrls.filter(isVisual);
-      const urlsTexto = documentUrls.filter(u => !isVisual(u));
+      const urlsVisuais = todasUrls.filter(isVisual);
+      const urlsTexto = todasUrls.filter(u => !isVisual(u));
       const textos = [];
       for (const url of urlsTexto) {
         try {
@@ -251,7 +281,7 @@ REGRAS:
 
       const resultado = await base44.integrations.Core.InvokeLLM({
         prompt: promptExtracao,
-        model: "claude_sonnet_4_6",
+        model: "claude_opus_4_8",
         file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
         response_json_schema: {
           type: "object",
@@ -351,17 +381,63 @@ REGRAS:
         </button>
       </div>
 
-      {/* Botão extrair com IA */}
-      <button
-        type="button"
-        onClick={handleExtrairIA}
-        disabled={extraindoIA}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 text-primary text-sm font-semibold transition-colors disabled:opacity-50"
-      >
-        {extraindoIA
-          ? <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo dados com IA...</>
-          : <><Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA</>}
-      </button>
+      {/* Seção: extrair com IA (upload interno + botão) */}
+      <div className="rounded-xl border border-dashed border-primary/40 bg-primary/3 p-3 space-y-2">
+        {/* Input file oculto */}
+        <input
+          ref={fileInputIARef}
+          type="file"
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.txt"
+          className="hidden"
+          onChange={e => handleAddArquivosIA(e.target.files)}
+        />
+
+        {/* Área de drop / clique para upload */}
+        <div
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => fileInputIARef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); handleAddArquivosIA(e.dataTransfer.files); }}
+        >
+          <Paperclip className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-xs text-primary font-semibold">
+            {uploadingIA ? "Enviando..." : "Anexar documentos para a IA (PDFs, imagens, CTPS, holerites...)"}
+          </span>
+          {uploadingIA && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+        </div>
+
+        {/* Lista de arquivos carregados */}
+        {arquivosIA.length > 0 && (
+          <div className="space-y-1">
+            {arquivosIA.map((arq, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-lg bg-background border border-border">
+                {getFileIcon(arq.type)}
+                <span className="text-xs text-foreground flex-1 truncate">{arq.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setArquivosIA(prev => prev.filter((_, idx) => idx !== i))}
+                  className="p-0.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Botão extrair */}
+        <button
+          type="button"
+          onClick={handleExtrairIA}
+          disabled={extraindoIA || uploadingIA}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          {extraindoIA
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo dados com IA...</>
+            : <><Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA</>}
+        </button>
+      </div>
 
       {/* Título do caso */}
       <div>

@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
       let aiTokens = {};
       if (docTexts.length > 0 || imageOrPdfUrls.length > 0 || laudoAnalise) {
         try {
-          const iaModel = modeloIA || cfg.modelo_ia || "claude_sonnet_4_6";
+          const iaModel = (modeloIA || cfg.modelo_ia || "claude_opus_4_8").replace("claude-sonnet-4-20250514", "claude_opus_4_8");
 
           const promptIA = `Você é um extrator de dados jurídicos. Analise os documentos do caso abaixo e retorne APENAS um JSON com dados CURTOS e OBJETIVOS extraídos.
 
