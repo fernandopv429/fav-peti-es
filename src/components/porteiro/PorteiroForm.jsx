@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 
@@ -110,9 +111,7 @@ function Field({ label, name, value, onChange, full, placeholder }) {
 // ── Helper: gera DOCX determinístico ──────────────────────────────────────
 
 async function gerarDocxPorteiro(templateDocxUrl, dados) {
-  const resp = await fetch(templateDocxUrl);
-  if (!resp.ok) throw new Error(`Falha ao baixar modelo (${resp.status})`);
-  const ab = await resp.arrayBuffer();
+  const ab = await fetchDocxViaBackend(templateDocxUrl);
   const buffer = new Uint8Array(ab);
   const tokensFaltando = [];
   const zip = new PizZip(buffer);

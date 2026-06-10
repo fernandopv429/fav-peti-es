@@ -6,6 +6,7 @@
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { valorPorExtenso } from "./valorPorExtenso.js";
+import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo oficial.
@@ -96,7 +97,7 @@ function montarDadosTemplate(dados) {
  * @returns {{ blob: Blob, tokensFaltando: string[] }}
  */
 export async function gerarDocxVigilante(modeloDocxUrl, dados) {
-  // 1. Baixa o arquivo modelo como ArrayBuffer
+  // 1. Baixa o arquivo modelo como ArrayBuffer (via backend para evitar CORS no app publicado)
   let arrayBuffer;
   if (modeloDocxUrl.startsWith("data:")) {
     const base64 = modeloDocxUrl.split(",")[1];
@@ -105,9 +106,7 @@ export async function gerarDocxVigilante(modeloDocxUrl, dados) {
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     arrayBuffer = bytes.buffer;
   } else {
-    const resp = await fetch(modeloDocxUrl);
-    if (!resp.ok) throw new Error(`Falha ao baixar modelo DOCX: ${resp.status}`);
-    arrayBuffer = await resp.arrayBuffer();
+    arrayBuffer = await fetchDocxViaBackend(modeloDocxUrl);
   }
 
   // 2. Carrega no PizZip
