@@ -13,8 +13,55 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import PizZip from 'npm:pizzip@3.2.0';
 import Docxtemplater from 'npm:docxtemplater@3.68.7';
+import ImageModule from 'npm:docxtemplater-image-module-free@1.1.1';
 
 // ── helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Remove markdown cru dos valores de token antes de injetar no DOCX.
+ * Proibido: pipes de tabela, backticks, linhas "---", cabeçalhos "#", seções extras após o fecho.
+ */
+function sanitizeTokenValue(val) {
+  if (typeof val !== "string") return val;
+
+  const lines = val.split("\n");
+  const cleanLines = [];
+  const FECHO_RE = /^(nestes termos|pede deferimento|e\.e\.d\.|termos em que|a\.e\.d\.|nesses termos)/i;
+  const EXTRA_SECTION_RE = /^(memória de cálculo|anexo|nota técnica|rol de testemunhas|\[fim da peça|\[fim do documento)/i;
+
+  let fechoFound = false;
+  for (const line of lines) {
+    const t = line.trim();
+
+    // Parar ao encontrar seções proibidas pós-fecho
+    if (fechoFound && EXTRA_SECTION_RE.test(t)) break;
+    if (FECHO_RE.test(t)) fechoFound = true;
+
+    // Remove linhas com markdown de tabela (pipe) ou cerca de código
+    if (/^\|/.test(t)) continue;           // linhas de tabela markdown
+    if (/^\s*\|/.test(t)) continue;        // idem com espaço
+    if (/^`{1,3}/.test(t)) continue;       // cerca de código
+    if (/^#{1,6}\s/.test(t)) continue;     // cabeçalhos markdown #
+    if (/^[-]{3,}$/.test(t)) continue;     // linhas divisórias ---
+    if (/^\[Fim/.test(t)) continue;        // [Fim da Peça...]
+    if (/^NOTA TÉCNICA/i.test(t)) continue;
+
+    cleanLines.push(line);
+  }
+
+  return cleanLines.join("\n").trim();
+}
+
+/**
+ * Sanitiza todos os valores de um objeto de tokens.
+ */
+function sanitizeTokens(tokens) {
+  const out = {};
+  for (const [k, v] of Object.entries(tokens)) {
+    out[k] = typeof v === "string" ? sanitizeTokenValue(v) : v;
+  }
+  return out;
+}
 
 function isVisualFile(url) {
   const lower = (url || "").toLowerCase().split("?")[0];
@@ -30,14 +77,31 @@ async function fetchDocx(url) {
 }
 
 /**
- * Substitui tokens {{CHAVE}} no docx e retorna Blob.
+ * Baixa uma URL e retorna ArrayBuffer. Funciona com URLs remotas.
+ */
+async function fetchImageBuffer(url) {
+  if (!url) return null;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.arrayBuffer();
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Substitui tokens {{CHAVE}} no docx e retorna buffer.
+ * Suporta token especial {{LOGO_IMG}} para embutir imagem do logo.
  * tokens: objeto { CHAVE: valor, ... }
  * Tokens ausentes → string vazia, nunca lança erro.
  */
-function renderDocx(buffer, tokens) {
+async function renderDocx(buffer, tokens, logoBuffer) {
   const tokensFaltando = [];
   const zip = new PizZip(buffer);
-  const doc = new Docxtemplater(zip, {
+
+  // Módulo de imagem para o token {{LOGO_IMG}} — se o modelo o utilizar
+  const opts = {
     delimiters: { start: "{{", end: "}}" },
     paragraphLoop: true,
     linebreaks: true,
@@ -48,8 +112,32 @@ function renderDocx(buffer, tokens) {
       return "";
     },
     errorLogging: false,
-  });
-  doc.render(tokens);
+  };
+
+  if (logoBuffer) {
+    try {
+      opts.modules = [new ImageModule({
+        centered: true,
+        fileType: "docx",
+        getImage: (tagValue) => {
+          // Retorna o buffer do logo para o token LOGO_IMG
+          if (tagValue === "LOGO_IMG") return logoBuffer;
+          return null;
+        },
+        getSize: () => [200, 60], // largura x altura em px (aprox 7cm × 2cm)
+      })];
+    } catch (_) {
+      // ImageModule não disponível — continua sem módulo de imagem
+    }
+  }
+
+  const doc = new Docxtemplater(zip, opts);
+
+  // Injeta logo como dado de imagem se o token existir no modelo
+  const renderData = { ...tokens };
+  if (logoBuffer) renderData["LOGO_IMG"] = "LOGO_IMG";
+
+  doc.render(renderData);
   const out = doc.getZip().generate({
     type: "uint8array",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -202,7 +290,7 @@ Deno.serve(async (req) => {
         const iaModel = modeloIA || cfg.modelo_ia || "claude_sonnet_4_6";
         const tokenList = Object.keys(baseTokens).join(", ");
 
-        let promptIA = `Você é um assistente jurídico. Analise os documentos do caso trabalhista abaixo e preencha os campos ausentes para o preenchimento de um modelo de petição tokenizado.
+        let promptIA = `Você é um assistente jurídico. Analise os documentos do caso trabalhista abaixo e preencha APENAS os tokens JSON para o modelo de petição.
 
 DADOS JÁ PREENCHIDOS (não repita estes):
 ${JSON.stringify(baseTokens, null, 2)}
@@ -211,12 +299,15 @@ ${laudoAnalise ? `LAUDO DE ANÁLISE DOS DOCUMENTOS:\n${laudoAnalise}\n\n` : ""}
 ${docTexts.length > 0 ? `CONTEÚDO DOS DOCUMENTOS (texto):\n${docTexts.join("\n\n")}\n\n` : ""}
 ${imageOrPdfUrls.length > 0 ? `${imageOrPdfUrls.length} arquivo(s) PDF/imagem em anexo — analise-os.\n\n` : ""}
 
-INSTRUÇÕES:
-1. Extraia dos documentos os valores faltantes ou corrija os preenchidos com dados reais: DATA_ADMISSAO (da CTPS), DATA_RESCISAO e tipo de rescisão (do TRCT/entrevista), SALARIO (do holerite), JORNADA_HORARIO (dos cartões de ponto), COMARCA_UF/FORO_COMPETENCIA (da entrevista).
-2. Retorne um JSON puro (sem markdown, sem comentários) com APENAS os campos que você encontrou ou corrigiu.
-3. Para campos não encontrados, NÃO inclua no JSON.
-4. Inclua também tokens específicos que o modelo de porteiro/SINDEEPRES/SIEMACO pode usar (ex: CCT_VIGENCIA, ADIC_CONV, VALOR_CAUSA, LOCAL_DATA_ASSINATURA, REGIAO_TRT, etc.) se identificar esses dados nos documentos.
-5. Para cada reclamada extra identificada na entrevista que não esteja nos dados base, preencha RECL2_* ou RECL3_*.`;
+REGRAS ABSOLUTAS — VIOLAÇÃO INVALIDA O DOCUMENTO:
+1. Retorne SOMENTE um objeto JSON puro. Sem markdown, sem comentários, sem texto fora do JSON.
+2. Para tokens de texto livre (narrativas, fundamentação, pedidos), o valor deve ser TEXTO PURO — proibido qualquer pipe (|), backtick (\`), cercar de código, cabeçalho Markdown (#), tabela markdown ou lista com traço (---).
+3. A peça termina no fecho/assinatura previsto no modelo. PROIBIDO incluir, em qualquer token: "Memória de Cálculo", "ANEXO III", "Rol de Testemunhas", "Nota Técnica", "[Fim da Peça]" ou qualquer seção que não exista no modelo original.
+4. Material de apoio (memória de cálculo, notas técnicas, rol expandido de testemunhas) NÃO vai em nenhum token — será salvo separadamente.
+5. Extraia dos documentos os valores faltantes: DATA_ADMISSAO (da CTPS), DATA_RESCISAO e tipo de rescisão (do TRCT/entrevista), SALARIO (do holerite), JORNADA_HORARIO (dos cartões de ponto), COMARCA_UF/FORO_COMPETENCIA (da entrevista).
+6. Inclua tokens específicos do modelo (ex: CCT_VIGENCIA, ADIC_CONV, VALOR_CAUSA, LOCAL_DATA_ASSINATURA, REGIAO_TRT) se identificados.
+7. Para reclamadas extras identificadas na entrevista e não cobertas pelos dados base, preencha RECL2_* ou RECL3_*.
+8. Para campos não encontrados, NÃO inclua no JSON.`;
 
         const iaResp = await base44.integrations.Core.InvokeLLM({
           prompt: promptIA,
@@ -245,11 +336,16 @@ INSTRUÇÕES:
       }
 
       // Merge: aiTokens sobrescreve baseTokens quando IA encontrou dado melhor
-      const finalTokens = { ...baseTokens, ...aiTokens };
+      // Sanitiza TODOS os valores para eliminar markdown cru e seções proibidas
+      const finalTokens = sanitizeTokens({ ...baseTokens, ...aiTokens });
 
-      // ── 5. Baixa e preenche o modelo DOCX ────────────────────────────────
-      const modelBuffer = await fetchDocx(modeloDocxUrl);
-      const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens);
+      // ── 5. Baixa modelo e logo em paralelo ───────────────────────────────
+      const [modelBuffer, logoBuffer] = await Promise.all([
+        fetchDocx(modeloDocxUrl),
+        fetchImageBuffer(cfg.logo_url || ""),
+      ]);
+
+      const { buffer: docxBuffer, tokensFaltando } = await renderDocx(modelBuffer, finalTokens, logoBuffer);
 
       // ── 6. Faz upload do DOCX gerado ──────────────────────────────────────
       const nomeArquivo = `${(petition.claimant_name || "peticao").replace(/\s+/g, "_")}_${template.name.replace(/\s+/g, "_")}.docx`;
