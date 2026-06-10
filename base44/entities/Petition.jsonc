@@ -116,6 +116,21 @@
     "digital_court": {
       "type": "boolean",
       "default": true
+    },
+    "analise_documentos": {
+      "type": "string",
+      "description": "Laudo de issue-spotting gerado pela IA a partir dos documentos anexados. Revis\u00e3o obrigat\u00f3ria pelo advogado antes da gera\u00e7\u00e3o da inicial."
+    },
+    "analise_status": {
+      "type": "string",
+      "enum": [
+        "pendente",
+        "em_analise",
+        "concluida",
+        "sem_documentos"
+      ],
+      "default": "pendente",
+      "description": "Status da an\u00e1lise de documentos"
     }
   },
   "required": [

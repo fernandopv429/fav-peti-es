@@ -16,8 +16,9 @@ import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
 import SelecaoModeloIA from "../components/petition/SelecaoModeloIA";
+import AnalisarDocumentosPanel from "../components/petition/AnalisarDocumentosPanel";
 
-const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Modelo Obrigatório", "Revisão e Geração"];
+const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Análise de Documentos", "Modelo Obrigatório", "Revisão e Geração"];
 const FORM_STORAGE_KEY = "juris_new_petition_form_v2";
 
 function getInitialForm() {
@@ -75,6 +76,7 @@ export default function NewPetition() {
   const [generatedContent, setGeneratedContent] = useState(null);
   const [generateError, setGenerateError] = useState(null);
   const [pendencias, setPendencias] = useState([]);
+  const [laudoRevisado, setLaudoRevisado] = useState(false);
   const [form, setForm] = useState(getInitialForm);
   const [loadingDraft, setLoadingDraft] = useState(!!draftId);
   const generatingRef = useRef(false);
@@ -282,7 +284,9 @@ export default function NewPetition() {
   const canProceed = () => {
     if (step === 0) return form.claimant_name && form.defendant_name && form.title;
     if (step === 1) return form.irregularities;
-    if (step === 4) return !!selectedTemplate; // modelo obrigatório
+    // Etapa 4: Análise de Documentos — deve estar revisado OU sem documentos
+    if (step === 4) return laudoRevisado || form.document_urls.length === 0;
+    if (step === 5) return !!selectedTemplate; // modelo obrigatório
     return true;
   };
 
@@ -390,6 +394,14 @@ export default function NewPetition() {
         {step === 2 && <LaborCalculator form={form} updateForm={updateForm} />}
         {step === 3 && <DocumentUploader form={form} updateForm={updateForm} />}
         {step === 4 && (
+          <AnalisarDocumentosPanel
+            petitionId={savedPetitionId}
+            documentUrls={form.document_urls}
+            documentNames={form.document_names}
+            onRevisado={() => setLaudoRevisado(true)}
+          />
+        )}
+        {step === 5 && (
           <StepModeloObrigatorio
             form={form}
             updateForm={updateForm}
@@ -399,7 +411,7 @@ export default function NewPetition() {
             petitionConfig={petitionConfig}
           />
         )}
-        {step === 5 && (
+        {step === 6 && (
           <StepReview
             form={form}
             selectedTemplate={selectedTemplate}
@@ -423,7 +435,17 @@ export default function NewPetition() {
 
         {!isLastStep ? (
           <Button
-            onClick={() => setStep((s) => s + 1)}
+            onClick={async () => {
+              // Ao avançar para a etapa de análise (step 3→4), garante que o rascunho existe
+              if (step === 3 && !savedPetitionId) {
+                try {
+                  const data = { ...form, salary: form.salary ? parseFloat(form.salary) : undefined, status: "rascunho" };
+                  const p = await base44.entities.Petition.create(data);
+                  setSavedPetitionId(p.id);
+                } catch (_) {}
+              }
+              setStep((s) => s + 1);
+            }}
             disabled={!canProceed() || generating}
             className="gap-2"
           >
@@ -432,7 +454,7 @@ export default function NewPetition() {
         ) : (
           <Button
             onClick={handleGenerate}
-            disabled={generating || !selectedTemplate}
+            disabled={generating || !selectedTemplate || step !== STEPS.length - 1}
             className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
           >
             {generating ? (
