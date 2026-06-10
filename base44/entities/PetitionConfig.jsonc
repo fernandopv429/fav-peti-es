@@ -69,6 +69,11 @@
       "description": "M\u00e1ximo de tokens por gera\u00e7\u00e3o",
       "default": 4000
     },
+    "threshold_confianca": {
+      "type": "number",
+      "description": "Limiar de confian\u00e7a para sele\u00e7\u00e3o autom\u00e1tica de modelo (0 a 1). Padr\u00e3o: 0.6. Abaixo desse valor, a sele\u00e7\u00e3o \u00e9 encaminhada para revis\u00e3o humana. Quando a regra SINDEEPRES \u00d7 SIEMACO for cadastrada, reduza para 0.4 para incluir porteiros.",
+      "default": 0.6
+    },
     "ativo": {
       "type": "boolean",
       "default": true

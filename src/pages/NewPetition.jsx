@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import DocumentUploader from "../components/petition/DocumentUploader";
 import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
+import SelecaoModeloIA from "../components/petition/SelecaoModeloIA";
 
 const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Modelo Obrigatório", "Revisão e Geração"];
 const FORM_STORAGE_KEY = "juris_new_petition_form_v2";
@@ -394,6 +395,7 @@ export default function NewPetition() {
             templates={compatibleTemplates}
             allTemplates={templates}
             selectedTemplate={selectedTemplate}
+            petitionConfig={petitionConfig}
           />
         )}
         {step === 5 && (
@@ -629,7 +631,7 @@ function StepDetails({ form, updateForm }) {
 }
 
 /* ── Step 4: Modelo Obrigatório ─────────────────────────────────────── */
-function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, selectedTemplate }) {
+function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, selectedTemplate, petitionConfig }) {
   const hasCompatible = templates.length > 0;
   const hasAny = allTemplates.length > 0;
 
@@ -644,6 +646,17 @@ function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, sele
           Selecione o modelo que servirá de esqueleto para a petição. A IA seguirá rigorosamente esta estrutura.
         </p>
       </div>
+
+      {/* Seleção automática por IA */}
+      {hasAny && (
+        <SelecaoModeloIA
+          form={form}
+          templates={hasCompatible ? templates : allTemplates}
+          selectedTemplateId={form.selected_template_id}
+          onSelect={(id) => updateForm("selected_template_id", id)}
+          threshold={petitionConfig?.threshold_confianca ?? 0.6}
+        />
+      )}
 
       {/* Alerta: sem modelos */}
       {!hasAny && (
