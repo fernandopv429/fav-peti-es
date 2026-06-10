@@ -1,30 +1,80 @@
 /**
- * PorteiroForm — Formulário determinístico para modelos SINDEEPRES e SIEMACO.
+ * PorteiroForm — Formulário determinístico IDÊNTICO ao VigilanteForm
+ * para os modelos SINDEEPRES e SIEMACO (Porteiro/Controlador de Acesso).
  *
- * Funciona como o VigilanteForm: carrega tokens reais do .docx (via GenericoForm/extractDocxTokens),
- * oferece "Salvar caso", "Gerar DOCX Idêntico" (determinístico via docxtemplater) e
- * "Gerar Petição com IA", com modal ConfirmarTesesPorteiro antes de gerar.
- *
- * Props:
- *   templateDocxUrl  — URL do .docx tokenizado do template
- *   templateId       — ID do PetitionTemplate
- *   templateName     — nome do template para exibição
- *   documentUrls     — URLs de documentos já carregados pelo pai
- *   onGerarComDados  — fn(dados) => void — chamado para geração IA (pipeline GerarDocumento)
+ * Seções fixas: Reclamante, Reclamadas, Foro e Local, Contrato e Jornada,
+ * CCT e Valores Unitários, Valores dos Pedidos (P01–P87).
+ * Funções idênticas ao Vigilante: salvar caso, dados.json, extrair IA,
+ * Gerar DOCX Idêntico, Gerar Petição com IA (via ConfirmarTesesPorteiro).
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { extractTokensFromUrl, groupTokens } from "@/lib/extractDocxTokens.js";
 import {
-  ChevronDown, ChevronRight, Save, Download, Upload, Loader2,
-  Wand2, FileDown, AlertTriangle, Paperclip, X, FileText, Image, File
+  ChevronDown, ChevronRight, Save, Download, Loader2,
+  FileDown, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
+import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 
-// ---------- sub-componentes ----------
+// ── Labels dos pedidos (contexto Porteiro — P01–P87) ──────────────────────
+const P_LABELS = {
+  P01:"Aviso Prévio Indenizado",P02:"FGTS + 40% s/ Aviso",P03:"Saldo de Salário",
+  P04:"13º Proporcional",P05:"Férias Proporcionais + 1/3",P06:"Férias Vencidas + 1/3",
+  P07:"Rescisão Indireta (multa)",P08:"FGTS s/ contrato",P09:"DSR s/ HE semana",
+  P10:"DSR s/ HE mês",P11:"Reflexos Saldo",P12:"Reflexos Férias + 1/3",
+  P13:"Reflexos 13º",P14:"Reflexos Aviso",P15:"HE além da 8ª diária",
+  P16:"HE além 8ª (descaracterização)",P17:"HE reflexo DSR",
+  P18:"HE Reflexo Férias",P19:"HE Reflexo 13º",P20:"HE Reflexo Aviso",
+  P21:"HE Reflexo FGTS",P22:"HE Reflexo FGTS+40%",P23:"HE Total",
+  P24:"Intervalo Intrajornada (art. 71 CLT)",P25:"Intervalo Reflexo DSR",
+  P26:"Intervalo Reflexo Férias",P27:"Intervalo Reflexo 13º",P28:"Intervalo Reflexo Aviso",
+  P29:"Intervalo Reflexo FGTS+40%",P30:"Intervalo Total",
+  P31:"Min. antec./sucess. jornada",P32:"Min. Reflexo DSR",P33:"Min. Reflexo Férias",
+  P34:"Min. Reflexo 13º",P35:"Min. Reflexo Aviso",P36:"Min. Reflexo FGTS+40%",
+  P37:"Min. Reflexo FGTS",P38:"Min. Total",
+  P39:"Folgas Trabalhadas (FT) — diferenças",P40:"FT Reflexo DSR",
+  P41:"FT Reflexo Férias",P42:"FT Reflexo 13º",P43:"FT Reflexo Aviso",
+  P44:"FT Reflexo FGTS",P45:"FT Reflexo FGTS+40%",P46:"FT Total",
+  P47:"Adicional Noturno + Hora Reduzida",P48:"AN Reflexo DSR",
+  P49:"AN Reflexo Férias",P50:"AN Reflexo 13º",P51:"AN Reflexo Aviso",
+  P52:"AN Reflexo FGTS+40%",P53:"AN Total",
+  P54:"Periculosidade nas HE",P55:"Perc. Reflexo DSR",P56:"Perc. Reflexo Férias",
+  P57:"Perc. Reflexo 13º",P58:"Perc. Reflexo Aviso",P59:"Perc. Reflexo FGTS",
+  P60:"Perc. Reflexo FGTS+40%",P61:"Periculosidade Total",
+  P62:"Dano Moral",
+  P63:"Desvio de Função — multa convencional",P64:"Desvio Reflexo DSR",
+  P65:"Desvio Reflexo Férias",P66:"Desvio Reflexo 13º",P67:"Desvio Reflexo Aviso",
+  P68:"Desvio Reflexo FGTS",P69:"Desvio Reflexo FGTS+40%",P70:"Desvio Total",
+  P71:"VT — Folgas não pagas",P72:"VT Reflexo DSR",P73:"VT Reflexo Férias",
+  P74:"VT Reflexo 13º",P75:"VT Reflexo Aviso",P76:"VT Reflexo FGTS",
+  P77:"VT Reflexo FGTS+40%",P78:"VT Total",
+  P79:"VA — Folgas não pagas",P80:"VA Reflexo DSR",P81:"VA Reflexo Férias",
+  P82:"VA Reflexo 13º",P83:"VA Reflexo Aviso",P84:"VA Reflexo FGTS+40%",
+  P85:"Multas Convencionais",P86:"10 min descanso/hora",
+  P87:"TOTAL GERAL DA CAUSA",
+};
+
+const EMPTY_DADOS = {
+  titulo: "",
+  COMARCA_UF: "", REGIAO_TRT: "",
+  RECL_NOME: "", RECL_NACIONALIDADE: "brasileiro", RECL_ESTADOCIVIL: "", RECL_RG: "",
+  RECL_PIS: "", RECL_SERIE: "", RECL_CTPS: "", RECL_CPF: "", RECL_NASC: "",
+  RECL_FILIACAO: "", RECL_ENDERECO: "", RECL_CEP: "",
+  RECL1_NOME: "", RECL1_CNPJ: "", RECL1_LOGRADOURO: "", RECL1_ENDCOMPL: "",
+  RECL2_NOME: "", RECL2_CNPJ: "", RECL2_LOGRADOURO: "", RECL2_ENDCOMPL: "",
+  RECL3_NOME: "", RECL3_CNPJ: "", RECL3_LOGRADOURO: "", RECL3_ENDCOMPL: "",
+  FORO_COMPETENCIA: "", LOCAL_PRESTACAO: "", LOCAL_PRESTACAO_COMPL: "",
+  DATA_ADMISSAO: "", FUNCAO: "Porteiro", DATA_RESCISAO: "", SALARIO: "",
+  JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
+  LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "", ADIC_CONV: "",
+  VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  valores_pedidos: {},
+};
+
+// ── Sub-componentes ────────────────────────────────────────────────────────
 
 function Section({ title, open, onToggle, children }) {
   return (
@@ -37,58 +87,33 @@ function Section({ title, open, onToggle, children }) {
         <span className="font-semibold text-sm text-foreground">{title}</span>
         {open ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
       </button>
-      {open && (
-        <div className="px-4 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {children}
-        </div>
-      )}
+      {open && <div className="px-4 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>}
     </div>
   );
 }
 
-function FieldText({ label, token, value, onChange, full }) {
+function Field({ label, name, value, onChange, full, placeholder }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
-      <label className="block text-xs text-muted-foreground mb-1">
-        <span className="font-mono text-primary/70 mr-1 text-[10px]">{token}</span>
-        {label !== token ? `— ${label}` : ""}
-      </label>
+      <label className="block text-xs text-muted-foreground mb-1">{label}</label>
       <input
         type="text"
         value={value || ""}
-        onChange={e => onChange(token, e.target.value)}
+        onChange={e => onChange(name, e.target.value)}
+        placeholder={placeholder || ""}
         className="w-full bg-input border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
   );
 }
 
-function FieldBool({ label, token, value, onChange }) {
-  return (
-    <div className="sm:col-span-2 flex items-center gap-3 py-1">
-      <input
-        type="checkbox"
-        id={`chk_porteiro_${token}`}
-        checked={value === true || value === "true" || value === "Sim"}
-        onChange={e => onChange(token, e.target.checked)}
-        className="w-4 h-4 accent-primary"
-      />
-      <label htmlFor={`chk_porteiro_${token}`} className="text-sm text-foreground cursor-pointer">
-        <span className="font-mono text-primary/70 mr-1 text-[10px]">{token}</span>
-        {label !== token ? `— ${label}` : ""}
-      </label>
-    </div>
-  );
-}
-
-// ---------- helper: gerar DOCX determinístico ----------
+// ── Helper: gera DOCX determinístico ──────────────────────────────────────
 
 async function gerarDocxPorteiro(templateDocxUrl, dados) {
   const resp = await fetch(templateDocxUrl);
   if (!resp.ok) throw new Error(`Falha ao baixar modelo (${resp.status})`);
   const ab = await resp.arrayBuffer();
   const buffer = new Uint8Array(ab);
-
   const tokensFaltando = [];
   const zip = new PizZip(buffer);
   const doc = new Docxtemplater(zip, {
@@ -110,79 +135,64 @@ async function gerarDocxPorteiro(templateDocxUrl, dados) {
   return { blob: out, tokensFaltando };
 }
 
-// ---------- componente principal ----------
+// ── Componente principal ───────────────────────────────────────────────────
 
-export default function PorteiroForm({ templateDocxUrl, templateId, templateName, documentUrls = [], onGerarComDados }) {
-  const [tokens, setTokens] = useState([]);
-  const [grupos, setGrupos] = useState([]);
-  const [loadingTokens, setLoadingTokens] = useState(false);
-  const [tokenError, setTokenError] = useState("");
-  const [dados, setDados] = useState({});
-  const [titulo, setTitulo] = useState("");
-  const [openSections, setOpenSections] = useState({});
+export default function PorteiroForm({
+  templateDocxUrl, templateId, templateName, documentUrls = [], onGerarComDados,
+}) {
+  const [dados, setDados] = useState(EMPTY_DADOS);
+  const [sections, setSections] = useState({
+    reclamante: true, reclamadas: false, foro: false,
+    contrato: false, cct: false, pedidos: false,
+  });
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
-  const [extraindoIA, setExtraindoIA] = useState(false);
-  const [confirmandoTeses, setConfirmandoTeses] = useState(null); // null | "docx" | "ia"
-  // Upload de documentos interno
-  const [arquivosIA, setArquivosIA] = useState([]);
-  const [uploadingIA, setUploadingIA] = useState(false);
-  const fileInputRef = useRef(null);
+  const [mostrarExtrair, setMostrarExtrair] = useState(false);
+  // null | "docx" | "ia"
+  const [confirmandoTeses, setConfirmandoTeses] = useState(null);
 
-  // 1. Extrai tokens do DOCX
-  useEffect(() => {
-    if (!templateDocxUrl) return;
-    setLoadingTokens(true);
-    setTokenError("");
-    extractTokensFromUrl(templateDocxUrl)
-      .then(toks => {
-        setTokens(toks);
-        const grps = groupTokens(toks);
-        setGrupos(grps);
-        if (grps.length > 0) setOpenSections({ [grps[0].grupo]: true });
-      })
-      .catch(err => setTokenError(err.message))
-      .finally(() => setLoadingTokens(false));
-  }, [templateDocxUrl]);
-
-  // 2. Carrega casos salvos para este template
+  // Carrega casos salvos para este template
   useEffect(() => {
     if (!templateId) return;
     base44.entities.CasoVigilante.list()
       .then(list => {
-        const filtrados = (list || []).filter(c => (c.valores_pedidos || {})._templateId === templateId);
+        const filtrados = (list || []).filter(
+          c => (c.valores_pedidos || {})._templateId === templateId,
+        );
         setCasos(filtrados);
       })
       .catch(() => {});
   }, [templateId]);
 
-  const handleChange = useCallback((token, val) => {
-    setDados(prev => ({ ...prev, [token]: val }));
-  }, []);
-
-  const toggleSection = (g) => setOpenSections(prev => ({ ...prev, [g]: !prev[g] }));
+  const handleChange = (key, val) => setDados(prev => ({ ...prev, [key]: val }));
+  const handlePedido = (p, val) =>
+    setDados(prev => ({ ...prev, valores_pedidos: { ...prev.valores_pedidos, [p]: val } }));
+  const toggleSection = s => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
   const handleCarregar = (id) => {
     setCasoId(id);
-    if (!id) { setDados({}); setTitulo(""); return; }
+    if (!id) { setDados(EMPTY_DADOS); return; }
     const found = casos.find(c => c.id === id);
     if (!found) return;
     const { _templateId, ...savedDados } = found.valores_pedidos || {};
-    setDados(savedDados);
-    setTitulo(found.titulo || "");
+    setDados({ ...EMPTY_DADOS, ...found, valores_pedidos: savedDados || {} });
   };
 
   const handleSalvar = async () => {
     setSalvando(true);
     try {
       const payload = {
-        titulo: titulo || `${templateName} — ${new Date().toLocaleDateString("pt-BR")}`,
+        titulo: dados.titulo || `${templateName} — ${new Date().toLocaleDateString("pt-BR")}`,
         status: "preenchido",
-        valores_pedidos: { ...dados, _templateId: templateId },
         RECL_NOME: dados.RECL_NOME || "",
         RECL1_NOME: dados.RECL1_NOME || "",
+        valores_pedidos: { ...(dados.valores_pedidos || {}), _templateId: templateId },
+        // persiste demais campos no próprio registro
+        ...Object.fromEntries(
+          Object.entries(dados).filter(([k]) => k !== "valores_pedidos" && k !== "titulo"),
+        ),
       };
       if (casoId) {
         await base44.entities.CasoVigilante.update(casoId, payload);
@@ -201,124 +211,36 @@ export default function PorteiroForm({ templateDocxUrl, templateId, templateName
   };
 
   const handleBaixarJson = () => {
-    const json = { templateId, templateName, dados, titulo };
-    const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+    const { titulo, id, created_date, updated_date, created_by_id, ...campos } = dados;
+    const blob = new Blob([JSON.stringify({ campos, titulo }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${dados.RECL_NOME || templateName || "caso"}_dados.json`;
+    a.download = `${dados.RECL_NOME || "caso"}_dados.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("dados.json baixado!");
   };
 
-  const handleCarregarJson = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const parsed = JSON.parse(await file.text());
-        if (parsed.dados) { setDados(parsed.dados); if (parsed.titulo) setTitulo(parsed.titulo); }
-        toast.success("Dados carregados!");
-      } catch (err) {
-        toast.error("Erro ao ler JSON: " + err.message);
-      }
-    };
-    input.click();
-  };
-
-  // Upload de documentos para extração IA
-  const getFileIcon = (type) => {
-    if (type?.startsWith("image/")) return <Image className="w-4 h-4 text-blue-500" />;
-    if (type?.includes("pdf")) return <FileText className="w-4 h-4 text-red-500" />;
-    return <File className="w-4 h-4 text-muted-foreground" />;
-  };
-
-  const handleAddArquivos = async (files) => {
-    setUploadingIA(true);
-    for (const file of Array.from(files)) {
-      try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        setArquivosIA(prev => [...prev, { name: file.name, url: file_url, type: file.type }]);
-      } catch (e) {
-        toast.error(`Erro ao enviar ${file.name}: ` + e.message);
-      }
-    }
-    setUploadingIA(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  // Extração IA
-  const handleExtrairIA = async () => {
-    const todasUrls = [...arquivosIA.map(a => a.url), ...(documentUrls || [])];
-    if (todasUrls.length === 0) { fileInputRef.current?.click(); return; }
-
-    setExtraindoIA(true);
-    try {
-      const isVisual = (url) => {
-        const l = url.toLowerCase().split("?")[0];
-        return l.endsWith(".pdf") || l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg") || l.endsWith(".webp");
-      };
-      const urlsVisuais = todasUrls.filter(isVisual);
-      const urlsTexto = todasUrls.filter(u => !isVisual(u));
-      const textos = [];
-      for (const url of urlsTexto) {
-        try {
-          const r = await fetch(url);
-          if (r.ok) textos.push((await r.text()).slice(0, 8000));
-        } catch (_) {}
-      }
-
-      const prompt = `Você é um extrator de dados jurídicos para petições trabalhistas de porteiro/controlador de acesso.
-
-TOKENS DO MODELO (${templateName}): ${tokens.join(", ")}
-
-${textos.length > 0 ? `DOCUMENTOS (texto):\n${textos.join("\n\n").slice(0, 8000)}\n\n` : ""}
-${urlsVisuais.length > 0 ? `${urlsVisuais.length} arquivo(s) visual(is) em anexo.\n\n` : ""}
-
-REGRAS:
-1. Retorne SOMENTE JSON puro.
-2. Para cada token, extraia valor CURTO e OBJETIVO (datas, nomes, CNPJs, valores, horários). Máx 1 linha.
-3. Datas: "DD de MÊS de AAAA". Valores monetários: "R$ X.XXX,XX".
-4. Campos booleanos (tem_subsidiaria, etc.): true ou false.
-5. Para tokens não encontrados, NÃO inclua no JSON.`;
-
-      const resultado = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        model: "claude_opus_4_8",
-        file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
-        response_json_schema: { type: "object", additionalProperties: true },
-      });
-
-      if (resultado && typeof resultado === "object") {
-        setDados(prev => ({ ...prev, ...resultado }));
-        const allOpen = {};
-        grupos.forEach(g => { allOpen[g.grupo] = true; });
-        setOpenSections(allOpen);
-        toast.success("Campos preenchidos! Revise antes de gerar.");
-      }
-    } catch (err) {
-      toast.error("Erro na extração: " + err.message);
-    } finally {
-      setExtraindoIA(false);
-    }
-  };
-
-  // Gerar DOCX determinístico (após confirmação de teses)
+  // Chamado após confirmação de teses no modo "docx"
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
     setGerandoDocx(true);
     try {
-      const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, dadosConfirmados);
+      // Monta objeto plano de tokens: dados + pedidos expandidos
+      const tokensFlat = {
+        ...dadosConfirmados,
+        ...(dadosConfirmados.valores_pedidos || {}),
+      };
+      delete tokensFlat.valores_pedidos;
+
+      const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, tokensFlat);
       const nomeArquivo = `${dadosConfirmados.RECL_NOME || "porteiro"}_${templateName.replace(/\s+/g, "_")}.docx`;
 
       // Download imediato
-      const url = URL.createObjectURL(blob);
+      const urlDl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = nomeArquivo; a.click();
-      URL.revokeObjectURL(url);
+      a.href = urlDl; a.download = nomeArquivo; a.click();
+      URL.revokeObjectURL(urlDl);
 
       // Persiste na entidade Petition
       try {
@@ -326,7 +248,8 @@ REGRAS:
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
-        const tituloPet = titulo || `${dadosConfirmados.RECL_NOME || "Porteiro"} × ${dadosConfirmados.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+        const tituloPet = dados.titulo ||
+          `${dadosConfirmados.RECL_NOME || "Porteiro"} × ${dadosConfirmados.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
         const petitionPayload = {
           title: tituloPet,
           case_type: "trabalhista",
@@ -353,48 +276,49 @@ REGRAS:
         if (tokensFaltando.length > 0) {
           toast.warning(`DOCX salvo! Tokens em branco: ${tokensFaltando.slice(0, 6).join(", ")}${tokensFaltando.length > 6 ? "..." : ""}`);
         } else {
-          toast.success(`DOCX gerado e salvo em Minhas Petições!`);
+          toast.success("DOCX gerado e salvo em Minhas Petições!");
         }
       } catch (uploadErr) {
-        toast.warning("Download OK, mas falha ao salvar na petição: " + uploadErr.message);
+        toast.warning("Download OK, mas falha ao salvar: " + uploadErr.message);
       }
     } catch (e) {
       const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
       toast.error("Erro ao gerar DOCX: " + detalhe, { duration: 8000 });
-      base44.entities.ErrorLog.create({ context: `Geração DOCX ${templateName}`, error_type: "template", message: detalhe }).catch(() => {});
+      base44.entities.ErrorLog.create({
+        context: `Geração DOCX ${templateName}`,
+        error_type: "template",
+        message: detalhe,
+      }).catch(() => {});
     } finally {
       setGerandoDocx(false);
     }
   };
 
-  if (loadingTokens) {
-    return (
-      <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm">
-        <Loader2 className="w-4 h-4 animate-spin" /> Lendo tokens do modelo...
-      </div>
-    );
-  }
-  if (tokenError) {
-    return (
-      <div className="flex items-start gap-2 p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-sm text-destructive">
-        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold">Erro ao ler tokens do modelo</p>
-          <p className="text-muted-foreground">{tokenError}</p>
-        </div>
-      </div>
-    );
-  }
-  if (tokens.length === 0) return null;
+  // Callback do ExtrairDadosIA (reutiliza o componente do Vigilante)
+  const handleConfirmarExtracao = (dadosExtraidos, casoIdRetornado) => {
+    setDados(prev => ({ ...prev, ...dadosExtraidos }));
+    if (casoIdRetornado && casoIdRetornado !== casoId) {
+      setCasoId(casoIdRetornado);
+      base44.entities.CasoVigilante.list()
+        .then(list => {
+          const filtrados = (list || []).filter(c => (c.valores_pedidos || {})._templateId === templateId);
+          setCasos(filtrados);
+        })
+        .catch(() => {});
+    }
+    toast.success("Campos preenchidos! Revise e salve o caso.");
+    setSections(prev => ({ ...prev, reclamante: true, reclamadas: true, contrato: true }));
+  };
 
-  const todasUrlsDocs = [...arquivosIA.map(a => a.url), ...(documentUrls || [])];
+  const pedidosKeys = Array.from({ length: 87 }, (_, i) => `P${String(i + 1).padStart(2, "0")}`);
+  const todasUrlsDocs = documentUrls || [];
 
   return (
     <div className="space-y-4">
       {/* Modal de confirmação de teses */}
       {confirmandoTeses && (
         <ConfirmarTesesPorteiro
-          dadosIniciais={{ ...dados, titulo }}
+          dadosIniciais={dados}
           documentUrls={todasUrlsDocs}
           templateId={templateId}
           templateName={templateName}
@@ -405,25 +329,26 @@ REGRAS:
             if (confirmandoTeses === "docx") {
               handleGerarDocxIdêntico(dadosConfirmados);
             } else {
-              onGerarComDados({ ...dadosConfirmados, titulo });
+              onGerarComDados({ ...dadosConfirmados, titulo: dados.titulo });
             }
           }}
         />
       )}
 
-      {/* input file oculto para upload IA */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.doc,.txt"
-        className="hidden"
-        onChange={e => handleAddArquivos(e.target.files)}
-      />
+      {/* Extração IA (componente do Vigilante reutilizado) */}
+      {mostrarExtrair && (
+        <ExtrairDadosIA
+          casoVigilanteId={casoId || null}
+          petitionId={dados.petition_id || null}
+          documentUrls={todasUrlsDocs}
+          onConfirmar={handleConfirmarExtracao}
+          onFechar={() => setMostrarExtrair(false)}
+        />
+      )}
 
-      {/* Carregar caso / JSON */}
-      <div className="flex gap-2 items-end flex-wrap">
-        <div className="flex-1 min-w-[140px]">
+      {/* Carregar caso salvo */}
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
           <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Carregar caso salvo</label>
           <select
             value={casoId}
@@ -436,88 +361,118 @@ REGRAS:
             ))}
           </select>
         </div>
-        <button type="button" onClick={handleBaixarJson}
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-colors">
-          <Download className="w-3.5 h-3.5" /> JSON
-        </button>
-        <button type="button" onClick={handleCarregarJson}
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-colors">
-          <Upload className="w-3.5 h-3.5" /> Importar
+        <button
+          type="button"
+          onClick={handleBaixarJson}
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-semibold transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" /> dados.json
         </button>
       </div>
 
-      {/* Upload de documentos + Extrair com IA */}
-      <div className="rounded-xl border border-dashed border-primary/40 bg-primary/3 p-3 space-y-2">
-        <div
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={e => e.preventDefault()}
-          onDrop={e => { e.preventDefault(); handleAddArquivos(e.dataTransfer.files); }}
-        >
-          <Paperclip className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-xs text-primary font-semibold">
-            {uploadingIA ? "Enviando..." : "Anexar documentos (PDFs, imagens, CTPS, holerites...)"}
-          </span>
-          {uploadingIA && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
-        </div>
-        {arquivosIA.length > 0 && (
-          <div className="space-y-1">
-            {arquivosIA.map((arq, i) => (
-              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-lg bg-background border border-border">
-                {getFileIcon(arq.type)}
-                <span className="text-xs text-foreground flex-1 truncate">{arq.name}</span>
-                <button type="button" onClick={() => setArquivosIA(prev => prev.filter((_, idx) => idx !== i))}
-                  className="p-0.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={handleExtrairIA}
-          disabled={extraindoIA || uploadingIA}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-semibold transition-colors disabled:opacity-50"
-        >
-          {extraindoIA
-            ? <><Loader2 className="w-4 h-4 animate-spin" /> Extraindo dados com IA...</>
-            : <><Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA</>}
-        </button>
-      </div>
+      {/* Extrair dados com IA */}
+      <button
+        type="button"
+        onClick={() => setMostrarExtrair(true)}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 text-primary text-sm font-semibold transition-colors"
+      >
+        <Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA
+      </button>
 
       {/* Título do caso */}
       <div>
         <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Título / Identificação do caso</label>
         <input
           type="text"
-          value={titulo}
-          onChange={e => setTitulo(e.target.value)}
+          value={dados.titulo || ""}
+          onChange={e => handleChange("titulo", e.target.value)}
           placeholder="Ex: Fernando x Belfort"
           className="w-full bg-input border border-border text-foreground rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
-      {/* Grupos de campos dinâmicos */}
-      {grupos.map(({ grupo, tokens: toks }) => (
-        <Section
-          key={grupo}
-          title={grupo}
-          open={!!openSections[grupo]}
-          onToggle={() => toggleSection(grupo)}
-        >
-          {toks.map(({ token, label, full, tipo }) =>
-            tipo === "bool" ? (
-              <FieldBool key={token} token={token} label={label} value={dados[token]} onChange={handleChange} />
-            ) : (
-              <FieldText key={token} token={token} label={label} full={full} value={dados[token]} onChange={handleChange} />
-            )
-          )}
-        </Section>
-      ))}
+      {/* ── Seções do formulário (idênticas ao VigilanteForm) ─────────────── */}
+      <Section title="👤 Reclamante" open={sections.reclamante} onToggle={() => toggleSection("reclamante")}>
+        <Field label="Nome completo" name="RECL_NOME" value={dados.RECL_NOME} onChange={handleChange} full />
+        <Field label="Nacionalidade" name="RECL_NACIONALIDADE" value={dados.RECL_NACIONALIDADE} onChange={handleChange} />
+        <Field label="Estado civil" name="RECL_ESTADOCIVIL" value={dados.RECL_ESTADOCIVIL} onChange={handleChange} />
+        <Field label="RG" name="RECL_RG" value={dados.RECL_RG} onChange={handleChange} />
+        <Field label="PIS" name="RECL_PIS" value={dados.RECL_PIS} onChange={handleChange} />
+        <Field label="CTPS" name="RECL_CTPS" value={dados.RECL_CTPS} onChange={handleChange} />
+        <Field label="Série CTPS" name="RECL_SERIE" value={dados.RECL_SERIE} onChange={handleChange} />
+        <Field label="CPF" name="RECL_CPF" value={dados.RECL_CPF} onChange={handleChange} />
+        <Field label="Data de nascimento" name="RECL_NASC" value={dados.RECL_NASC} onChange={handleChange} />
+        <Field label="Filiação" name="RECL_FILIACAO" value={dados.RECL_FILIACAO} onChange={handleChange} full />
+        <Field label="Endereço" name="RECL_ENDERECO" value={dados.RECL_ENDERECO} onChange={handleChange} full />
+        <Field label="CEP" name="RECL_CEP" value={dados.RECL_CEP} onChange={handleChange} />
+      </Section>
+
+      <Section title="🏢 Reclamadas" open={sections.reclamadas} onToggle={() => toggleSection("reclamadas")}>
+        <div className="sm:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-1">1ª Reclamada</div>
+        <Field label="Razão social" name="RECL1_NOME" value={dados.RECL1_NOME} onChange={handleChange} full />
+        <Field label="CNPJ" name="RECL1_CNPJ" value={dados.RECL1_CNPJ} onChange={handleChange} />
+        <Field label="Logradouro" name="RECL1_LOGRADOURO" value={dados.RECL1_LOGRADOURO} onChange={handleChange} />
+        <Field label="Complemento" name="RECL1_ENDCOMPL" value={dados.RECL1_ENDCOMPL} onChange={handleChange} full />
+        <div className="sm:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">2ª Reclamada (tomadora)</div>
+        <Field label="Razão social" name="RECL2_NOME" value={dados.RECL2_NOME} onChange={handleChange} full />
+        <Field label="CNPJ" name="RECL2_CNPJ" value={dados.RECL2_CNPJ} onChange={handleChange} />
+        <Field label="Logradouro" name="RECL2_LOGRADOURO" value={dados.RECL2_LOGRADOURO} onChange={handleChange} />
+        <Field label="Complemento" name="RECL2_ENDCOMPL" value={dados.RECL2_ENDCOMPL} onChange={handleChange} full />
+        <div className="sm:col-span-2 text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">3ª Reclamada (tomadora)</div>
+        <Field label="Razão social" name="RECL3_NOME" value={dados.RECL3_NOME} onChange={handleChange} full />
+        <Field label="CNPJ" name="RECL3_CNPJ" value={dados.RECL3_CNPJ} onChange={handleChange} />
+        <Field label="Logradouro" name="RECL3_LOGRADOURO" value={dados.RECL3_LOGRADOURO} onChange={handleChange} />
+        <Field label="Complemento" name="RECL3_ENDCOMPL" value={dados.RECL3_ENDCOMPL} onChange={handleChange} full />
+      </Section>
+
+      <Section title="📍 Foro e Local" open={sections.foro} onToggle={() => toggleSection("foro")}>
+        <Field label="Comarca/UF" name="COMARCA_UF" value={dados.COMARCA_UF} onChange={handleChange} />
+        <Field label="Região TRT" name="REGIAO_TRT" value={dados.REGIAO_TRT} onChange={handleChange} />
+        <Field label="Foro de competência" name="FORO_COMPETENCIA" value={dados.FORO_COMPETENCIA} onChange={handleChange} />
+        <Field label="Local de prestação" name="LOCAL_PRESTACAO" value={dados.LOCAL_PRESTACAO} onChange={handleChange} />
+        <Field label="Complemento local" name="LOCAL_PRESTACAO_COMPL" value={dados.LOCAL_PRESTACAO_COMPL} onChange={handleChange} full />
+      </Section>
+
+      <Section title="📋 Contrato e Jornada" open={sections.contrato} onToggle={() => toggleSection("contrato")}>
+        <Field label="Data de admissão (por extenso)" name="DATA_ADMISSAO" value={dados.DATA_ADMISSAO} onChange={handleChange} />
+        <Field label="Função / Cargo" name="FUNCAO" value={dados.FUNCAO} onChange={handleChange} />
+        <Field label="Data de rescisão (por extenso)" name="DATA_RESCISAO" value={dados.DATA_RESCISAO} onChange={handleChange} />
+        <Field label="Salário (ex: R$ 2.148,22)" name="SALARIO" value={dados.SALARIO} onChange={handleChange} />
+        <Field label="Jornada (ex: 08:00 às 18:00)" name="JORNADA_HORARIO" value={dados.JORNADA_HORARIO} onChange={handleChange} />
+        <Field label="Extrapolação (ex: 09:00)" name="JORNADA_EXTRAPOLA" value={dados.JORNADA_EXTRAPOLA} onChange={handleChange} />
+        <Field label="Frequência extras (ex: 4 a 6 vezes/mês)" name="JORNADA_FREQ_EXTRA" value={dados.JORNADA_FREQ_EXTRA} onChange={handleChange} />
+        <Field label="Intervalo gozado (ex: 10 a 15 min)" name="INTERVALO_GOZADO" value={dados.INTERVALO_GOZADO} onChange={handleChange} />
+        <Field label="Local e data de assinatura" name="LOCAL_DATA_ASSINATURA" value={dados.LOCAL_DATA_ASSINATURA} onChange={handleChange} full />
+      </Section>
+
+      <Section title="⚖️ CCT e Valores Unitários" open={sections.cct} onToggle={() => toggleSection("cct")}>
+        <Field label="Vigência CCT (ex: 2024/2025)" name="CCT_VIGENCIA" value={dados.CCT_VIGENCIA} onChange={handleChange} />
+        <Field label="Adicional convencional HE (ex: 50%)" name="ADIC_CONV" value={dados.ADIC_CONV} onChange={handleChange} />
+        <Field label="Valor FT/folga trabalhada" name="VAL_FT" value={dados.VAL_FT} onChange={handleChange} />
+        <Field label="Valor condução por dia" name="VAL_CONDUCAO" value={dados.VAL_CONDUCAO} onChange={handleChange} />
+        <Field label="Valor alimentação por dia" name="VAL_ALIMENTACAO" value={dados.VAL_ALIMENTACAO} onChange={handleChange} />
+        <Field label="Valor da causa" name="VALOR_CAUSA" value={dados.VALOR_CAUSA} onChange={handleChange} />
+      </Section>
+
+      <Section title="💰 Valores dos Pedidos (P01 a P87)" open={sections.pedidos} onToggle={() => toggleSection("pedidos")}>
+        {pedidosKeys.map(p => (
+          <div key={p}>
+            <label className="block text-xs text-muted-foreground mb-1">
+              <span className="font-bold text-primary">{p}</span> — {P_LABELS[p] || p}
+            </label>
+            <input
+              type="text"
+              value={dados.valores_pedidos?.[p] || ""}
+              onChange={e => handlePedido(p, e.target.value)}
+              placeholder="R$ 0,00"
+              className="w-full bg-input border border-border text-foreground rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        ))}
+      </Section>
 
       {/* Ações */}
-      <div className="flex gap-2 flex-wrap pt-1">
+      <div className="flex gap-2 flex-wrap">
         <button
           type="button"
           onClick={handleSalvar}
