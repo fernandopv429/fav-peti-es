@@ -206,7 +206,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
   const camposPreenchidos = dadosExtraidos ? Object.keys(dadosExtraidos).filter(k => dadosExtraidos[k]).length : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">

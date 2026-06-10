@@ -341,7 +341,10 @@ export default function PorteiroForm({
           petitionId={dados.petition_id || null}
           documentUrls={todasUrlsDocs}
           onConfirmar={handleConfirmarExtracao}
-          onFechar={() => setMostrarExtrair(false)}
+          onFechar={() => {
+            console.log("Fechando modal ExtrairDadosIA");
+            setMostrarExtrair(false);
+          }}
         />
       )}
 
@@ -372,7 +375,10 @@ export default function PorteiroForm({
       {/* Extrair dados com IA */}
       <button
         type="button"
-        onClick={() => setMostrarExtrair(true)}
+        onClick={() => {
+          console.log("Abrindo modal ExtrairDadosIA");
+          setMostrarExtrair(true);
+        }}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 text-primary text-sm font-semibold transition-colors"
       >
         <Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA

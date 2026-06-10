@@ -191,6 +191,7 @@ function isVisualFile(url) {
 }
 
 async function fetchDocx(url) {
+  // Usa backend proxy para evitar CORS no app publicado
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Falha ao baixar modelo DOCX (${resp.status}): ${url}`);
   const ab = await resp.arrayBuffer();
@@ -404,7 +405,7 @@ Deno.serve(async (req) => {
       let aiTokens = {};
       if (docTexts.length > 0 || imageOrPdfUrls.length > 0 || laudoAnalise) {
         try {
-          const iaModel = (modeloIA || cfg.modelo_ia || "claude_opus_4_8").replace("claude-sonnet-4-20250514", "claude_opus_4_8");
+          const iaModel = modeloIA || cfg.modelo_ia || "claude_opus_4_8";
 
           const promptIA = `Você é um extrator de dados jurídicos. Analise os documentos do caso abaixo e retorne APENAS um JSON com dados CURTOS e OBJETIVOS extraídos.
 
@@ -426,7 +427,7 @@ REGRAS ABSOLUTAS:
 
           const iaResp = await base44.integrations.Core.InvokeLLM({
             prompt: promptIA,
-            model: iaModel,
+            model: iaModel.includes("claude-sonnet") ? "claude_opus_4_8" : iaModel,
             file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
             response_json_schema: {
               type: "object",
