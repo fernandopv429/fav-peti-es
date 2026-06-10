@@ -74,6 +74,8 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
   const [progresso, setProgresso] = useState({ atual: 0, total: 0, pct: 0, msg: "" });
   const [dadosExtraidos, setDadosExtraidos] = useState(null);
   const [dadosEditados, setDadosEditados] = useState({});
+  const [alertasExtra, setAlertasExtra] = useState([]);
+  const [docsFalharam, setDocsFalharam] = useState([]);
   // ID da ficha — nunca muda após o primeiro clique em "Extrair"
   const [fichaId, setFichaId] = useState(casoVigilanteId || null);
   const fileInputRef = useRef(null);
@@ -122,54 +124,46 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       }
     }
 
-    // ── PASSO 2: Lotes de 2 docs com progresso ────────────────────────────
+    // ── PASSO 2: Processa CADA documento individualmente ──────────────────
     const totalDocs = todasUrls.length;
-    const lotes = [];
-    for (let i = 0; i < totalDocs; i += LOTE_SIZE) {
-      lotes.push(todasUrls.slice(i, i + LOTE_SIZE));
-    }
-
     let camposMerged = {};
-    let docsProcessados = 0;
+    let alertasAcumulados = [];
+    let docsFalhadosAcumulados = [];
 
-    for (let li = 0; li < lotes.length; li++) {
-      const lote = lotes[li];
-      const pct = Math.round((docsProcessados / totalDocs) * 100);
+    for (let i = 0; i < totalDocs; i++) {
+      const url = todasUrls[i];
+      const pct = Math.round(((i + 1) / totalDocs) * 100);
       setProgresso({
-        atual: docsProcessados,
+        atual: i + 1,
         total: totalDocs,
         pct,
-        msg: `Lendo ${docsProcessados + 1}–${Math.min(docsProcessados + lote.length, totalDocs)} de ${totalDocs} documentos — ${pct}%`,
+        msg: `Processando documento ${i + 1} de ${totalDocs} — ${pct}%`,
       });
 
       try {
-        const resp = await base44.functions.invoke("extrairDadosVigilante", {
+        const resp = await base44.functions.invoke("extrairDadosDocumentos", {
           casoVigilanteId: idFicha,
-          documentUrls: lote,
+          documentUrls: [url],
         });
         const payload = resp?.data ?? resp;
         const campos = payload?.campos || {};
-        const alerta = payload?.alerta;
-        const docsNaoLidos = payload?.docsNaoLidos;
         
-        // Exibe alerta se houver
-        if (alerta) {
-          console.warn("Alerta extração:", alerta);
-        }
-        if (docsNaoLidos && docsNaoLidos.length > 0) {
-          console.warn("Documentos não lidos:", docsNaoLidos);
-        }
-        
-        // Merge: não sobrescreve campos já preenchidos em lotes anteriores
+        // Merge: primeiro valor não-vazio vence
         for (const [k, v] of Object.entries(campos)) {
-          if (v && v.trim() && !camposMerged[k]) camposMerged[k] = v.trim();
+          if (v && v.trim() && !camposMerged[k]) {
+            camposMerged[k] = v.trim();
+          }
+        }
+        
+        // Acumula alertas e docs falhados
+        if (payload?.alerta) alertasAcumulados.push(payload.alerta);
+        if (payload?.docsFalharam && payload.docsFalharam.length > 0) {
+          docsFalhadosAcumulados.push(...payload.docsFalharam);
         }
       } catch (e) {
-        // Lote com falha — continua para os demais
-        console.error(`Lote ${li} falhou:`, e.message);
+        console.error(`Documento ${i} falhou:`, e.message);
+        docsFalhadosAcumulados.push({ url, nome: `Documento ${i + 1}`, erro: e.message });
       }
-
-      docsProcessados += lote.length;
     }
 
     // ── PASSO 3: Atualiza barra para 100% e relê a ficha do banco ─────────
@@ -185,12 +179,15 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       for (const c of CAMPOS_EXTRAIVEIS) {
         if (fichaData[c.key]) camposDaFicha[c.key] = fichaData[c.key];
       }
-      // Complementa com o que foi mergeado localmente (caso a leitura seja parcial)
+      // Complementa com o que foi mergeado localmente
       const camposFinais = { ...camposMerged, ...camposDaFicha };
-
       const total = Object.keys(camposFinais).length;
+      
       setDadosExtraidos(camposFinais);
       setDadosEditados({ ...camposFinais });
+      setAlertasExtra(alertasAcumulados);
+      setDocsFalharam(docsFalhadosAcumulados);
+      
       setFase("revisao");
 
       if (total === 0) {
@@ -327,7 +324,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
                   />
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Cada lote de 2 documentos leva ~20–40s. Não feche esta janela.
+                  Processando documentos individualmente. Não feche esta janela.
                 </p>
               </div>
             </div>
@@ -336,18 +333,35 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
           {/* ── FASE: REVISÃO ── */}
           {fase === "revisao" && dadosExtraidos && (
             <>
-              {camposPreenchidos < 3 && (
+              {/* Alerta de documentos falhados */}
+              {docsFalharam.length > 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Atenção: poucos dados extraídos.</strong> A IA pode não ter conseguido ler os documentos. Verifique se os arquivos estão legíveis e contêm as informações necessárias (CTPS, holerites, entrevista, TRCT).
+                    <strong>Falha na leitura:</strong> {docsFalharam.length} documento(s) não puderam ser processados.
+                    <ul className="mt-1 text-xs list-disc list-inside opacity-80">
+                      {docsFalharam.slice(0, 3).map((doc, idx) => (
+                        <li key={idx}>{doc.nome || `Documento ${idx + 1}`}: {doc.erro}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs">Verifique se os PDFs não estão protegidos por senha ou corrompidos.</p>
                   </div>
                 </div>
               )}
+              
+              {camposPreenchidos < 3 && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Poucos dados extraídos.</strong> A IA pode não ter conseguido ler os documentos. Verifique se os arquivos estão legíveis e contêm CTPS, holerites ou entrevista.
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>
-                  <strong>{camposPreenchidos} campo(s) extraídos e gravados na ficha.</strong> Revise e edite abaixo antes de confirmar.
+                  <strong>{camposPreenchidos} campo(s) extraídos.</strong> Revise e edite abaixo antes de confirmar.
                 </span>
               </div>
 
