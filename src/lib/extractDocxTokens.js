@@ -5,6 +5,7 @@
  * Retorna array de strings únicas, ordenadas.
  */
 import PizZip from "pizzip";
+import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 
 /**
  * Dado um ArrayBuffer de um .docx, retorna a lista de tokens únicos encontrados.
@@ -25,11 +26,10 @@ export function extractTokensFromBuffer(arrayBuffer) {
 
 /**
  * Baixa o .docx a partir de uma URL e retorna a lista de tokens.
+ * Usa backend proxy para evitar bloqueio CORS no app publicado.
  */
 export async function extractTokensFromUrl(url) {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Falha ao baixar modelo (${resp.status})`);
-  const ab = await resp.arrayBuffer();
+  const ab = await fetchDocxViaBackend(url);
   return extractTokensFromBuffer(ab);
 }
 

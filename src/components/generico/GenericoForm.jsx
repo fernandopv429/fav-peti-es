@@ -251,8 +251,14 @@ export default function GenericoForm({ templateDocxUrl, templateId, templateName
       const textos = [];
       for (const url of urlsTexto) {
         try {
-          const r = await fetch(url);
-          if (r.ok) textos.push((await r.text()).slice(0, 8000));
+          // Usa ExtractDataFromUploadedFile para evitar fetch cross-origin no app publicado
+          const extracted = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: url,
+            json_schema: { type: "object", properties: { conteudo: { type: "string" } } },
+          });
+          if (extracted?.status === "success" && extracted?.output?.conteudo) {
+            textos.push(extracted.output.conteudo.slice(0, 8000));
+          }
         } catch (_) {}
       }
 
