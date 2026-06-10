@@ -120,6 +120,11 @@ Para cada achado, informe: (1) de qual documento veio, (2) o que foi observado, 
 
 Analise e informe OBRIGATORIAMENTE:
 
+0. DADOS CONTRATUAIS FUNDAMENTAIS — EXTRAIA DOS DOCUMENTOS
+   - DATA DE ADMISSÃO: leia a CTPS ou contrato de trabalho e informe a data exata de admissão encontrada. Se não houver CTPS, informe "não localizada nos documentos".
+   - MODALIDADE DE RESCISÃO: leia o documento de entrevista/relato e o TRCT. Informe expressamente: rescisão indireta / sem justa causa / pedido de demissão / acordo / etc. e a data de rescisão/parada. Se não constar, informe "não localizada nos documentos".
+   - RECLAMADAS: leia o documento de entrevista/relato e liste TODAS as empresas mencionadas como empregadora (1ª reclamada) e tomadoras de serviço (2ª, 3ª reclamada). Para cada uma, informe nome e CNPJ se disponíveis. Se houver tomadoras, registre: "TOMADORA IDENTIFICADA — Súmula 331 TST aplicável: tópico de responsabilidade subsidiária OBRIGATÓRIO na petição."
+
 1. HORAS EXTRAS
    - Horas extras pagas nos holerites: valor, habitualidade, adicional aplicado.
    - Divergência entre jornada constante nos cartões de ponto e o horário alegado pelo reclamante.
@@ -138,7 +143,7 @@ Analise e informe OBRIGATORIAMENTE:
    - Fundamento: Súmulas 60 e 91 do TST; art. 73 da CLT.
 
 5. OUTRAS IRREGULARIDADES
-   - Quaisquer outras irregularidades visíveis nos documentos (ex.: uniforme debitado indevidamente, desvio de função, FGTS não recolhido, verbas rescisórias divergentes, intervalo intrajornada suprimido).
+   - Quaisquer outras irregularidades visíveis nos documentos (ex.: uniforme debitado indevidamente, desvio de função, FGTS não recolhido, verbas rescisórias divergentes, intervalo intrajornada suprimido, descontos indevidos em holerite).
 
 6. CRUZAMENTO COM O RELATO DO CASO
    - Compare os achados com o que o reclamante alegou (campo "irregularidades alegadas" e "contexto adicional").
@@ -148,7 +153,7 @@ Analise e informe OBRIGATORIAMENTE:
    - Para cada documento ilegível ou de conteúdo não identificável, registre: "Documento [nome] — ilegível ou não identificado. Conferência manual obrigatória."
 
 FORMATO DO LAUDO:
-- Use seções numeradas (1 a 7) com os títulos acima.
+- Use seções numeradas (0 a 7) com os títulos acima.
 - Seja objetivo e direto. Cite o documento de origem para cada achado.
 - NÃO invente dados. Se não houver documento sobre determinado tema, registre "Sem documento disponível para análise deste item."
 - Ao final, inclua uma seção "RESUMO EXECUTIVO" com os principais achados em bullet points.

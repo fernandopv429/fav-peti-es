@@ -69,16 +69,24 @@ ${parts.valor_causa}
 ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.beneficios}\n\n──────────────────────────────────────────────────────────────\n\n` : ""}${parts.fecho}`;
       };
 
-      // ── Lê a petição para obter documentos + laudo de análise ─────────────
+      // ── Lê a petição + PetitionConfig ativo no backend ──────────────────
       let docFileUrls = [];
       let docNames = [];
       let laudoAnalise = "";
       let extraDefendants = [];
+      let petitionData = null;
+      // Lê config ativo do backend — NÃO depende do petitionConfig passado pelo frontend
+      let cfgAtivo = petitionConfig || {};
+      try {
+        const cfgList = await base44.asServiceRole.entities.PetitionConfig.filter({ ativo: true });
+        if (cfgList[0]) cfgAtivo = cfgList[0];
+      } catch (_) {}
 
       try {
         const petList = await base44.asServiceRole.entities.Petition.filter({ id: petitionId });
         const pet = petList[0];
         if (pet) {
+          petitionData = pet;
           if (Array.isArray(pet.document_urls) && pet.document_urls.length > 0) {
             docFileUrls = pet.document_urls;
             docNames = pet.document_names || pet.document_urls.map((_, i) => `Documento ${i + 1}`);
@@ -129,12 +137,22 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
       // ── Monta prompt final ────────────────────────────────────────────────
       let finalPrompt = aiPrompt || "";
 
-      // Injeta reclamadas extras no prompt se não estiverem no aiPrompt
+      // ── INSTRUÇÕES OBRIGATÓRIAS — EXTRAÇÃO DE DADOS DOS DOCUMENTOS ───────
+      finalPrompt += `\n\n${"═".repeat(60)}\nINSTRUÇÕES OBRIGATÓRIAS DE EXTRAÇÃO — LEIA ANTES DE REDIGIR:\n${"═".repeat(60)}\n
+A. DATA DE ADMISSÃO: leia a CTPS (Carteira de Trabalho) ou contrato de trabalho nos documentos anexados e use a data de admissão real encontrada. Só use "[A PREENCHER: data de admissão]" se a CTPS/contrato não estiver entre os documentos.
+
+B. MODALIDADE E DATA DE RESCISÃO: leia o documento de entrevista/relato do reclamante e o TRCT/Termo de Rescisão nos documentos. Use a modalidade de rescisão expressa (ex.: rescisão indireta, sem justa causa, pedido de demissão) e a data de parada/rescisão real que constar nesses documentos. Só use "[A PREENCHER]" se o dado realmente não constar de nenhum documento.
+
+C. RECLAMADAS: leia o documento de entrevista/relato para identificar TODAS as empresas envolvidas (empregadora e tomadoras de serviço). Se houver 2ª ou 3ª reclamada tomadora de serviço, inclua-as na qualificação das partes COM SEUS DADOS (nome, CNPJ, endereço conforme constarem dos documentos ou do campo extra_defendants abaixo). NUNCA omita reclamadas listadas na entrevista.
+
+D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclamada em diante), INCLUA OBRIGATORIAMENTE um tópico específico "DA RESPONSABILIDADE SUBSIDIÁRIA DA TOMADORA DE SERVIÇOS" fundamentado na Súmula 331, IV e V, do TST. Este tópico é OBRIGATÓRIO sempre que houver terceirização ou prestação de serviços a tomadora.`;
+
+      // Injeta reclamadas extras no prompt
       if (extraDefendants.length > 0) {
         const listaExtra = extraDefendants.map((d, i) =>
-          `${i + 2}ª Reclamada: ${d.name || "[A PREENCHER]"}, CNPJ: ${d.cnpj || "[A PREENCHER]"}, Endereço: ${d.address || "[A PREENCHER]"}`
+          `${i + 2}ª Reclamada (tomadora): ${d.name || "[A PREENCHER]"}, CNPJ: ${d.cnpj || "[A PREENCHER]"}, Endereço: ${d.address || "[A PREENCHER]"}`
         ).join("\n");
-        finalPrompt += `\n\n${"═".repeat(60)}\nRECLAMADAS ADICIONAIS (incluir na qualificação e pedidos solidários):\n${listaExtra}`;
+        finalPrompt += `\n\n${"═".repeat(60)}\nRECLAMADAS ADICIONAIS — INCLUIR NA QUALIFICAÇÃO E RESPONSABILIDADE SUBSIDIÁRIA (Súmula 331 TST):\n${listaExtra}`;
       }
 
       // Injeta laudo de análise de documentos (issue-spotting)
@@ -198,8 +216,8 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
       }
 
       // ── Aplica padrão obrigatório do escritório (PetitionConfig) ─────────
-      // O logo é emitido como marcador __LOGO__:<url> para o PetitionRenderer renderizá-lo como imagem.
-      const cfg = petitionConfig || {};
+      // Usa cfgAtivo lido do banco (garante logo mesmo se petitionConfig do frontend vier null)
+      const cfg = cfgAtivo;
 
       const logoMarcador = cfg.logo_url ? `__LOGO__:${cfg.logo_url}` : "";
 
