@@ -11,6 +11,7 @@ import { LetterheadHeader, LetterheadFooter } from "../components/petition/Petit
 import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import VigilanteForm from "../components/vigilante/VigilanteForm";
 import GenericoForm from "../components/generico/GenericoForm";
+import PorteiroForm from "../components/porteiro/PorteiroForm";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -32,17 +33,25 @@ function isModeloVigilante(template) {
   return template.name?.toLowerCase().includes("vigilante") && template.case_type === "trabalhista";
 }
 
-// IDs dos templates que habilitam o modo genérico determinístico
-// Adicionar SIEMACO aqui quando pronto para ativar
-const TEMPLATES_MODO_GENERICO = new Set([
+// IDs dos templates PORTEIRO/CONTROLADOR (SINDEEPRES + SIEMACO) — modo PorteiroForm
+const TEMPLATES_MODO_PORTEIRO = new Set([
   "6a23a89c901fce5e061a9099", // SINDEEPRES
-  // "6a23a23e1899bb8695af99c4", // SIEMACO — ativar quando validado
+  "6a23a23e1899bb8695af99c4", // SIEMACO
 ]);
 
-// Verifica se o template usa o modo genérico determinístico (tem modelo_docx_url mas não é Vigilante)
+// Verifica se o template usa o modo PorteiroForm
+function isModoPorteiro(template) {
+  if (!template) return false;
+  if (isModeloVigilante(template)) return false;
+  return !!template.modelo_docx_url && TEMPLATES_MODO_PORTEIRO.has(template.id);
+}
+
+// Mantido para compatibilidade mas não mais necessário para SINDEEPRES/SIEMACO
+const TEMPLATES_MODO_GENERICO = new Set([]);
 function isModoGenerico(template) {
   if (!template) return false;
   if (isModeloVigilante(template)) return false;
+  if (isModoPorteiro(template)) return false;
   return !!template.modelo_docx_url && TEMPLATES_MODO_GENERICO.has(template.id);
 }
 
@@ -161,6 +170,7 @@ export default function GerarDocumento() {
   const espSelecionado = todos.find(e => e.id === espId);
   const templateSelecionado = templates.find(t => t.id === templateId) || null;
   const modoVigilante = isModeloVigilante(templateSelecionado);
+  const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
@@ -661,6 +671,7 @@ Retorne a petição completa, sem comentários adicionais.`;
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{templateSelecionado.name}</p>
                   {modoVigilante && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário Vigilante</p>}
+                  {modoPorteiro && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário Porteiro/Controlador</p>}
                   {modoGenerico && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário estruturado</p>}
                 </div>
                 <span className="text-xs bg-primary/15 text-primary font-semibold px-2 py-0.5 rounded-full shrink-0">Obrigatório</span>
@@ -678,7 +689,7 @@ Retorne a petição completa, sem comentários adicionais.`;
           </div>
 
           {/* Upload de documentos — compartilhado pelos 3 modos */}
-          {(modoVigilante || modoGenerico) && (
+          {(modoVigilante || modoGenerico || modoPorteiro) && (
             <div>
               <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
                 5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional — IA extrai dados)</span>
@@ -716,6 +727,19 @@ Retorne a petição completa, sem comentários adicionais.`;
                 ⚙️ <strong>Modo Vigilante ativo:</strong> Preencha o formulário abaixo. Os valores monetários e dados das partes serão inseridos deterministicamente — a IA só redige a narrativa fática.
               </div>
               <VigilanteForm onGerarComDados={handleGerarVigilante} templateDocxUrl={templateSelecionado?.modelo_docx_url || ""} documentUrls={arquivos.map(a => a.url)} />
+            </>
+          ) : modoPorteiro ? (
+            <>
+              <div className="rounded-xl border border-blue-300 bg-blue-50/50 p-3 text-xs text-blue-800 font-medium">
+                ⚙️ <strong>Modo Porteiro/Controlador ativo ({templateSelecionado.name}):</strong> Formulário determinístico com tokens do .docx. A IA classifica teses antes de gerar. Revisão humana obrigatória.
+              </div>
+              <PorteiroForm
+                templateDocxUrl={templateSelecionado.modelo_docx_url}
+                templateId={templateSelecionado.id}
+                templateName={templateSelecionado.name}
+                documentUrls={arquivos.map(a => a.url)}
+                onGerarComDados={handleGerarGenerico}
+              />
             </>
           ) : modoGenerico ? (
             <>
