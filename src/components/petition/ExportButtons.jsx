@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { getPetitionFormat } from "@/hooks/usePetitionFormat.js";
+import { buildDocxFAV } from "@/lib/buildDocxFAV.js";
 
 /**
  * Classifica uma linha do texto da petição no padrão FAV:
@@ -72,20 +73,6 @@ export default function ExportButtons({ petition, petitionConfig }) {
       img.onerror = reject;
       img.src = url;
     });
-
-  // Converte URL ou data-URI base64 para ArrayBuffer (usado no DOCX)
-  const urlToArrayBuffer = async (url) => {
-    if (url.startsWith("data:")) {
-      // data:image/png;base64,XXXX → ArrayBuffer
-      const base64 = url.split(",")[1];
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      return bytes.buffer;
-    }
-    const resp = await fetch(url);
-    return resp.arrayBuffer();
-  };
 
   // ── IMPRESSÃO HTML ──────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -349,185 +336,12 @@ export default function ExportButtons({ petition, petitionConfig }) {
     }
   };
 
-  // ── DOCX ────────────────────────────────────────────────────────────────
+  // ── DOCX — usa buildDocxFAV (padrão idêntico ao Vigilante) ─────────────
   const handleExportDOCX = async () => {
     setExporting("docx");
     try {
-      const {
-        Document, Paragraph, TextRun, Packer,
-        AlignmentType, Header, Footer, ImageRun, UnderlineType,
-      } = await import("docx");
-
-      const halfPt = 24; // 12pt × 2
-      const lineSpacingTwip = Math.round(240 * 1.5); // 360
-      const indentTwip = cm2twip(fmt.firstIndent);   // 3cm
-      const ementaIndentTwip = cm2twip(4.0);          // 4cm
-
       const content = petition.generated_content || "";
-
-      const bodyParagraphs = content.split("\n").map((line) => {
-        const cl = classifyLine(line);
-        const cleanText = cl.text ? cl.text.replace(/\*\*/g, "") : "";
-
-        if (cl.type === "empty") {
-          return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
-        }
-        // Marcadores de imagem: logo e rodapé já são tratados via header/footer no DOCX
-        if (cl.type === "logo_marker" || cl.type === "rodape_img_marker") {
-          return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
-        }
-
-        if (cl.type === "heading") {
-          return new Paragraph({
-            children: [new TextRun({
-              text: cleanText.toUpperCase(),
-              bold: true,
-              underline: { type: UnderlineType.SINGLE },
-              size: halfPt,
-              font: "Arial",
-            })],
-            alignment: AlignmentType.CENTER,
-            spacing: { line: lineSpacingTwip, before: 240, after: 120 },
-          });
-        }
-
-        if (cl.type === "ementa") {
-          return new Paragraph({
-            children: [new TextRun({ text: cleanText, size: halfPt, font: "Arial" })],
-            alignment: AlignmentType.JUSTIFIED,
-            indent: { left: ementaIndentTwip },
-            spacing: { line: lineSpacingTwip, after: 60 },
-          });
-        }
-
-        if (cl.type === "pedido") {
-          return new Paragraph({
-            children: [new TextRun({
-              text: cleanText.toLowerCase(),
-              bold: true, size: halfPt, font: "Arial",
-            })],
-            alignment: AlignmentType.JUSTIFIED,
-            indent: { firstLine: indentTwip },
-            spacing: { line: lineSpacingTwip, after: 60 },
-          });
-        }
-
-        if (cl.type === "fecho") {
-          return new Paragraph({
-            children: [new TextRun({ text: cleanText, size: halfPt, font: "Arial" })],
-            alignment: AlignmentType.CENTER,
-            spacing: { line: lineSpacingTwip, before: 240, after: 60 },
-          });
-        }
-
-        // body — detecta trechos **negrito**
-        const rawLine = line.trim();
-        const parts = rawLine.replace(/^#{1,6}\s/, "").split(/(\*\*.*?\*\*)/g);
-        const runs = parts.map(p => {
-          if (p.startsWith("**") && p.endsWith("**")) {
-            return new TextRun({ text: p.slice(2, -2), bold: true, size: halfPt, font: "Arial" });
-          }
-          return new TextRun({ text: p, size: halfPt, font: "Arial" });
-        });
-
-        return new Paragraph({
-          children: runs,
-          alignment: AlignmentType.JUSTIFIED,
-          indent: { firstLine: indentTwip },
-          spacing: { line: lineSpacingTwip, after: 60 },
-        });
-      });
-
-      // ── Utilitário: converte pixels para EMU (English Metric Units) usado pelo docx ──
-      // 1 polegada = 914400 EMU; 96 DPI padrão → 1px = 914400/96 = 9525 EMU
-      // A lib docx recebe width/height em EMU diretamente no ImageRun.transformation
-      const px2emu = (px) => Math.round(px * 9525);
-
-      // Cabeçalho DOCX — logo + cabecalho_texto
-      let headerChildren = [];
-      const logoUrlFinal = fmt.logoUrl || inlineLogoUrl;
-      if (logoUrlFinal) {
-        try {
-          const logoData = await loadImage(logoUrlFinal);
-          const buf = await urlToArrayBuffer(logoUrlFinal);
-          // Largura máxima do logo: 8 cm convertido para pixels a 96 DPI
-          const maxLogoWPx = Math.round(8 / 2.54 * 96); // ~302 px
-          const ratio = logoData.width / logoData.height;
-          const logoWPx = Math.min(logoData.width, maxLogoWPx);
-          const logoHPx = Math.round(logoWPx / ratio);
-          headerChildren.push(new Paragraph({
-            children: [new ImageRun({
-              data: buf,
-              transformation: { width: px2emu(logoWPx), height: px2emu(logoHPx) },
-            })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 60 },
-          }));
-        } catch (_) {}
-      }
-      // Texto do cabeçalho (cabecalho_texto ou nome do escritório)
-      const cabTexto = fmt.headerText || (petitionConfig?.cabecalho_texto) || "";
-      if (cabTexto) {
-        cabTexto.split("\n").forEach(l => {
-          if (l.trim()) headerChildren.push(
-            new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER, spacing: { after: 40 } })
-          );
-        });
-      }
-
-      // Rodapé DOCX — imagem ou texto
-      let footerChildren = [];
-      const footerImgUrlFinal = fmt.footerImageUrl || inlineRodapeImgUrl;
-      if (footerImgUrlFinal) {
-        try {
-          const buf = await urlToArrayBuffer(footerImgUrlFinal);
-          const footerImgData = await loadImage(footerImgUrlFinal);
-          // Largura da área de texto em px a 96 DPI
-          const pageTextWCm = 21 - fmt.marginLeft - fmt.marginRight;
-          const pageTextWPx = Math.round(pageTextWCm / 2.54 * 96);
-          const ratio = footerImgData.width / footerImgData.height;
-          const fImgWPx = Math.min(footerImgData.width, pageTextWPx);
-          const fImgHPx = Math.round(fImgWPx / ratio);
-          footerChildren = [new Paragraph({
-            children: [new ImageRun({
-              data: buf,
-              transformation: { width: px2emu(fImgWPx), height: px2emu(fImgHPx) },
-            })],
-            alignment: AlignmentType.CENTER,
-          })];
-        } catch (_) {
-          if (fmt.footerText) {
-            footerChildren = fmt.footerText.split("\n").map(l =>
-              new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER })
-            );
-          }
-        }
-      } else if (fmt.footerText) {
-        footerChildren = fmt.footerText.split("\n").map(l =>
-          new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER })
-        );
-      }
-
-      const doc = new Document({
-        sections: [{
-          properties: {
-            page: {
-              margin: {
-                top:    cm2twip(fmt.marginTop),
-                bottom: cm2twip(fmt.marginBottom),
-                left:   cm2twip(fmt.marginLeft),
-                right:  cm2twip(fmt.marginRight),
-              },
-              size: { width: cm2twip(21), height: cm2twip(29.7) },
-            },
-          },
-          headers: headerChildren.length ? { default: new Header({ children: headerChildren }) } : undefined,
-          footers: footerChildren.length ? { default: new Footer({ children: footerChildren }) } : undefined,
-          children: bodyParagraphs,
-        }],
-      });
-
-      const blob = await Packer.toBlob(doc);
+      const blob = await buildDocxFAV(content, fmt);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = `${petition.title || "peticao"}.docx`;
