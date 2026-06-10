@@ -493,7 +493,7 @@ REGRAS:
           type="text"
           value={titulo}
           onChange={e => setTitulo(e.target.value)}
-          placeholder={`Ex: ${templateName} — João x Empresa`}
+          placeholder="Ex: Fernando x Belfort"
           className="w-full bg-input border border-border text-foreground rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
