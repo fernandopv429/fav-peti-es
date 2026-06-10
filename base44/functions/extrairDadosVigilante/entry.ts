@@ -34,6 +34,12 @@ REGRAS ESPECIFICAS POR CAMPO:
 
 Retorne JSON com: ${CAMPOS.join(",")}`;
 
+function isVisualFile(url) {
+  const lower = (url || "").toLowerCase().split("?")[0];
+  return lower.endsWith(".pdf") || lower.endsWith(".png") || lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".gif");
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me();
@@ -41,6 +47,15 @@ Deno.serve(async (req) => {
 
   const { casoVigilanteId, documentUrls } = await req.json();
   if (!documentUrls || !documentUrls.length) return Response.json({ error: "Sem documentos." }, { status: 400 });
+
+  // Lê PetitionConfig ativo para obter modelo de IA configurado
+  let modeloIA = "gemini_3_flash"; // fallback
+  try {
+    const configs = await base44.asServiceRole.entities.PetitionConfig.filter({ ativo: true });
+    if (configs[0] && configs[0].modelo_ia) {
+      modeloIA = configs[0].modelo_ia;
+    }
+  } catch (_) {}
 
   // Lê campos já salvos na ficha para não sobrescrever com vazio (merge acumulativo)
   let camposExistentes = {};
@@ -57,33 +72,88 @@ Deno.serve(async (req) => {
 
   // Processa os documentos recebidos (o front já divide em lotes; aceita N docs)
   const merged = { ...camposExistentes };
+  const docsNaoLidos = [];
+  let totalLotesProcessados = 0;
+  let totalErrosIA = 0;
 
   for (let i = 0; i < documentUrls.length; i += 2) {
     const lote = documentUrls.slice(i, i + 2);
+    // Separa arquivos visuais (PDF/imagens) de textos planos
+    const visuais = lote.filter(isVisualFile);
+    const textos = lote.filter(u => !isVisualFile(u));
+    
+    // Extrai texto de arquivos não-visuais
+    const conteudosTexto = [];
+    for (const url of textos) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const txt = await resp.text();
+          if (txt.trim()) conteudosTexto.push(txt.slice(0, 8000));
+          else docsNaoLidos.push(url);
+        } else {
+          docsNaoLidos.push(url);
+        }
+      } catch (_) {
+        docsNaoLidos.push(url);
+      }
+    }
+
+    // Monta prompt com contexto dos textos lidos
+    let promptFinal = PROMPT;
+    if (conteudosTexto.length > 0) {
+      promptFinal += `\n\nCONTEÚDO EXTRAÍDO DOS DOCUMENTOS (texto):\n${conteudosTexto.join("\n\n")}`;
+    }
+
     try {
       const res = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: PROMPT,
-        model: "gemini_3_flash",
-        file_urls: lote,
+        prompt: promptFinal,
+        model: modeloIA.includes("claude") || modeloIA.includes("gpt") ? modeloIA : "gemini_3_flash",
+        file_urls: visuais.length > 0 ? visuais : undefined,
         response_json_schema: SCHEMA,
       });
+      
       if (res && typeof res === "object") {
+        totalLotesProcessados++;
+        let camposPreenchidosNesteLote = 0;
         for (const c of CAMPOS) {
           // Só preenche se ainda não temos o campo (prioriza dados anteriores)
-          if (res[c] && res[c].trim() && !merged[c]) merged[c] = res[c].trim();
+          if (res[c] && res[c].trim() && !merged[c]) {
+            merged[c] = res[c].trim();
+            camposPreenchidosNesteLote++;
+          }
+        }
+        // Se nenhum campo foi preenchido após processar documentos visuais, registra aviso
+        if (visuais.length > 0 && camposPreenchidosNesteLote === 0) {
+          docsNaoLidos.push(...visuais);
         }
       }
     } catch (e) {
+      totalErrosIA++;
       await base44.asServiceRole.entities.ErrorLog.create({
-        context: "Extracao Vigilante",
+        context: "Extracao Vigilante — IA falhou",
         error_type: "api",
-        message: `Lote ${i}: ${e.message} | ${lote.join(",")}`,
+        message: `Lote ${i}: ${e.message} | URLs: ${lote.join(", ")} | Modelo: ${modeloIA}`,
+        resolved: false,
+        occurred_at: new Date().toISOString(),
       }).catch(() => {});
     }
   }
 
   const extraidos = Object.fromEntries(Object.entries(merged).filter(([, v]) => v));
   const total = Object.keys(extraidos).length;
+  
+  // Validação: se nenhum campo foi extraído e havia documentos visuais, registra erro claro
+  if (total === 0 && documentUrls.filter(isVisualFile).length > 0) {
+    const errorMsg = `Nenhum campo extraído de ${documentUrls.length} documento(s). Possíveis causas: (1) documentos ilegíveis/escaneados sem OCR adequado, (2) URLs inacessíveis, (3) falha na visão da IA. URLs afetadas: ${documentUrls.slice(0, 5).join(", ")}${documentUrls.length > 5 ? "..." : ""}`;
+    await base44.asServiceRole.entities.ErrorLog.create({
+      context: "Extracao Vigilante — nenhum dado lido",
+      error_type: "api",
+      message: errorMsg,
+      resolved: false,
+      occurred_at: new Date().toISOString(),
+    }).catch(() => {});
+  }
 
   // Salva na ficha (merge com o que já havia)
   if (casoVigilanteId) {
@@ -98,5 +168,24 @@ Deno.serve(async (req) => {
     Object.entries(extraidos).filter(([k, v]) => !camposExistentes[k] && v)
   );
 
-  return Response.json({ campos: extraidos, camposNovos: novos, casoVigilanteId, totalExtraidos: total });
+  // Prepara mensagem de alerta se houver documentos não lidos
+  let alerta = null;
+  if (docsNaoLidos.length > 0) {
+    alerta = `Atenção: não foi possível ler o conteúdo de ${docsNaoLidos.length} documento(s). Verifique se estão legíveis.`;
+  }
+  if (totalErrosIA > 0) {
+    alerta = `Ocorreram ${totalErrosIA} erro(s) ao processar documentos com IA. Verifique o ErrorLog.`;
+  }
+  if (total === 0 && documentUrls.length > 0) {
+    alerta = "Nenhum dado foi extraído dos documentos. Verifique se os arquivos estão legíveis e contêm as informações necessárias (CTPS, holerites, entrevista, etc.).";
+  }
+
+  return Response.json({ 
+    campos: extraidos, 
+    camposNovos: novos, 
+    casoVigilanteId, 
+    totalExtraidos: total,
+    alerta,
+    docsNaoLidos: docsNaoLidos.length > 0 ? docsNaoLidos : undefined,
+  });
 });

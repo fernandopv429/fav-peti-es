@@ -185,9 +185,15 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
 
       if (finalPrompt) {
         try {
+          // Normaliza modelo: substitui modelos Claude antigos/inválidos
+          let modeloRaw = modeloIA || cfgAtivo.modelo_ia || "claude_sonnet_4_6";
+          const modeloNormalizado = modeloRaw
+            .replace(/claude-sonnet-4-20250514/g, "claude_sonnet_4_6")
+            .replace(/claude-3-5-sonnet/g, "claude_sonnet_4_6");
+          
           aiResponse = await base44.integrations.Core.InvokeLLM({
             prompt: finalPrompt,
-            model: modeloIA || "claude_sonnet_4_6",
+            model: modeloNormalizado,
             file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
           });
           usedAI = true;
@@ -277,10 +283,13 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
 
       // GenerationLog
       try {
+        const modeloLog = usedAI ? (modeloIA || cfgAtivo.modelo_ia || "claude_sonnet_4_6")
+          .replace(/claude-sonnet-4-20250514/g, "claude_sonnet_4_6")
+          .replace(/claude-3-5-sonnet/g, "claude_sonnet_4_6") : "template_only";
         await base44.asServiceRole.entities.GenerationLog.create({
           petition_id: petitionId,
           status: "concluido",
-          model_used: usedAI ? (modeloIA || "claude_sonnet_4_6") : "template_only",
+          model_used: modeloLog,
           template_id: templateId || "",
           duration_seconds: Math.round((Date.now() - startTime) / 1000),
           generated_at: new Date().toISOString(),

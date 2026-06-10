@@ -149,6 +149,17 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
         });
         const payload = resp?.data ?? resp;
         const campos = payload?.campos || {};
+        const alerta = payload?.alerta;
+        const docsNaoLidos = payload?.docsNaoLidos;
+        
+        // Exibe alerta se houver
+        if (alerta) {
+          console.warn("Alerta extração:", alerta);
+        }
+        if (docsNaoLidos && docsNaoLidos.length > 0) {
+          console.warn("Documentos não lidos:", docsNaoLidos);
+        }
+        
         // Merge: não sobrescreve campos já preenchidos em lotes anteriores
         for (const [k, v] of Object.entries(campos)) {
           if (v && v.trim() && !camposMerged[k]) camposMerged[k] = v.trim();
@@ -183,7 +194,9 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       setFase("revisao");
 
       if (total === 0) {
-        toast.warning("A IA não encontrou dados nos documentos. Verifique se os arquivos estão legíveis.");
+        toast.error("Nenhum dado foi extraído dos documentos. Verifique se: (1) os arquivos estão legíveis, (2) contêm CTPS/holerites/entrevista, (3) não estão corrompidos.");
+      } else if (total < 3) {
+        toast.warning(`Apenas ${total} campo(s) extraído(s). A IA pode não ter conseguido ler os documentos corretamente. Revise com atenção.`);
       } else {
         toast.success(`${total} campos extraídos — revise antes de confirmar.`);
       }
@@ -193,7 +206,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       setDadosExtraidos(camposFinais);
       setDadosEditados({ ...camposFinais });
       setFase("revisao");
-      toast.warning("Extração concluída. Não foi possível reler a ficha do banco — usando dados locais.");
+      toast.error("Erro ao ler dados extraídos. Verifique o ErrorLog.");
     }
   };
 
@@ -323,6 +336,14 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
           {/* ── FASE: REVISÃO ── */}
           {fase === "revisao" && dadosExtraidos && (
             <>
+              {camposPreenchidos < 3 && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Atenção: poucos dados extraídos.</strong> A IA pode não ter conseguido ler os documentos. Verifique se os arquivos estão legíveis e contêm as informações necessárias (CTPS, holerites, entrevista, TRCT).
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>
