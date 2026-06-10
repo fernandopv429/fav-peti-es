@@ -250,35 +250,57 @@ export default function NewPetition() {
       return;
     }
 
-    // 2. Montar template por código (sem IA) + prompt curto para a IA
-    setGeneratingStep("Montando estrutura da petição...");
-    setGeneratingProgress(15);
+    // 2. Roteia pelo pipeline correto:
+    //    - template com modelo_docx_url → pipeline DOCX determinístico (igual ao Vigilante)
+    //    - template apenas com content  → pipeline IA (texto)
+    const usePipelineDocx = !!selectedTemplate?.modelo_docx_url;
 
-    const templateParts = buildPetitionTemplate(form, petitionConfig);
-    const aiPrompt = buildShortAIPrompt(form, petitionConfig, selectedTemplate?.content);
+    if (usePipelineDocx) {
+      // ── Pipeline DOCX (determinístico + docxtemplater) ────────────────
+      setGeneratingStep("Disparando geração DOCX em segundo plano...");
+      try {
+        await base44.functions.invoke("generatePetitionDocx", {
+          petitionId,
+          templateId: selectedTemplate.id,
+          modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
+        });
+      } catch (err) {
+        setGenerating(false);
+        setGenerateError("Erro ao iniciar geração DOCX: " + err.message);
+        toast.error("Não foi possível iniciar a geração.");
+        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
+        return;
+      }
+    } else {
+      // ── Pipeline IA (texto plain) ─────────────────────────────────────
+      setGeneratingStep("Montando estrutura da petição...");
+      setGeneratingProgress(15);
 
-    // 3. Disparar geração em background via backend function
-    try {
-      setGeneratingStep("Disparando geração em segundo plano...");
-      await base44.functions.invoke("generatePetition", {
-        petitionId,
-        aiPrompt,
-        templateParts,
-        templateContent: selectedTemplate?.content || "",
-        templateName: selectedTemplate.name,
-        templateId: selectedTemplate.id,
-        modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
-        petitionConfig: petitionConfig || null,
-      });
-    } catch (err) {
-      setGenerating(false);
-      setGenerateError("Erro ao iniciar geração: " + err.message);
-      toast.error("Não foi possível iniciar a geração.");
-      try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
-      return;
+      const templateParts = buildPetitionTemplate(form, petitionConfig);
+      const aiPrompt = buildShortAIPrompt(form, petitionConfig, selectedTemplate?.content);
+
+      try {
+        setGeneratingStep("Disparando geração em segundo plano...");
+        await base44.functions.invoke("generatePetition", {
+          petitionId,
+          aiPrompt,
+          templateParts,
+          templateContent: selectedTemplate?.content || "",
+          templateName: selectedTemplate.name,
+          templateId: selectedTemplate.id,
+          modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
+          petitionConfig: petitionConfig || null,
+        });
+      } catch (err) {
+        setGenerating(false);
+        setGenerateError("Erro ao iniciar geração: " + err.message);
+        toast.error("Não foi possível iniciar a geração.");
+        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
+        return;
+      }
     }
 
-    // 4. Iniciar polling
+    // 3. Iniciar polling (igual para ambos os pipelines)
     startPolling(petitionId);
   };
 
@@ -826,6 +848,10 @@ function StepReview({ form, selectedTemplate, petitionConfig, generating, genera
           <ReviewSection title="Modelo Selecionado">
             <ReviewItem label="Nome" value={selectedTemplate.name} />
             <ReviewItem label="Tipo" value={selectedTemplate.case_type} />
+            <ReviewItem
+              label="Pipeline"
+              value={selectedTemplate.modelo_docx_url ? "⚙️ DOCX determinístico" : "✍️ Texto via IA"}
+            />
           </ReviewSection>
         )}
 
