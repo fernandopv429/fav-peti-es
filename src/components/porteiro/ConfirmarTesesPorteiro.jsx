@@ -2,103 +2,154 @@
  * ConfirmarTesesPorteiro — Modal de confirmação de teses para modelos
  * SINDEEPRES e SIEMACO (porteiro/controlador de acesso).
  *
- * Análogo ao ConfirmarTeses do Vigilante, mas com teses específicas para portaria.
- * Recebe `templateId` para adaptar avisos e teses ao modelo correto.
+ * Inclui TODAS as flags booleanas exigidas pelo modelo unificado:
+ *  - Rescisão mutuamente exclusiva: t_dispensa, t_coacao, t_indireta, t_reversao
+ *  - Jornada mutuamente exclusiva: jornada_12x36, jornada_5x2
+ *  - Flags opcionais: tem_2a_reclamada, ente_publico, comp_portaria,
+ *    tem_descaracterizacao, tem_adic_noturno, tem_acumulo, tem_insalubridade,
+ *    tem_periculosidade, tem_assiduidade, tem_doenca
+ *  - Flag computada: tem_pericia = tem_insalubridade OR tem_periculosidade
  */
 import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, X, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-const TIPOS_RESCISAO = [
-  { value: "dispensa_sem_justa_causa", label: "Dispensa sem justa causa" },
-  { value: "rescisao_indireta",        label: "Rescisão indireta" },
-  { value: "reversao_justa_causa",     label: "Reversão de justa causa" },
-  { value: "pedido_demissao",          label: "Pedido de demissão" },
+// ── Mapeamento TIPO_RESCISAO → flags booleanas ───────────────────────────
+const RESCISAO_OPCOES = [
+  {
+    value: "t_dispensa",
+    label: "Dispensa sem justa causa",
+    sub: "Empregador dispensou sem motivo grave",
+  },
+  {
+    value: "t_coacao",
+    label: "Nulidade do pedido de demissão por coação",
+    sub: "Pedido de demissão obtido mediante coação/pressão",
+  },
+  {
+    value: "t_indireta",
+    label: "Rescisão indireta",
+    sub: "Empregador descumpriu obrigações graves (art. 483 CLT)",
+  },
+  {
+    value: "t_reversao",
+    label: "Reversão da justa causa",
+    sub: "Empregador alegou justa causa sem amparo legal",
+  },
 ];
 
-// Teses opcionais variam por modelo
-function getTeses(templateId) {
-  const isSiemaco = templateId === "6a23a23e1899bb8695af99c4";
+const RESCISAO_FLAGS = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
+const JORNADA_FLAGS  = ["jornada_12x36", "jornada_5x2"];
 
-  const base = [
-    {
-      key: "tem_subsidiaria",
-      label: "Responsabilidade subsidiária",
-      sub: "Súmula 331 TST — tomador de serviços responde subsidiariamente",
-    },
-    {
-      key: "tem_adic_noturno",
-      label: "Adicional noturno / hora reduzida",
-      sub: "Art. 73 CLT — horas entre 22h e 05h",
-    },
-    {
-      key: "tem_desvio",
-      label: "Acúmulo / desvio de função",
-      sub: isSiemaco
-        ? "Cláusula 12ª CCT SIEMACO 2026/2027 — +20% do salário contratual"
-        : "Desvio de função — CLT (CCT principal SINDEEPRES ainda não cadastrada)",
-    },
-  ];
+const FLAGS_OPCIONAIS = [
+  { key: "tem_2a_reclamada",      label: "Possui 2ª reclamada (tomadora)",        sub: "Súmula 331 TST — responsabilidade subsidiária do tomador" },
+  { key: "ente_publico",          label: "Tomadora é ente público",                sub: "Só ativo se há 2ª reclamada — Súmula 331 IV TST", dep: "tem_2a_reclamada" },
+  { key: "comp_portaria",         label: "Competência por Portaria do TRT-2",      sub: "Quando verdadeiro usa portaria; quando falso usa art. 651 CLT" },
+  { key: "tem_descaracterizacao", label: "Descaracterização da escala 12x36",      sub: "Escala não cumpre os requisitos para ser válida" },
+  { key: "tem_adic_noturno",      label: "Adicional noturno / hora reduzida",      sub: "Art. 73 CLT — trabalho entre 22h e 05h" },
+  { key: "tem_acumulo",           label: "Acúmulo / desvio de função",             sub: "Exercício de função superior sem correspondente remuneração" },
+  { key: "tem_insalubridade",     label: "Insalubridade",                          sub: "Exposto a agentes nocivos à saúde — laudo pericial (computa tem_pericia)" },
+  { key: "tem_periculosidade",    label: "Periculosidade",                         sub: "Atividades de risco — laudo pericial (computa tem_pericia)" },
+  { key: "tem_assiduidade",       label: "Prêmio assiduidade / frequência",        sub: "Benefício previsto em CCT ou regulamento da empresa" },
+  { key: "tem_doenca",            label: "Doença ocupacional / acidente de trabalho", sub: "Nexo causal entre doença/lesão e condições de trabalho" },
+];
 
-  if (isSiemaco) {
-    base.push({
-      key: "tem_rescisao_indireta_dobro",
-      label: "Verbas rescisórias em dobro (rescisão indireta)",
-      sub: "Cláusula 25ª CCT SIEMACO 2026/2027 — descumprimento = pagamento em dobro",
-    });
-    base.push({
-      key: "tem_multa_atraso",
-      label: "Multa por atraso salarial",
-      sub: "Cláusula 5ª CCT SIEMACO 2026/2027 — 5% do SM por dia de atraso",
-    });
+// Flags com default inicial deriváveis dos dados iniciais
+function buildInitialFlags(dadosIniciais) {
+  const d = dadosIniciais || {};
+  const flags = {};
+
+  // Rescisão — mapeia TIPO_RESCISAO (legado) ou t_* já presente
+  RESCISAO_FLAGS.forEach(f => { flags[f] = d[f] ?? false; });
+  if (!RESCISAO_FLAGS.some(f => d[f])) {
+    // Converte valor legado de TIPO_RESCISAO
+    const map = {
+      dispensa_sem_justa_causa: "t_dispensa",
+      pedido_demissao: "t_coacao",
+      rescisao_indireta: "t_indireta",
+      reversao_justa_causa: "t_reversao",
+    };
+    const legado = map[d.TIPO_RESCISAO];
+    if (legado) flags[legado] = true;
   }
 
-  return base;
+  // Jornada
+  flags.jornada_12x36 = d.jornada_12x36 ?? false;
+  flags.jornada_5x2   = d.jornada_5x2   ?? false;
+  // Default jornada_5x2 true se nenhuma marcada
+  if (!flags.jornada_12x36 && !flags.jornada_5x2) flags.jornada_5x2 = true;
+
+  // Opcionais
+  FLAGS_OPCIONAIS.forEach(({ key }) => { flags[key] = d[key] ?? false; });
+  // tem_2a_reclamada: detecta automaticamente se houver RECL2_NOME
+  if (!flags.tem_2a_reclamada && d.RECL2_NOME) flags.tem_2a_reclamada = true;
+
+  return flags;
 }
 
-// Aviso específico de cada modelo para o advogado
-function getAviso(templateId) {
-  const isSiemaco = templateId === "6a23a23e1899bb8695af99c4";
-  const isSindeepres = templateId === "6a23a89c901fce5e061a9099";
+// Calcula tem_pericia e garante dependências
+function computeFlags(flags) {
+  const f = { ...flags };
+  // tem_pericia = insalubridade OR periculosidade
+  f.tem_pericia = !!(f.tem_insalubridade || f.tem_periculosidade);
+  // ente_publico só pode ser true se tem_2a_reclamada
+  if (!f.tem_2a_reclamada) f.ente_publico = false;
+  return f;
+}
 
-  if (isSiemaco) {
-    return {
-      tipo: "revisao",
-      texto: "⚠️ SIEMACO em revisão humana: a numeração das cláusulas do .docx ainda não foi auditada contra a CCT 2026/2027. Verifique os números de cláusula antes de protocolar.",
-    };
+// Aviso específico de cada modelo
+function getAviso(templateId) {
+  if (templateId === "6a23a23e1899bb8695af99c4") {
+    return { tipo: "revisao", texto: "⚠️ SIEMACO em revisão humana: a numeração das cláusulas do .docx ainda não foi auditada contra a CCT 2026/2027. Verifique os números de cláusula antes de protocolar." };
   }
-  if (isSindeepres) {
-    return {
-      tipo: "pendencia",
-      texto: "⚠️ SINDEEPRES: a CCT principal 2025/2026 (cláusulas de HE, noturno, jornada) ainda não foi cadastrada. Percentuais de HE/noturno serão citados apenas com base na CLT — não inventar valores convencionais.",
-    };
+  if (templateId === "6a23a89c901fce5e061a9099") {
+    return { tipo: "pendencia", texto: "⚠️ SINDEEPRES: a CCT principal 2025/2026 ainda não foi cadastrada. Percentuais de HE/noturno serão citados apenas com base na CLT." };
   }
   return null;
 }
 
-export default function ConfirmarTesesPorteiro({ dadosIniciais, documentUrls = [], templateId, templateName, onConfirmar, onCancelar }) {
-  const [tipoRescisao, setTipoRescisao] = useState(dadosIniciais?.TIPO_RESCISAO || "");
-  const [flags, setFlags] = useState(() => {
-    const teses = getTeses(templateId);
-    const init = {};
-    teses.forEach(t => {
-      if (t.key === "tem_subsidiaria") init[t.key] = dadosIniciais?.tem_subsidiaria ?? false;
-      else init[t.key] = dadosIniciais?.[t.key] ?? false;
-    });
-    return init;
-  });
-
+export default function ConfirmarTesesPorteiro({
+  dadosIniciais, documentUrls = [], templateId, templateName, onConfirmar, onCancelar,
+}) {
+  const [flags, setFlags] = useState(() => buildInitialFlags(dadosIniciais));
   const [analisando, setAnalisando] = useState(false);
   const [sugestao, setSugestao] = useState(null);
   const [erroIA, setErroIA] = useState("");
 
-  const teses = getTeses(templateId);
   const aviso = getAviso(templateId);
 
+  // Seleciona qual flag de rescisão está ativa
+  const rescisaoAtiva = RESCISAO_FLAGS.find(f => flags[f]) || "";
+  // Seleciona qual jornada está ativa
+  const jornadaAtiva = flags.jornada_12x36 ? "jornada_12x36" : "jornada_5x2";
+
+  const setRescisao = (valor) => {
+    setFlags(prev => {
+      const f = { ...prev };
+      RESCISAO_FLAGS.forEach(k => { f[k] = k === valor; });
+      return f;
+    });
+  };
+
+  const setJornada = (valor) => {
+    setFlags(prev => ({
+      ...prev,
+      jornada_12x36: valor === "jornada_12x36",
+      jornada_5x2:   valor === "jornada_5x2",
+    }));
+  };
+
+  const toggleFlag = (key, val) => {
+    setFlags(prev => {
+      const f = { ...prev, [key]: val };
+      if (key === "tem_2a_reclamada" && !val) f.ente_publico = false;
+      return f;
+    });
+  };
+
+  // Análise automática ao abrir se não houver tipo definido
   useEffect(() => {
-    if (!dadosIniciais?.TIPO_RESCISAO) {
-      analisarComIA();
-    }
+    if (!rescisaoAtiva) analisarComIA();
   }, []);
 
   const analisarComIA = async () => {
@@ -106,52 +157,59 @@ export default function ConfirmarTesesPorteiro({ dadosIniciais, documentUrls = [
     setErroIA("");
     setSugestao(null);
 
+    const d = dadosIniciais || {};
+    const isSiemaco = templateId === "6a23a23e1899bb8695af99c4";
+    const nomeCct = isSiemaco ? "CCT SIEMACO-SP 2026/2027" : "CCT SINDEEPRES (citar apenas CLT)";
+
     const contexto = [
-      dadosIniciais?.RECL_NOME       && `Reclamante: ${dadosIniciais.RECL_NOME}`,
-      dadosIniciais?.RECL1_NOME      && `1ª Reclamada: ${dadosIniciais.RECL1_NOME}`,
-      dadosIniciais?.RECL2_NOME      && `2ª Reclamada (tomadora): ${dadosIniciais.RECL2_NOME}`,
-      dadosIniciais?.DATA_ADMISSAO   && `Admissão: ${dadosIniciais.DATA_ADMISSAO}`,
-      dadosIniciais?.DATA_RESCISAO   && `Rescisão: ${dadosIniciais.DATA_RESCISAO}`,
-      dadosIniciais?.FUNCAO          && `Função: ${dadosIniciais.FUNCAO}`,
-      dadosIniciais?.SALARIO         && `Salário: ${dadosIniciais.SALARIO}`,
-      dadosIniciais?.JORNADA_HORARIO && `Jornada: ${dadosIniciais.JORNADA_HORARIO}`,
+      d.RECL_NOME       && `Reclamante: ${d.RECL_NOME}`,
+      d.RECL1_NOME      && `1ª Reclamada: ${d.RECL1_NOME}`,
+      d.RECL2_NOME      && `2ª Reclamada: ${d.RECL2_NOME}`,
+      d.DATA_ADMISSAO   && `Admissão: ${d.DATA_ADMISSAO}`,
+      d.DATA_RESCISAO   && `Rescisão: ${d.DATA_RESCISAO}`,
+      d.FUNCAO          && `Função: ${d.FUNCAO}`,
+      d.SALARIO         && `Salário: ${d.SALARIO}`,
+      d.JORNADA_HORARIO && `Jornada: ${d.JORNADA_HORARIO}`,
     ].filter(Boolean).join("\n");
 
-    const isSiemaco = templateId === "6a23a23e1899bb8695af99c4";
-    const nomeCct = isSiemaco ? "CCT SIEMACO-SP 2026/2027" : "CCT SINDEEPRES (citar apenas CLT para HE/noturno)";
-
-    const tesesDesc = teses.map(t => `- ${t.key} (true/false): ${t.label} — ${t.sub}`).join("\n");
-
-    const prompt = `Você é um advogado trabalhista especializado em casos de porteiro/controlador de acesso.
-Modelo de petição: ${templateName} (${nomeCct}).
-
-Analise o caso e determine:
-
-1. TIPO_RESCISAO:
-   - "dispensa_sem_justa_causa": empregador dispensou sem motivo grave
-   - "rescisao_indireta": empregador descumpriu obrigações graves
-   - "reversao_justa_causa": empregador alegou justa causa indevida
-   - "pedido_demissao": empregado pediu demissão voluntariamente
-
-2. Teses aplicáveis (true/false):
-${tesesDesc}
+    const prompt = `Você é advogado trabalhista. Analise o caso de porteiro/controlador de acesso (${nomeCct}) e retorne JSON com a classificação de TODAS as flags abaixo.
 
 DADOS DO CASO:
 ${contexto}
 
-REGRAS:
-- Baseie-se APENAS nos dados fornecidos. Não invente fatos.
-- Para SINDEEPRES: NÃO sugira percentuais de HE/noturno da CCT (CCT principal não cadastrada). Use apenas CLT.
-- Para SIEMACO: as cláusulas estão em revisão humana — indique baixa confiança para teses convencionais.
+INSTRUÇÕES:
+- Exatamente UMA flag de rescisão = true (t_dispensa, t_coacao, t_indireta, t_reversao).
+  * t_dispensa = dispensa sem justa causa
+  * t_coacao   = pedido de demissão por coação/pressão
+  * t_indireta = rescisão indireta (art. 483 CLT)
+  * t_reversao = reversão da justa causa
+- Exatamente UMA flag de jornada = true (jornada_12x36, jornada_5x2).
+- Para SINDEEPRES: não sugira teses de CCT não cadastrada. Use apenas CLT.
+- Baseie-se SOMENTE nos dados fornecidos. Não invente fatos.
 
-Responda SOMENTE com JSON válido:
+Retorne SOMENTE JSON válido (sem markdown):
 {
-  "tipo_rescisao": "...",
-  ${teses.map(t => `"${t.key}": true`).join(",\n  ")},
-  "confianca": "alta|baixa",
+  "t_dispensa": false,
+  "t_coacao": false,
+  "t_indireta": false,
+  "t_reversao": false,
+  "jornada_12x36": false,
+  "jornada_5x2": true,
+  "tem_2a_reclamada": false,
+  "ente_publico": false,
+  "comp_portaria": false,
+  "tem_descaracterizacao": false,
+  "tem_adic_noturno": false,
+  "tem_acumulo": false,
+  "tem_insalubridade": false,
+  "tem_periculosidade": false,
+  "tem_assiduidade": false,
+  "tem_doenca": false,
+  "confianca": "alta",
   "justificativas": {
-    "tipo_rescisao": "...",
-    ${teses.map(t => `"${t.key}": "..."`).join(",\n    ")}
+    "rescisao": "...",
+    "jornada": "...",
+    "outras": "..."
   }
 }`;
 
@@ -161,19 +219,30 @@ Responda SOMENTE com JSON válido:
         prompt,
         model: "claude_opus_4_8",
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-        response_json_schema: {
-          type: "object",
-          additionalProperties: true,
-        },
+        response_json_schema: { type: "object", additionalProperties: true },
       });
 
       setSugestao(resultado);
-      if (resultado.tipo_rescisao) setTipoRescisao(resultado.tipo_rescisao);
-      const novosFlags = { ...flags };
-      teses.forEach(t => {
-        if (typeof resultado[t.key] === "boolean") novosFlags[t.key] = resultado[t.key];
+
+      setFlags(prev => {
+        const f = { ...prev };
+        // Rescisão — garante mutuamente exclusiva
+        const rescFlags = RESCISAO_FLAGS.filter(k => resultado[k] === true);
+        if (rescFlags.length === 1) {
+          RESCISAO_FLAGS.forEach(k => { f[k] = k === rescFlags[0]; });
+        }
+        // Jornada — garante mutuamente exclusiva
+        if (typeof resultado.jornada_12x36 === "boolean" || typeof resultado.jornada_5x2 === "boolean") {
+          const is12x36 = resultado.jornada_12x36 === true;
+          f.jornada_12x36 = is12x36;
+          f.jornada_5x2   = !is12x36;
+        }
+        // Opcionais
+        FLAGS_OPCIONAIS.forEach(({ key }) => {
+          if (typeof resultado[key] === "boolean") f[key] = resultado[key];
+        });
+        return f;
       });
-      setFlags(novosFlags);
     } catch (e) {
       setErroIA("Não foi possível analisar automaticamente: " + (e.message || String(e)));
     } finally {
@@ -182,8 +251,11 @@ Responda SOMENTE com JSON válido:
   };
 
   const handleConfirmar = () => {
-    if (!tipoRescisao) return;
-    onConfirmar({ ...dadosIniciais, TIPO_RESCISAO: tipoRescisao, ...flags });
+    if (!rescisaoAtiva) return;
+    const flagsFinal = computeFlags(flags);
+    // Monta TIPO_RESCISAO legado para compatibilidade com backend
+    const mapaRev = { t_dispensa: "dispensa_sem_justa_causa", t_coacao: "pedido_demissao", t_indireta: "rescisao_indireta", t_reversao: "reversao_justa_causa" };
+    onConfirmar({ ...dadosIniciais, ...flagsFinal, TIPO_RESCISAO: mapaRev[rescisaoAtiva] || rescisaoAtiva });
   };
 
   const justas = sugestao?.justificativas || {};
@@ -235,6 +307,7 @@ Responda SOMENTE com JSON válido:
             <Sparkles className={`w-4 h-4 shrink-0 ${confiancaBaixa ? "text-amber-500" : "text-green-600"}`} />
             <p className={`text-xs font-medium flex-1 ${confiancaBaixa ? "text-amber-700 dark:text-amber-400" : "text-green-700 dark:text-green-400"}`}>
               {confiancaBaixa ? "IA analisou com baixa confiança — revise com atenção." : "IA classificou o caso — revise e confirme."}
+              {justas.rescisao && <span className="block mt-0.5 font-normal opacity-80">{justas.rescisao}</span>}
             </p>
             <button type="button" onClick={analisarComIA} className="p-1 rounded-lg hover:bg-black/10 text-muted-foreground" title="Re-analisar">
               <RotateCcw className="w-3.5 h-3.5" />
@@ -251,15 +324,15 @@ Responda SOMENTE com JSON válido:
           </div>
         )}
 
-        {/* Tipo de rescisão */}
+        {/* ── Tipo de rescisão (mutuamente exclusivo) ────────────────────── */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
             Tipo de rescisão <span className="text-destructive">*</span>
           </label>
           <div className="space-y-2">
-            {TIPOS_RESCISAO.map(op => {
-              const isIA = sugestao?.tipo_rescisao === op.value;
-              const isSelected = tipoRescisao === op.value;
+            {RESCISAO_OPCOES.map(op => {
+              const isIA = sugestao?.[op.value] === true;
+              const isSelected = rescisaoAtiva === op.value;
               return (
                 <label
                   key={op.value}
@@ -267,14 +340,8 @@ Responda SOMENTE com JSON válido:
                     isSelected ? "border-primary bg-primary/8 text-foreground" : "border-border hover:border-primary/40 text-foreground"
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name="tipo_rescisao_porteiro"
-                    value={op.value}
-                    checked={isSelected}
-                    onChange={() => setTipoRescisao(op.value)}
-                    className="accent-primary mt-0.5"
-                  />
+                  <input type="radio" name="rescisao_porteiro" value={op.value} checked={isSelected}
+                    onChange={() => setRescisao(op.value)} className="accent-primary mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium">{op.label}</span>
@@ -284,37 +351,64 @@ Responda SOMENTE com JSON válido:
                         </span>
                       )}
                     </div>
-                    {isIA && justas.tipo_rescisao && (
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{justas.tipo_rescisao}</p>
-                    )}
+                    <p className="text-xs text-muted-foreground">{op.sub}</p>
                   </div>
                 </label>
               );
             })}
           </div>
-          {!tipoRescisao && !analisando && (
+          {!rescisaoAtiva && !analisando && (
             <p className="text-xs text-destructive mt-1.5">Selecione o tipo de rescisão para habilitar a geração.</p>
           )}
         </div>
 
-        {/* Teses opcionais */}
+        {/* ── Jornada (mutuamente exclusivo) ─────────────────────────────── */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Teses opcionais</label>
+          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Escala de jornada</label>
+          <div className="flex gap-2">
+            {[
+              { value: "jornada_5x2", label: "5×2 (jornada padrão 8h/dia)" },
+              { value: "jornada_12x36", label: "12×36 (12h trabalho / 36h folga)" },
+            ].map(op => (
+              <label key={op.value} className={`flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors text-sm ${
+                jornadaAtiva === op.value ? "border-primary bg-primary/8 font-semibold" : "border-border hover:border-primary/40"
+              }`}>
+                <input type="radio" name="jornada_porteiro" checked={jornadaAtiva === op.value}
+                  onChange={() => setJornada(op.value)} className="accent-primary" />
+                {op.label}
+                {sugestao?.[op.value] === true && (
+                  <Sparkles className="w-3 h-3 text-primary ml-auto" title="IA sugeriu" />
+                )}
+              </label>
+            ))}
+          </div>
+          {justas.jornada && <p className="text-xs text-muted-foreground mt-1 italic">{justas.jornada}</p>}
+        </div>
+
+        {/* ── Flags opcionais ─────────────────────────────────────────────── */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Flags e teses opcionais</label>
           <div className="space-y-2">
-            {teses.map(item => {
+            {FLAGS_OPCIONAIS.map(item => {
               const val = flags[item.key] || false;
               const iaVal = sugestao?.[item.key];
+              // Desabilita ente_publico se não tem 2ª reclamada
+              const disabled = item.dep && !flags[item.dep];
+              // tem_pericia: não editável — computada
+              if (item.key === "tem_pericia") return null;
               return (
                 <label
                   key={item.key}
-                  className={`flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${
-                    val ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30"
+                  className={`flex items-start gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                    disabled ? "opacity-40 cursor-not-allowed border-border" :
+                    val ? "border-primary/50 bg-primary/5 cursor-pointer" : "border-border hover:border-primary/30 cursor-pointer"
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={val}
-                    onChange={e => setFlags(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                    disabled={disabled}
+                    onChange={e => toggleFlag(item.key, e.target.checked)}
                     className="accent-primary w-4 h-4 mt-0.5"
                   />
                   <div className="flex-1 min-w-0">
@@ -328,31 +422,29 @@ Responda SOMENTE com JSON válido:
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">{item.sub}</p>
-                    {justas[item.key] && (
-                      <p className="text-xs text-muted-foreground/80 mt-0.5 leading-relaxed italic">{justas[item.key]}</p>
-                    )}
                   </div>
                 </label>
               );
             })}
           </div>
+
+          {/* Lembrete tem_pericia computada */}
+          {(flags.tem_insalubridade || flags.tem_periculosidade) && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50/50 border border-blue-200 dark:bg-blue-950/20 text-xs text-blue-700 dark:text-blue-400">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span><strong>tem_pericia = true</strong> — computado automaticamente (insalubridade e/ou periculosidade marcadas)</span>
+            </div>
+          )}
         </div>
 
         {/* Ações */}
         <div className="flex gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors"
-          >
+          <button type="button" onClick={onCancelar}
+            className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={handleConfirmar}
-            disabled={!tipoRescisao || analisando}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground text-sm font-bold transition-colors"
-          >
+          <button type="button" onClick={handleConfirmar} disabled={!rescisaoAtiva || analisando}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-primary-foreground text-sm font-bold transition-colors">
             {analisando
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</>
               : <><CheckCircle2 className="w-4 h-4" /> Gerar petição</>
