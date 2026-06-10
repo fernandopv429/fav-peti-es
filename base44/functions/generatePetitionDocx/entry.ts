@@ -330,8 +330,22 @@ Deno.serve(async (req) => {
     }
 
     // Responde imediatamente — processa em background
-    (async () => {
+    // IMPORTANTE: todo o bloco assíncrono tem try/catch próprio para NUNCA deixar
+    // a petição travada em "em_geracao". Qualquer exceção → status "revisao_necessaria" + ErrorLog.
+    const bgWork = new Promise((resolve) => resolve()).then(async () => {
       const startTime = Date.now();
+
+      // ── LOG IMEDIATO: registra que a geração foi iniciada ─────────────────
+      // Feito ANTES de qualquer processamento para que falhas posteriores fiquem visíveis.
+      try {
+        await base44.asServiceRole.entities.GenerationLog.create({
+          petition_id: petitionId,
+          status: "iniciado",
+          model_used: "generatePetitionDocx",
+          template_id: templateId,
+          generated_at: new Date().toISOString(),
+        });
+      } catch (_) {}
 
       // ── 1. Carrega entidades necessárias ─────────────────────────────────
       const [petList, tmplList, cfgList] = await Promise.all([
@@ -508,8 +522,9 @@ REGRAS ABSOLUTAS:
       } catch (_) {}
 
       console.log(`Petição DOCX ${petitionId} gerada — status: ${finalStatus}, tokens faltando: ${tokensFaltando.length}`);
+    });
 
-    })().catch(async (fatalErr) => {
+    bgWork.catch(async (fatalErr) => {
       console.error("Erro fatal generatePetitionDocx:", fatalErr.message);
 
       try {

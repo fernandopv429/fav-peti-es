@@ -181,6 +181,24 @@ export default function NewPetition() {
           return;
         }
 
+        try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (_) {}
+
+        // Pipeline DOCX: generated_content aponta para .docx binário — não fazer fetch de texto.
+        // Redireciona direto para a tela da petição.
+        const isDocxPipeline = p.generated_content?.includes(".docx") ||
+          (Array.isArray(p.document_urls) && p.document_urls.some(u => u?.includes(".docx")));
+
+        if (isDocxPipeline) {
+          const msg = p.status === "revisao_necessaria"
+            ? "DOCX gerado com pendências — revise antes de protocolar."
+            : "Petição DOCX gerada com sucesso!";
+          p.status === "revisao_necessaria" ? toast.warning(msg) : toast.success(msg);
+          // Mostra card de sucesso com link para a petição (sem tentar ler o binário)
+          setGeneratedContent(`[DOCX gerado — clique em "Ver Petição Completa" para baixar e revisar]`);
+          return;
+        }
+
+        // Pipeline texto (generatePetition): lê o conteúdo normalmente
         let content = p.generated_content || "";
         if (content.startsWith("http")) {
           const res = await fetch(content);
@@ -190,7 +208,6 @@ export default function NewPetition() {
         const foundPendencias = extractPendencias(content);
         setPendencias(foundPendencias);
         setGeneratedContent(content);
-        try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (_) {}
 
         if (foundPendencias.length > 0) {
           toast.warning(`Petição gerada com ${foundPendencias.length} pendência(s) — revise os marcadores [A PREENCHER].`);
