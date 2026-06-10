@@ -13,8 +13,8 @@ export function getPetitionFormat(config) {
     marginLeft:     3.0,
     marginRight:    3.0,
     firstIndent:    3.0,   // recuo de 1ª linha em cm
-    logoUrl:        c.logo_url          || "",
-    headerText:     "",
+    logoUrl:        c.logo_url           || "",
+    headerText:     c.cabecalho_texto   || "",
     footerText:     c.rodape_texto      || "",
     footerImageUrl: c.papel_timbrado_url || "",
   };

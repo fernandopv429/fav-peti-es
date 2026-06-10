@@ -438,42 +438,60 @@ export default function ExportButtons({ petition, petitionConfig }) {
         });
       });
 
-      // Cabeçalho DOCX
+      // ── Utilitário: converte pixels para EMU (English Metric Units) usado pelo docx ──
+      // 1 polegada = 914400 EMU; 96 DPI padrão → 1px = 914400/96 = 9525 EMU
+      // A lib docx recebe width/height em EMU diretamente no ImageRun.transformation
+      const px2emu = (px) => Math.round(px * 9525);
+
+      // Cabeçalho DOCX — logo + cabecalho_texto
       let headerChildren = [];
-      if (fmt.logoUrl) {
+      const logoUrlFinal = fmt.logoUrl || inlineLogoUrl;
+      if (logoUrlFinal) {
         try {
-          const logoData = await loadImage(fmt.logoUrl);
-          const buf = await urlToArrayBuffer(fmt.logoUrl);
-          const maxLogoW = cm2twip(8);
+          const logoData = await loadImage(logoUrlFinal);
+          const buf = await urlToArrayBuffer(logoUrlFinal);
+          // Largura máxima do logo: 8 cm convertido para pixels a 96 DPI
+          const maxLogoWPx = Math.round(8 / 2.54 * 96); // ~302 px
           const ratio = logoData.width / logoData.height;
-          const logoH = Math.round(maxLogoW / ratio);
-          headerChildren = [new Paragraph({
+          const logoWPx = Math.min(logoData.width, maxLogoWPx);
+          const logoHPx = Math.round(logoWPx / ratio);
+          headerChildren.push(new Paragraph({
             children: [new ImageRun({
               data: buf,
-              transformation: {
-                width: Math.round(maxLogoW / 914400 * 12700 * 72),
-                height: Math.round(logoH / 914400 * 12700 * 72),
-              },
+              transformation: { width: px2emu(logoWPx), height: px2emu(logoHPx) },
             })],
             alignment: AlignmentType.CENTER,
-          })];
+            spacing: { after: 60 },
+          }));
         } catch (_) {}
       }
+      // Texto do cabeçalho (cabecalho_texto ou nome do escritório)
+      const cabTexto = fmt.headerText || (petitionConfig?.cabecalho_texto) || "";
+      if (cabTexto) {
+        cabTexto.split("\n").forEach(l => {
+          if (l.trim()) headerChildren.push(
+            new Paragraph({ children: [new TextRun({ text: l, size: 20, font: "Arial" })], alignment: AlignmentType.CENTER, spacing: { after: 40 } })
+          );
+        });
+      }
 
-      // Rodapé DOCX
+      // Rodapé DOCX — imagem ou texto
       let footerChildren = [];
-      if (fmt.footerImageUrl) {
+      const footerImgUrlFinal = fmt.footerImageUrl || inlineRodapeImgUrl;
+      if (footerImgUrlFinal) {
         try {
-          const buf = await urlToArrayBuffer(fmt.footerImageUrl);
-          const footerImgData = await loadImage(fmt.footerImageUrl);
-          const pageW = cm2twip(21 - fmt.marginLeft - fmt.marginRight);
+          const buf = await urlToArrayBuffer(footerImgUrlFinal);
+          const footerImgData = await loadImage(footerImgUrlFinal);
+          // Largura da área de texto em px a 96 DPI
+          const pageTextWCm = 21 - fmt.marginLeft - fmt.marginRight;
+          const pageTextWPx = Math.round(pageTextWCm / 2.54 * 96);
           const ratio = footerImgData.width / footerImgData.height;
-          const wEmu = Math.round(pageW * 635);
-          const hEmu = Math.round(wEmu / ratio);
+          const fImgWPx = Math.min(footerImgData.width, pageTextWPx);
+          const fImgHPx = Math.round(fImgWPx / ratio);
           footerChildren = [new Paragraph({
             children: [new ImageRun({
               data: buf,
-              transformation: { width: Math.round(wEmu / 9144), height: Math.round(hEmu / 9144) },
+              transformation: { width: px2emu(fImgWPx), height: px2emu(fImgHPx) },
             })],
             alignment: AlignmentType.CENTER,
           })];
