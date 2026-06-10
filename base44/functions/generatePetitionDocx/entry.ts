@@ -324,7 +324,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { petitionId, templateId, modeloIA } = await req.json();
+    const { petitionId, templateId, modeloIA, formTokens } = await req.json();
     if (!petitionId || !templateId) {
       return Response.json({ error: 'petitionId e templateId são obrigatórios' }, { status: 400 });
     }
@@ -334,6 +334,8 @@ Deno.serve(async (req) => {
     // a petição travada em "em_geracao". Qualquer exceção → status "revisao_necessaria" + ErrorLog.
     const bgWork = new Promise((resolve) => resolve()).then(async () => {
       const startTime = Date.now();
+      // formTokens: tokens pré-preenchidos pelo formulário genérico no frontend
+      // Quando presentes, substituem a extração IA (apenas complementam campos faltantes)
 
       // ── LOG IMEDIATO: registra que a geração foi iniciada ─────────────────
       // Feito ANTES de qualquer processamento para que falhas posteriores fiquem visíveis.
@@ -448,9 +450,18 @@ REGRAS ABSOLUTAS:
         }
       }
 
-      // Merge: aiTokens sobrescreve baseTokens quando IA encontrou dado melhor
+      // Merge prioridade: formTokens (formulário) > aiTokens (IA) > baseTokens (Petition)
+      // formTokens vêm do GenericoForm — dados revisados pelo advogado, máxima confiança
+      const safeFormTokens = {};
+      if (formTokens && typeof formTokens === "object") {
+        for (const [k, v] of Object.entries(formTokens)) {
+          if (k === "titulo" || k === "id" || k === "status") continue;
+          if (typeof v === "boolean") { safeFormTokens[k] = v; continue; }
+          if (v !== null && v !== undefined && v !== "") safeFormTokens[k] = String(v);
+        }
+      }
       // Sanitiza TODOS os valores para eliminar markdown cru e seções proibidas
-      const finalTokens = sanitizeTokens({ ...baseTokens, ...aiTokens });
+      const finalTokens = sanitizeTokens({ ...baseTokens, ...aiTokens, ...safeFormTokens });
 
       // ── 5. Baixa e preenche o modelo DOCX ───────────────────────────────
       // O logo e layout ficam no header nativo do .docx (igual ao Vigilante).

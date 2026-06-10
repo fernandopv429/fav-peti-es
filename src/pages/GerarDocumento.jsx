@@ -10,6 +10,7 @@ import ExportButtons from "../components/petition/ExportButtons";
 import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
 import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import VigilanteForm from "../components/vigilante/VigilanteForm";
+import GenericoForm from "../components/generico/GenericoForm";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -25,10 +26,24 @@ const CASE_TYPE_MAP = {
 
 const AVISO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
-// Verifica se o template selecionado é o modelo Vigilante
+// Verifica se o template selecionado é o modelo Vigilante (dedicado)
 function isModeloVigilante(template) {
   if (!template) return false;
   return template.name?.toLowerCase().includes("vigilante") && template.case_type === "trabalhista";
+}
+
+// IDs dos templates que habilitam o modo genérico determinístico
+// Adicionar SIEMACO aqui quando pronto para ativar
+const TEMPLATES_MODO_GENERICO = new Set([
+  "6a23a89c901fce5e061a9099", // SINDEEPRES
+  // "6a23a23e1899bb8695af99c4", // SIEMACO — ativar quando validado
+]);
+
+// Verifica se o template usa o modo genérico determinístico (tem modelo_docx_url mas não é Vigilante)
+function isModoGenerico(template) {
+  if (!template) return false;
+  if (isModeloVigilante(template)) return false;
+  return !!template.modelo_docx_url && TEMPLATES_MODO_GENERICO.has(template.id);
 }
 
 // Monta o texto da petição substituindo tokens do modelo pelos dados do formulário
@@ -146,6 +161,7 @@ export default function GerarDocumento() {
   const espSelecionado = todos.find(e => e.id === espId);
   const templateSelecionado = templates.find(t => t.id === templateId) || null;
   const modoVigilante = isModeloVigilante(templateSelecionado);
+  const modoGenerico = isModoGenerico(templateSelecionado);
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 
@@ -390,6 +406,90 @@ Retorne a petição completa, sem comentários adicionais.`;
     }
   };
 
+  // ── GERAÇÃO MODO GENÉRICO DETERMINÍSTICO (SINDEEPRES, SIEMACO, etc.) ────
+  const handleGerarGenerico = async (dadosForm) => {
+    if (!templateSelecionado?.modelo_docx_url) {
+      toast.error("Template sem modelo DOCX configurado.");
+      return;
+    }
+    setGerando(true);
+    setGerandoStep("Salvando registro da petição...");
+    setSavedPetitionId(null);
+
+    const titulo = dadosForm.titulo ||
+      `${templateSelecionado.name} — ${dadosForm.RECL_NOME || "Caso"} × ${dadosForm.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+
+    let petitionId = null;
+    try {
+      const petition = await base44.entities.Petition.create({
+        title: titulo,
+        case_type: templateSelecionado.case_type || "trabalhista",
+        claimant_name: dadosForm.RECL_NOME || "—",
+        defendant_name: dadosForm.RECL1_NOME || "—",
+        defendant_cnpj: dadosForm.RECL1_CNPJ || "",
+        status: "em_geracao",
+        template_used: templateSelecionado.id,
+        document_urls: arquivos.map(a => a.url),
+        document_names: arquivos.map(a => a.name),
+        // Persiste dados estruturados como additional_facts (JSON) para rastreabilidade
+        additional_facts: JSON.stringify(dadosForm),
+        extra_defendants: dadosForm.RECL2_NOME
+          ? [{ name: dadosForm.RECL2_NOME, cnpj: dadosForm.RECL2_CNPJ || "", address: dadosForm.RECL2_LOGRADOURO || "" }]
+          : [],
+      });
+      petitionId = petition.id;
+      setSavedPetitionId(petitionId);
+    } catch (e) {
+      toast.error("Erro ao criar registro: " + e.message);
+      setGerando(false);
+      return;
+    }
+
+    // Injeta os dados do formulário diretamente como additional_facts para que o
+    // backend possa usar o buildBaseTokens + aiTokens do formulário.
+    // Para evitar re-extração IA no backend, passamos os tokens diretamente.
+    try {
+      setGerandoStep("Disparando geração DOCX em segundo plano...");
+      await base44.functions.invoke("generatePetitionDocx", {
+        petitionId,
+        templateId: templateSelecionado.id,
+        modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
+        // Passa tokens do formulário — o backend fará merge com buildBaseTokens
+        formTokens: dadosForm,
+      });
+    } catch (err) {
+      toast.error("Erro ao iniciar geração: " + err.message);
+      setGerando(false);
+      base44.entities.Petition.update(petitionId, { status: "rascunho" }).catch(() => {});
+      return;
+    }
+
+    // Polling: aguarda status sair de "em_geracao"
+    setGerandoStep("Aguardando geração DOCX...");
+    const interval = setInterval(async () => {
+      try {
+        const results = await base44.entities.Petition.filter({ id: petitionId });
+        const p = results[0];
+        if (!p || p.status === "em_geracao") return;
+        clearInterval(interval);
+        setGerando(false);
+        const msg = p.status === "revisao_necessaria"
+          ? "DOCX gerado com pendências — revise antes de protocolar."
+          : "DOCX gerado com sucesso!";
+        p.status === "revisao_necessaria" ? toast.warning(msg) : toast.success(msg);
+      } catch (_) {}
+    }, 4000);
+
+    // Timeout 12 min
+    setTimeout(() => {
+      clearInterval(interval);
+      if (gerando) {
+        setGerando(false);
+        toast.error("Tempo de espera esgotado. Verifique em Minhas Petições.");
+      }
+    }, 12 * 60 * 1000);
+  };
+
   // ── GERAÇÃO MODO LIVRE / COM TEMPLATE ────────────────────────────────────
   const handleGerar = async () => {
     if (!espSelecionado) { toast.error("Selecione um especialista."); return; }
@@ -560,7 +660,8 @@ Retorne a petição completa, sem comentários adicionais.`;
                 <FileText className="w-4 h-4 text-primary shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{templateSelecionado.name}</p>
-                  {modoVigilante && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário estruturado</p>}
+                  {modoVigilante && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário Vigilante</p>}
+                  {modoGenerico && <p className="text-xs text-green-600 font-semibold mt-0.5">⚙️ Modo determinístico ativo — formulário estruturado</p>}
                 </div>
                 <span className="text-xs bg-primary/15 text-primary font-semibold px-2 py-0.5 rounded-full shrink-0">Obrigatório</span>
               </div>
@@ -576,44 +677,73 @@ Retorne a petição completa, sem comentários adicionais.`;
             <p className="text-muted-foreground text-xs mt-1">{contexto.length} caracteres</p>
           </div>
 
-          {/* MODO VIGILANTE: Formulário estruturado */}
+          {/* Upload de documentos — compartilhado pelos 3 modos */}
+          {(modoVigilante || modoGenerico) && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional — IA extrai dados)</span>
+              </label>
+              <div className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); handleAddArquivos(e.dataTransfer.files); }}>
+                <Paperclip className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
+                <p className="text-sm text-muted-foreground">Clique ou arraste arquivos aqui</p>
+                <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt,.csv,.xlsx"
+                  className="hidden" onChange={e => handleAddArquivos(e.target.files)} />
+              </div>
+              {uploadingIdx !== null && <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</div>}
+              {arquivos.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {arquivos.map((arq, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
+                      {getFileIcon(arq.type)}
+                      <span className="text-xs text-foreground flex-1 truncate">{arq.name}</span>
+                      <button onClick={() => handleRemoverArquivo(i)} className="p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MODO VIGILANTE: Formulário dedicado */}
           {modoVigilante ? (
             <>
               <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-3 text-xs text-amber-800 font-medium">
                 ⚙️ <strong>Modo Vigilante ativo:</strong> Preencha o formulário abaixo. Os valores monetários e dados das partes serão inseridos deterministicamente — a IA só redige a narrativa fática.
               </div>
-
-              {/* Documentos para análise */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                  5. Documentos para análise <span className="normal-case font-normal text-muted-foreground/70">(opcional)</span>
-                </label>
-                <div className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => { e.preventDefault(); handleAddArquivos(e.dataTransfer.files); }}>
-                  <Paperclip className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
-                  <p className="text-sm text-muted-foreground">Clique ou arraste arquivos aqui</p>
-                  <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt,.csv,.xlsx"
-                    className="hidden" onChange={e => handleAddArquivos(e.target.files)} />
-                </div>
-                {uploadingIdx !== null && <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</div>}
-                {arquivos.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {arquivos.map((arq, i) => (
-                      <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
-                        {getFileIcon(arq.type)}
-                        <span className="text-xs text-foreground flex-1 truncate">{arq.name}</span>
-                        <button onClick={() => handleRemoverArquivo(i)} className="p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <VigilanteForm onGerarComDados={handleGerarVigilante} templateDocxUrl={templateSelecionado?.modelo_docx_url || ""} documentUrls={arquivos.map(a => a.url)} />
+            </>
+          ) : modoGenerico ? (
+            <>
+              <div className="rounded-xl border border-green-300 bg-green-50/50 p-3 text-xs text-green-800 font-medium">
+                ⚙️ <strong>Modo determinístico ativo ({templateSelecionado.name}):</strong> Os tokens são preenchidos a partir do formulário. A IA completa apenas campos narrativos. O DOCX final preserva cabeçalho, rodapé e formatação do modelo.
+              </div>
+              {gerando ? (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">{gerandoStep || "Gerando DOCX..."}</p>
+                  {savedPetitionId && (
+                    <button
+                      onClick={() => window.open(`/peticoes/${savedPetitionId}`, "_blank")}
+                      className="text-xs text-primary underline mt-1"
+                    >
+                      Ver petição em Minhas Petições →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <GenericoForm
+                  templateDocxUrl={templateSelecionado.modelo_docx_url}
+                  templateId={templateSelecionado.id}
+                  templateName={templateSelecionado.name}
+                  documentUrls={arquivos.map(a => a.url)}
+                  onGerar={handleGerarGenerico}
+                />
+              )}
             </>
           ) : (
             <>
