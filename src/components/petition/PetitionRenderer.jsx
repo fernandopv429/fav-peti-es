@@ -5,6 +5,10 @@
  * títulos em CAIXA ALTA + negrito + sublinhado, pedidos em minúsculas + negrito,
  * ementas recuadas 4cm, fecho centralizado, sem itálico forçado.
  *
+ * Marcadores especiais emitidos pelo generatePetition:
+ *   __LOGO__:<url>       → renderiza como imagem de logo centrada (cabeçalho)
+ *   __RODAPE_IMG__:<url> → renderiza como imagem de rodapé (largura total)
+ *
  * Aplica-se a TODA peça gerada, qualquer que seja o modelo/template.
  * NÃO altera conteúdo — apenas formata visualmente.
  */
@@ -18,11 +22,17 @@ const FAV_BODY_STYLE = {
 
 /**
  * Classifica uma linha de texto para aplicar o estilo correto.
- * Lógica de classificação — nunca altera o texto, apenas decide o estilo.
  */
 function classifyLine(line) {
   const t = line.trim();
   if (!t) return { type: "empty" };
+
+  // Marcadores especiais de imagem
+  if (t.startsWith("__LOGO__:")) return { type: "logo", url: t.slice(9).trim() };
+  if (t.startsWith("__RODAPE_IMG__:")) return { type: "rodape_img", url: t.slice(15).trim() };
+
+  // Separadores de seção (linha de traços)
+  if (/^[─\-]{10,}$/.test(t)) return { type: "separator" };
 
   // Ementa: linha que começa com ">"
   if (t.startsWith(">")) return { type: "ementa", text: t.slice(1).trim() };
@@ -35,13 +45,12 @@ function classifyLine(line) {
   const noMd = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/^#{1,6}\s+/, "");
 
   // Título: tudo maiúsculo (após remover numeração), mínimo 4 chars
-  // Aceita: "I – DOS FATOS", "1. DO DIREITO", "DA RESCISÃO INDIRETA"
   const stripped = noMd.replace(/^[\d\.ivxlcIVXLC]+[\.\s\u2013\-]+\s*/, "").trim();
   if (stripped.length > 3 && stripped === stripped.toUpperCase()) {
     return { type: "heading", text: noMd };
   }
 
-  // Pedido: linha que começa com letra/número/romano + ) ou letra/número + .
+  // Pedido: linha que começa com letra/número/romano + )
   if (/^([a-z]\)|[ivxlc]+\)|\d+\.\s)/i.test(noMd.replace(/^\*\*/, "")))
     return { type: "pedido", text: noMd };
 
@@ -72,6 +81,39 @@ export default function PetitionRenderer({ content }) {
 
         if (cl.type === "empty") return <br key={idx} />;
 
+        // ── Marcadores de imagem ──────────────────────────────────────────
+        if (cl.type === "logo") {
+          return (
+            <div key={idx} style={{ textAlign: "center", marginBottom: "12px" }}>
+              <img
+                src={cl.url}
+                alt="Logo do escritório"
+                style={{ maxHeight: "90px", maxWidth: "100%", display: "inline-block" }}
+                crossOrigin="anonymous"
+              />
+            </div>
+          );
+        }
+
+        if (cl.type === "rodape_img") {
+          return (
+            <div key={idx} style={{ marginTop: "16px" }}>
+              <img
+                src={cl.url}
+                alt="Rodapé do escritório"
+                style={{ width: "100%", display: "block" }}
+                crossOrigin="anonymous"
+              />
+            </div>
+          );
+        }
+
+        // ── Separador ─────────────────────────────────────────────────────
+        if (cl.type === "separator") {
+          return <hr key={idx} style={{ border: "none", borderTop: "1px solid #ccc", margin: "0.8em 0" }} />;
+        }
+
+        // ── Títulos ───────────────────────────────────────────────────────
         if (cl.type === "heading") {
           return (
             <p
@@ -92,6 +134,7 @@ export default function PetitionRenderer({ content }) {
           );
         }
 
+        // ── Ementas ───────────────────────────────────────────────────────
         if (cl.type === "ementa") {
           return (
             <p
@@ -111,6 +154,7 @@ export default function PetitionRenderer({ content }) {
           );
         }
 
+        // ── Fecho ─────────────────────────────────────────────────────────
         if (cl.type === "fecho") {
           return (
             <p
@@ -129,8 +173,8 @@ export default function PetitionRenderer({ content }) {
           );
         }
 
+        // ── Pedidos ───────────────────────────────────────────────────────
         if (cl.type === "pedido") {
-          // Pedidos: minúsculas + negrito
           const pedidoText = cl.text.replace(/\*\*/g, "").toLowerCase();
           return (
             <p
@@ -150,7 +194,7 @@ export default function PetitionRenderer({ content }) {
           );
         }
 
-        // Corpo padrão: recuo 3cm, justificado
+        // ── Corpo padrão ──────────────────────────────────────────────────
         return (
           <p
             key={idx}

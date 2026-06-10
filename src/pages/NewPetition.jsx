@@ -235,6 +235,7 @@ export default function NewPetition() {
         salary: form.salary ? parseFloat(form.salary) : undefined,
         template_used: selectedTemplate?.name || "",
         status: "em_geracao",
+        extra_defendants: form.extra_defendants || [],
       };
       if (petitionId) {
         await base44.entities.Petition.update(petitionId, draftData);
@@ -436,12 +437,22 @@ export default function NewPetition() {
         {!isLastStep ? (
           <Button
             onClick={async () => {
-              // Ao avançar para a etapa de análise (step 3→4), garante que o rascunho existe
-              if (step === 3 && !savedPetitionId) {
+              // Ao avançar para a etapa de análise (step 3→4), SEMPRE garante que o rascunho existe
+              // e que extra_defendants está salvo (sem isso, reclamadas extras ficam fora da petição)
+              if (step === 3) {
                 try {
-                  const data = { ...form, salary: form.salary ? parseFloat(form.salary) : undefined, status: "rascunho" };
-                  const p = await base44.entities.Petition.create(data);
-                  setSavedPetitionId(p.id);
+                  const data = {
+                    ...form,
+                    salary: form.salary ? parseFloat(form.salary) : undefined,
+                    status: "rascunho",
+                    extra_defendants: form.extra_defendants || [],
+                  };
+                  if (savedPetitionId) {
+                    await base44.entities.Petition.update(savedPetitionId, data);
+                  } else {
+                    const p = await base44.entities.Petition.create(data);
+                    setSavedPetitionId(p.id);
+                  }
                 } catch (_) {}
               }
               setStep((s) => s + 1);

@@ -18,6 +18,9 @@ import { getPetitionFormat } from "@/hooks/usePetitionFormat.js";
 function classifyLine(line) {
   const t = line.trim();
   if (!t) return { type: "empty" };
+  // Marcadores especiais de imagem (gerados pelo generatePetition)
+  if (t.startsWith("__LOGO__:")) return { type: "logo_marker", url: t.slice(9).trim() };
+  if (t.startsWith("__RODAPE_IMG__:")) return { type: "rodape_img_marker", url: t.slice(15).trim() };
   if (t.startsWith(">")) return { type: "ementa", text: t.slice(1).trim() };
   if (/^(nestes termos|pede deferimento|e\.e\.d\.|termos em que|a\.e\.d\.)/i.test(t))
     return { type: "fecho", text: t };
@@ -35,7 +38,21 @@ function classifyLine(line) {
 export default function ExportButtons({ petition, petitionConfig }) {
   const [exporting, setExporting] = useState(null);
 
-  const fmt = getPetitionFormat(petitionConfig);
+  // Extrai logo/rodapé dos marcadores inline do conteúdo (fallback quando petitionConfig não está completo)
+  const inlineLogoUrl = (() => {
+    const line = (petition.generated_content || "").split("\n").find(l => l.trim().startsWith("__LOGO__:"));
+    return line ? line.trim().slice(9).trim() : "";
+  })();
+  const inlineRodapeImgUrl = (() => {
+    const line = (petition.generated_content || "").split("\n").find(l => l.trim().startsWith("__RODAPE_IMG__:"));
+    return line ? line.trim().slice(15).trim() : "";
+  })();
+
+  const fmt = {
+    ...getPetitionFormat(petitionConfig),
+    logoUrl: getPetitionFormat(petitionConfig).logoUrl || inlineLogoUrl,
+    footerImageUrl: getPetitionFormat(petitionConfig).footerImageUrl || inlineRodapeImgUrl,
+  };
 
   const cm2mm   = (v) => v * 10;
   const cm2twip = (v) => Math.round(v * 567);
@@ -87,6 +104,8 @@ export default function ExportButtons({ petition, petitionConfig }) {
     const bodyHtml = content.split("\n").map((line) => {
       const cl = classifyLine(line);
       if (cl.type === "empty") return "<br/>";
+      if (cl.type === "logo_marker") return `<div class="logo-block"><img src="${cl.url}" style="max-height:90px;display:block;margin:0 auto;" crossorigin="anonymous"/></div>`;
+      if (cl.type === "rodape_img_marker") return `<div class="rodape-block"><img src="${cl.url}" style="width:100%;display:block;" crossorigin="anonymous"/></div>`;
 
       if (cl.type === "heading") {
         const txt = cl.text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
@@ -246,6 +265,9 @@ export default function ExportButtons({ petition, petitionConfig }) {
       for (const line of content.split("\n")) {
         const cl = classifyLine(line);
         if (cl.type === "empty") { y += lineH * 0.5; checkPage(0); continue; }
+        // Marcadores de imagem inline: o logo já aparece via drawHeader; rodapé via drawFooter.
+        // Nas linhas de marcadores, apenas pulamos a linha sem processar como texto.
+        if (cl.type === "logo_marker" || cl.type === "rodape_img_marker") { continue; }
 
         const cleanText = cl.text.replace(/\*\*/g, "");
 
@@ -348,6 +370,10 @@ export default function ExportButtons({ petition, petitionConfig }) {
         const cleanText = cl.text ? cl.text.replace(/\*\*/g, "") : "";
 
         if (cl.type === "empty") {
+          return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
+        }
+        // Marcadores de imagem: logo e rodapé já são tratados via header/footer no DOCX
+        if (cl.type === "logo_marker" || cl.type === "rodape_img_marker") {
           return new Paragraph({ text: "", spacing: { line: lineSpacingTwip, after: 0 } });
         }
 

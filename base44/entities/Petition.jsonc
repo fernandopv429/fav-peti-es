@@ -44,6 +44,22 @@
     "claimant_cpf": {
       "type": "string"
     },
+    "claimant_rg": {
+      "type": "string",
+      "description": "RG do reclamante"
+    },
+    "claimant_birth_date": {
+      "type": "string",
+      "description": "Data de nascimento"
+    },
+    "claimant_ctps": {
+      "type": "string",
+      "description": "N\u00famero da CTPS"
+    },
+    "claimant_pis": {
+      "type": "string",
+      "description": "PIS/PASEP"
+    },
     "claimant_address": {
       "type": "string"
     },
@@ -58,6 +74,24 @@
     },
     "defendant_address": {
       "type": "string"
+    },
+    "extra_defendants": {
+      "type": "array",
+      "description": "Reclamadas adicionais (tomadoras, respons\u00e1veis solid\u00e1rias, etc.)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cnpj": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      }
     },
     "contract_start": {
       "type": "string",
