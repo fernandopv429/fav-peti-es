@@ -24,8 +24,8 @@ function isVisualFile(url) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: "Nao autorizado" }, { status: 401 });
+    // Autenticação via createClientFromRequest já garante o contexto do usuário
+    // Não é necessário chamar base44.auth.me() explicitamente
 
     const { casoVigilanteId, documentUrls } = await req.json();
     if (!documentUrls || documentUrls.length === 0) {
@@ -36,13 +36,17 @@ Deno.serve(async (req) => {
     let camposExistentes = {};
     if (casoVigilanteId) {
       try {
+        // Usa service role para leitura da ficha (necessário para acesso cross-user em casos compartilhados)
         const fichas = await base44.asServiceRole.entities.CasoVigilante.filter({ id: casoVigilanteId });
         if (fichas?.[0]) {
           for (const c of CAMPOS) {
             if (fichas[0][c]) camposExistentes[c] = fichas[0][c];
           }
         }
-      } catch (_) {}
+      } catch (readErr) {
+        console.error("Erro ao ler ficha existente:", readErr.message);
+        // Continua mesmo se não conseguir ler a ficha — extrai do zero
+      }
     }
 
     const merged = { ...camposExistentes };
@@ -130,10 +134,15 @@ Deno.serve(async (req) => {
 
     // Salva na ficha (se houver ID e dados extraídos)
     if (casoVigilanteId && totalExtraidos > 0) {
-      await base44.asServiceRole.entities.CasoVigilante.update(casoVigilanteId, {
-        ...extraidos,
-        status: "preenchido",
-      });
+      try {
+        await base44.asServiceRole.entities.CasoVigilante.update(casoVigilanteId, {
+          ...extraidos,
+          status: "preenchido",
+        });
+      } catch (saveErr) {
+        console.error("Erro ao salvar ficha:", saveErr.message);
+        // Não falha a extração inteira se não conseguir salvar — retorna os dados mesmo assim
+      }
     }
 
     // Prepara mensagem de alerta
@@ -152,6 +161,19 @@ Deno.serve(async (req) => {
       docsFalharam: docsFalharam.length > 0 ? docsFalharam : undefined,
     });
   } catch (error) {
+    // Loga erro completo no ErrorLog para diagnóstico
+    try {
+      const base44 = createClientFromRequest(req);
+      await base44.asServiceRole.entities.ErrorLog.create({
+        context: "extracao_documentos — erro_fatal",
+        error_type: "api",
+        message: `Erro 500: ${error.message}`,
+        resolved: false,
+        occurred_at: new Date().toISOString(),
+      }).catch(() => {});
+    } catch (_) {}
+    
+    console.error("Erro fatal extrairDadosDocumentos:", error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

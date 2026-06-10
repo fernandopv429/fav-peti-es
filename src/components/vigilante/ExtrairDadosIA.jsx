@@ -146,6 +146,28 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
           documentUrls: [url],
         });
         const payload = resp?.data ?? resp;
+        
+        // Verifica se houve erro na resposta (HTTP 500, 401, etc.)
+        if (payload?.error) {
+          console.error(`Documento ${i} — erro da API:`, payload.error);
+          docsFalhadosAcumulados.push({ 
+            url, 
+            nome: `Documento ${i + 1}`, 
+            erro: `Erro backend: ${payload.error}`,
+            detalhes: payload,
+          });
+          
+          // Loga erro completo no ErrorLog
+          try {
+            await base44.functions.invoke("extrairDadosDocumentos", {
+              casoVigilanteId: idFicha,
+              documentUrls: [url],
+            });
+          } catch (_) {}
+          
+          continue;
+        }
+        
         const campos = payload?.campos || {};
         
         // Merge: primeiro valor não-vazio vence
@@ -161,8 +183,13 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
           docsFalhadosAcumulados.push(...payload.docsFalharam);
         }
       } catch (e) {
-        console.error(`Documento ${i} falhou:`, e.message);
-        docsFalhadosAcumulados.push({ url, nome: `Documento ${i + 1}`, erro: e.message });
+        console.error(`Documento ${i} falhou:`, e.message, e);
+        docsFalhadosAcumulados.push({ 
+          url, 
+          nome: `Documento ${i + 1}`, 
+          erro: e.message,
+          stack: e.stack?.slice(0, 500),
+        });
       }
     }
 

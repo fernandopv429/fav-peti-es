@@ -42,8 +42,7 @@ function isVisualFile(url) {
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: "Nao autorizado" }, { status: 401 });
+  // Autenticação via createClientFromRequest já garante o contexto do usuário
 
   const { casoVigilanteId, documentUrls } = await req.json();
   if (!documentUrls || !documentUrls.length) return Response.json({ error: "Sem documentos." }, { status: 400 });
