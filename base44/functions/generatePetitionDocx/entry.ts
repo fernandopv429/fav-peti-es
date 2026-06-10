@@ -62,6 +62,128 @@ function sanitizeTokens(tokens) {
   return out;
 }
 
+/**
+ * Extrai texto puro de um nó XML <w:p> (parágrafo Word).
+ * Concatena todos os <w:t> dentro do parágrafo.
+ */
+function extractParaText(paraXml) {
+  const matches = paraXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+  return matches.map(m => m.replace(/<[^>]+>/g, "")).join("").trim();
+}
+
+/**
+ * Limpa o XML do document.xml de um DOCX tokenizado (porteiro/SINDEEPRES/SIEMACO).
+ * Operações:
+ *  1. Remove tudo desde o início até (e inclusive) o marcador "INÍCIO DA PEÇA".
+ *  2. Remove parágrafos que contenham "NOTA" + "NÃO copiar" (faixas azuis de instrução).
+ *  3. Remove parágrafos de marcação de bloco condicional NÃO aplicável ao caso
+ *     e seus delimitadores, mantendo o conteúdo dos blocos aplicáveis.
+ *
+ * finalTokens é usado para decidir quais blocos condicionais estão ativos.
+ * Se o modelo NÃO contiver "INÍCIO DA PEÇA", retorna o XML sem alteração (Vigilante).
+ */
+function cleanDocxXml(xmlContent, finalTokens) {
+  // Divide em parágrafos preservando tudo mais (estilos, tabelas, etc.)
+  // Usamos split em <w:p[ >] e reagrupamos para não quebrar estrutura.
+  // Abordagem: trabalhar na string XML identificando blocos <w:p>...</w:p>.
+
+  const INICIO_MARKER = /INÍCIO DA PEÇA/i;
+  const NOTA_MARKER   = /NÃO\s+cop[i]?ar\s+para\s+a\s+pe[çc]/i;  // "NÃO copiar para a peça"
+  // Marcadores de bloco condicional: "[SE ...]" ou "[FIM SE]" ou "[BLOCO ...]"
+  const BLOCO_OPEN_RE  = /\[SE\s+/i;
+  const BLOCO_CLOSE_RE = /\[FIM\s+SE\b|\[FIM\s+BLOCO\b/i;
+  const BLOCO_ANY_RE   = /\[SE\s+|\[FIM\s+SE\b|\[FIM\s+BLOCO\b/i;
+
+  // Se não tem marcador INÍCIO DA PEÇA, não é modelo tokenizado com instruções — retorna intacto
+  if (!INICIO_MARKER.test(xmlContent)) return xmlContent;
+
+  // Separa os parágrafos — cada item inclui o <w:p ...>...</w:p> completo
+  const paraRE = /(<w:p[ >][\s\S]*?<\/w:p>)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = paraRE.exec(xmlContent)) !== null) {
+    // Texto antes do primeiro parágrafo (namespace, body tag, etc.)
+    if (match.index > lastIndex) {
+      parts.push({ type: "raw", content: xmlContent.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "para", content: match[0] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < xmlContent.length) {
+    parts.push({ type: "raw", content: xmlContent.slice(lastIndex) });
+  }
+
+  // Fase 1: encontrar índice do parágrafo marcador "INÍCIO DA PEÇA"
+  let inicioIdx = -1;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].type === "para" && INICIO_MARKER.test(extractParaText(parts[i].content))) {
+      inicioIdx = i;
+      break;
+    }
+  }
+
+  // Remover tudo até e inclusive o marcador
+  const workParts = inicioIdx >= 0 ? parts.slice(inicioIdx + 1) : parts;
+
+  // Fase 2 e 3: filtrar NOTAs e blocos condicionais não aplicáveis
+  const result = [];
+  let inBlocoAtivo = null;   // null = fora de bloco, true = bloco ativo, false = bloco inativo
+  const blocoStack = [];     // suporte a blocos aninhados
+
+  for (const part of workParts) {
+    if (part.type === "raw") {
+      result.push(part.content);
+      continue;
+    }
+
+    const text = extractParaText(part.content);
+
+    // Remove NOTAs (faixas azuis de instrução interna)
+    if (NOTA_MARKER.test(text)) continue;
+    // Remove linha com só "NOTA" seguida de número/texto de instrução
+    if (/^NOTA\s*\d*[\s\-:]/i.test(text) && /NÃO|instrução|modelo|IA/i.test(text)) continue;
+
+    // Detecta abertura de bloco condicional [SE TOKEN]
+    if (BLOCO_OPEN_RE.test(text)) {
+      // Extrai o nome do token de controle: [SE NOME_TOKEN] ou [SE NOME_TOKEN = valor]
+      const tokenMatch = text.match(/\[SE\s+([A-Z_]+)\s*(?:=\s*["']?([^"'\]]+)["']?)?\]/i);
+      let blocoAtivo = false;
+      if (tokenMatch) {
+        const tokenNome = tokenMatch[1].toUpperCase();
+        const tokenValor = tokenMatch[2]?.trim().toLowerCase();
+        const tokenData = finalTokens[tokenNome];
+        if (tokenValor !== undefined) {
+          // Compara valor
+          blocoAtivo = String(tokenData || "").toLowerCase() === tokenValor;
+        } else {
+          // Só verifica se é truthy
+          blocoAtivo = !!tokenData && tokenData !== "false" && tokenData !== "0" && tokenData !== "Não";
+        }
+      }
+      blocoStack.push(blocoAtivo);
+      inBlocoAtivo = blocoStack[blocoStack.length - 1];
+      // Remove o parágrafo marcador em si
+      continue;
+    }
+
+    // Detecta fechamento de bloco [FIM SE] / [FIM BLOCO]
+    if (BLOCO_CLOSE_RE.test(text)) {
+      blocoStack.pop();
+      inBlocoAtivo = blocoStack.length > 0 ? blocoStack[blocoStack.length - 1] : null;
+      // Remove o parágrafo marcador em si
+      continue;
+    }
+
+    // Dentro de bloco inativo: descarta o parágrafo
+    if (blocoStack.length > 0 && !inBlocoAtivo) continue;
+
+    result.push(part.content);
+  }
+
+  return result.join("");
+}
+
 function isVisualFile(url) {
   const lower = (url || "").toLowerCase().split("?")[0];
   return lower.endsWith(".pdf") || lower.endsWith(".png") || lower.endsWith(".jpg") ||
@@ -78,11 +200,28 @@ async function fetchDocx(url) {
 /**
  * Substitui tokens {{CHAVE}} no docx e retorna buffer.
  * O logo e o layout de páginas ficam no HEADER NATIVO do .docx — igual ao Vigilante.
+ * Antes da substituição, limpa instruções internas e blocos condicionais inaplicáveis.
  * Tokens ausentes → string vazia, nunca lança erro nem cria páginas extras.
  */
-function renderDocx(buffer, tokens) {
+function renderDocx(buffer, tokens, cleanupLog) {
   const tokensFaltando = [];
   const zip = new PizZip(buffer);
+
+  // Limpa o document.xml (remove seção de instruções, NOTAs e blocos inativos)
+  // Preserva header.xml, footer.xml, styles.xml intactos — não toca no logo/rodapé.
+  try {
+    const docXmlKey = "word/document.xml";
+    const original = zip.file(docXmlKey)?.asText();
+    if (original) {
+      const cleaned = cleanDocxXml(original, tokens);
+      zip.file(docXmlKey, cleaned);
+      if (cleanupLog) cleanupLog.cleaned = cleaned !== original;
+    }
+  } catch (cleanErr) {
+    if (cleanupLog) cleanupLog.error = cleanErr.message;
+    // Não interrompe — continua com o XML original
+  }
+
   const doc = new Docxtemplater(zip, {
     delimiters: { start: "{{", end: "}}" },
     paragraphLoop: true,
@@ -301,8 +440,24 @@ REGRAS ABSOLUTAS:
 
       // ── 5. Baixa e preenche o modelo DOCX ───────────────────────────────
       // O logo e layout ficam no header nativo do .docx (igual ao Vigilante).
+      // cleanupLog rastreia se a limpeza de instruções foi executada e se houve erro.
       const modelBuffer = await fetchDocx(modeloDocxUrl);
-      const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens);
+      const cleanupLog = {};
+      const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens, cleanupLog);
+
+      // Grava no ErrorLog se a limpeza do XML falhou (não interrompe geração)
+      if (cleanupLog.error) {
+        await base44.asServiceRole.entities.ErrorLog.create({
+          context: "generatePetitionDocx — cleanDocxXml",
+          error_type: "template",
+          message: cleanupLog.error,
+          petition_id: petitionId,
+          template_id: templateId,
+          resolved: false,
+          occurred_at: new Date().toISOString(),
+        }).catch(() => {});
+      }
+      console.log(`cleanDocxXml: cleaned=${cleanupLog.cleaned}, error=${cleanupLog.error || "none"}`);
 
       // ── 6. Faz upload do DOCX gerado ──────────────────────────────────────
       const nomeArquivo = `${(petition.claimant_name || "peticao").replace(/\s+/g, "_")}_${template.name.replace(/\s+/g, "_")}.docx`;

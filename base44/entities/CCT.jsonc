@@ -1,0 +1,97 @@
+{
+  "name": "CCT",
+  "type": "object",
+  "description": "Conven\u00e7\u00f5es Coletivas de Trabalho cadastradas \u2014 base para regra de enquadramento sindical, sele\u00e7\u00e3o autom\u00e1tica de modelo e cita\u00e7\u00e3o correta de pisos/adicionais/cl\u00e1usulas nas pe\u00e7as geradas.",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Identifica\u00e7\u00e3o da CCT (ex: CCT Vigilantes SP 2026/2027 \u2014 SESVESP)"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "vigilante",
+        "porteiro_sindeepres",
+        "porteiro_siemaco",
+        "outra"
+      ],
+      "description": "Categoria profissional / modelo de peti\u00e7\u00e3o correspondente"
+    },
+    "sindicato_patronal": {
+      "type": "string",
+      "description": "Entidade patronal signat\u00e1ria"
+    },
+    "sindicatos_laborais": {
+      "type": "string",
+      "description": "Entidade(s) laboral(is) signat\u00e1ria(s) \u2014 resumo"
+    },
+    "registro_mte": {
+      "type": "string",
+      "description": "N\u00famero de registro no MTE (ex: SP000195/2026)"
+    },
+    "data_registro": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de registro no MTE"
+    },
+    "vigencia_inicio": {
+      "type": "string",
+      "format": "date"
+    },
+    "vigencia_fim_economicas": {
+      "type": "string",
+      "format": "date",
+      "description": "Fim da vig\u00eancia das cl\u00e1usulas econ\u00f4micas"
+    },
+    "vigencia_fim_sociais": {
+      "type": "string",
+      "format": "date",
+      "description": "Fim da vig\u00eancia das cl\u00e1usulas sociais"
+    },
+    "data_base": {
+      "type": "string",
+      "description": "Data-base da categoria (ex: 1\u00ba de janeiro)"
+    },
+    "abrangencia_territorial": {
+      "type": "string",
+      "description": "Base territorial (munic\u00edpios/UF abrangidos)"
+    },
+    "abrangencia_categorias": {
+      "type": "string",
+      "description": "Categorias profissionais abrangidas (texto da cl\u00e1usula de abrang\u00eancia)"
+    },
+    "pisos": {
+      "type": "object",
+      "description": "Pisos salariais por cargo (chave: cargo, valor: piso em R$ e gratifica\u00e7\u00e3o se houver)"
+    },
+    "adicionais": {
+      "type": "object",
+      "description": "Adicionais e percentuais (HE, noturno, periculosidade, FT, domingos/feriados, etc.)"
+    },
+    "beneficios": {
+      "type": "object",
+      "description": "Benef\u00edcios e valores (VR, cesta b\u00e1sica, VT, conv\u00eanio m\u00e9dico, seguro de vida, etc.)"
+    },
+    "clausulas_chave": {
+      "type": "string",
+      "description": "Resumo das cl\u00e1usulas-chave numeradas, para cita\u00e7\u00e3o literal nas pe\u00e7as"
+    },
+    "observacoes_estrategicas": {
+      "type": "string",
+      "description": "Pontos de aten\u00e7\u00e3o para teses (limites convencionais, Tema 1046, etc.)"
+    },
+    "arquivo_url": {
+      "type": "string",
+      "description": "URL do PDF da CCT registrada"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "nome",
+    "categoria",
+    "vigencia_inicio"
+  ]
+}
