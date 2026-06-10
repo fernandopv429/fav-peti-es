@@ -13,7 +13,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import PizZip from 'npm:pizzip@3.2.0';
 import Docxtemplater from 'npm:docxtemplater@3.68.7';
-import ImageModule from 'npm:docxtemplater-image-module-free@1.1.1';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -77,31 +76,14 @@ async function fetchDocx(url) {
 }
 
 /**
- * Baixa uma URL e retorna ArrayBuffer. Funciona com URLs remotas.
- */
-async function fetchImageBuffer(url) {
-  if (!url) return null;
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    return await r.arrayBuffer();
-  } catch (_) {
-    return null;
-  }
-}
-
-/**
  * Substitui tokens {{CHAVE}} no docx e retorna buffer.
- * Suporta token especial {{LOGO_IMG}} para embutir imagem do logo.
- * tokens: objeto { CHAVE: valor, ... }
- * Tokens ausentes → string vazia, nunca lança erro.
+ * O logo e o layout de páginas ficam no HEADER NATIVO do .docx — igual ao Vigilante.
+ * Tokens ausentes → string vazia, nunca lança erro nem cria páginas extras.
  */
-async function renderDocx(buffer, tokens, logoBuffer) {
+function renderDocx(buffer, tokens) {
   const tokensFaltando = [];
   const zip = new PizZip(buffer);
-
-  // Módulo de imagem para o token {{LOGO_IMG}} — se o modelo o utilizar
-  const opts = {
+  const doc = new Docxtemplater(zip, {
     delimiters: { start: "{{", end: "}}" },
     paragraphLoop: true,
     linebreaks: true,
@@ -112,32 +94,8 @@ async function renderDocx(buffer, tokens, logoBuffer) {
       return "";
     },
     errorLogging: false,
-  };
-
-  if (logoBuffer) {
-    try {
-      opts.modules = [new ImageModule({
-        centered: true,
-        fileType: "docx",
-        getImage: (tagValue) => {
-          // Retorna o buffer do logo para o token LOGO_IMG
-          if (tagValue === "LOGO_IMG") return logoBuffer;
-          return null;
-        },
-        getSize: () => [200, 60], // largura x altura em px (aprox 7cm × 2cm)
-      })];
-    } catch (_) {
-      // ImageModule não disponível — continua sem módulo de imagem
-    }
-  }
-
-  const doc = new Docxtemplater(zip, opts);
-
-  // Injeta logo como dado de imagem se o token existir no modelo
-  const renderData = { ...tokens };
-  if (logoBuffer) renderData["LOGO_IMG"] = "LOGO_IMG";
-
-  doc.render(renderData);
+  });
+  doc.render(tokens);
   const out = doc.getZip().generate({
     type: "uint8array",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -284,68 +242,67 @@ Deno.serve(async (req) => {
       // ── 3. Monta tokens base a partir dos dados da Petition ───────────────
       const baseTokens = buildBaseTokens(petition, extraDefendants);
 
-      // ── 4. Usa IA para extrair tokens adicionais dos documentos ──────────
+      // ── 4. IA extrai APENAS dados curtos (datas, valores, nomes, horários) ──
+      // NUNCA gera texto narrativo longo — isso causa páginas extras.
+      // Imagens/PDFs são usados APENAS para extrair dados estruturados curtos,
+      // NÃO para transcrição de conteúdo visual.
       let aiTokens = {};
-      try {
-        const iaModel = modeloIA || cfg.modelo_ia || "claude_sonnet_4_6";
-        const tokenList = Object.keys(baseTokens).join(", ");
+      if (docTexts.length > 0 || imageOrPdfUrls.length > 0 || laudoAnalise) {
+        try {
+          const iaModel = modeloIA || cfg.modelo_ia || "claude_sonnet_4_6";
 
-        let promptIA = `Você é um assistente jurídico. Analise os documentos do caso trabalhista abaixo e preencha APENAS os tokens JSON para o modelo de petição.
+          const promptIA = `Você é um extrator de dados jurídicos. Analise os documentos do caso abaixo e retorne APENAS um JSON com dados CURTOS e OBJETIVOS extraídos.
 
-DADOS JÁ PREENCHIDOS (não repita estes):
+DADOS JÁ PREENCHIDOS (não retorne estes):
 ${JSON.stringify(baseTokens, null, 2)}
 
-${laudoAnalise ? `LAUDO DE ANÁLISE DOS DOCUMENTOS:\n${laudoAnalise}\n\n` : ""}
-${docTexts.length > 0 ? `CONTEÚDO DOS DOCUMENTOS (texto):\n${docTexts.join("\n\n")}\n\n` : ""}
-${imageOrPdfUrls.length > 0 ? `${imageOrPdfUrls.length} arquivo(s) PDF/imagem em anexo — analise-os.\n\n` : ""}
+${laudoAnalise ? `LAUDO:\n${laudoAnalise.slice(0, 3000)}\n\n` : ""}
+${docTexts.length > 0 ? `DOCUMENTOS (texto):\n${docTexts.join("\n\n").slice(0, 6000)}\n\n` : ""}
+${imageOrPdfUrls.length > 0 ? `${imageOrPdfUrls.length} arquivo(s) PDF/imagem em anexo — extraia APENAS dados estruturados.\n\n` : ""}
 
-REGRAS ABSOLUTAS — VIOLAÇÃO INVALIDA O DOCUMENTO:
-1. Retorne SOMENTE um objeto JSON puro. Sem markdown, sem comentários, sem texto fora do JSON.
-2. Para tokens de texto livre (narrativas, fundamentação, pedidos), o valor deve ser TEXTO PURO — proibido qualquer pipe (|), backtick (\`), cercar de código, cabeçalho Markdown (#), tabela markdown ou lista com traço (---).
-3. A peça termina no fecho/assinatura previsto no modelo. PROIBIDO incluir, em qualquer token: "Memória de Cálculo", "ANEXO III", "Rol de Testemunhas", "Nota Técnica", "[Fim da Peça]" ou qualquer seção que não exista no modelo original.
-4. Material de apoio (memória de cálculo, notas técnicas, rol expandido de testemunhas) NÃO vai em nenhum token — será salvo separadamente.
-5. Extraia dos documentos os valores faltantes: DATA_ADMISSAO (da CTPS), DATA_RESCISAO e tipo de rescisão (do TRCT/entrevista), SALARIO (do holerite), JORNADA_HORARIO (dos cartões de ponto), COMARCA_UF/FORO_COMPETENCIA (da entrevista).
-6. Inclua tokens específicos do modelo (ex: CCT_VIGENCIA, ADIC_CONV, VALOR_CAUSA, LOCAL_DATA_ASSINATURA, REGIAO_TRT) se identificados.
-7. Para reclamadas extras identificadas na entrevista e não cobertas pelos dados base, preencha RECL2_* ou RECL3_*.
-8. Para campos não encontrados, NÃO inclua no JSON.`;
+REGRAS ABSOLUTAS:
+1. Retorne SOMENTE JSON puro, sem markdown, sem comentários.
+2. Extraia APENAS valores CURTOS e OBJETIVOS: datas (ex: "04 de junho de 2012"), valores monetários (ex: "R$ 2.148,22"), horários (ex: "18:30 às 07:30"), nomes, CNPJs, endereços, cidades.
+3. PROIBIDO retornar texto narrativo longo, parágrafos, fundamentação jurídica, ou qualquer texto com mais de 2 linhas num token.
+4. NÃO transcreva nem descreva imagens (cartões de ponto, holerites) — extraia apenas os NÚMEROS/VALORES presentes nelas.
+5. Tokens permitidos: DATA_ADMISSAO, DATA_RESCISAO, SALARIO, JORNADA_HORARIO, JORNADA_EXTRAPOLA, JORNADA_FREQ_EXTRA, INTERVALO_GOZADO, COMARCA_UF, FORO_COMPETENCIA, REGIAO_TRT, LOCAL_PRESTACAO, LOCAL_DATA_ASSINATURA, CCT_VIGENCIA, ADIC_CONV, VAL_FT, VAL_CONDUCAO, VAL_ALIMENTACAO, VALOR_CAUSA, RECL_SERIE, RECL_CEP, RECL_FILIACAO, RECL_ESTADOCIVIL, RECL2_NOME, RECL2_CNPJ, RECL2_LOGRADOURO, RECL3_NOME, RECL3_CNPJ, RECL3_LOGRADOURO, P01 até P87 (apenas valores monetários, ex: "R$ 21.482,20").
+6. Para campos não encontrados nos documentos, NÃO inclua no JSON.
+7. TIPO_RESCISAO deve ser um destes valores exatos: "dispensa_sem_justa_causa", "rescisao_indireta", "reversao_justa_causa", "pedido_demissao".`;
 
-        const iaResp = await base44.integrations.Core.InvokeLLM({
-          prompt: promptIA,
-          model: iaModel,
-          file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
-          response_json_schema: {
-            type: "object",
-            additionalProperties: { type: "string" },
-          },
-        });
+          const iaResp = await base44.integrations.Core.InvokeLLM({
+            prompt: promptIA,
+            model: iaModel,
+            file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
+            response_json_schema: {
+              type: "object",
+              additionalProperties: { type: "string" },
+            },
+          });
 
-        if (iaResp && typeof iaResp === "object") {
-          aiTokens = iaResp;
+          if (iaResp && typeof iaResp === "object") {
+            aiTokens = iaResp;
+          }
+        } catch (iaErr) {
+          console.error("IA falhou na extração de tokens:", iaErr.message);
+          await base44.asServiceRole.entities.ErrorLog.create({
+            context: "generatePetitionDocx — IA tokens",
+            error_type: "api",
+            message: iaErr.message,
+            petition_id: petitionId,
+            resolved: false,
+            occurred_at: new Date().toISOString(),
+          }).catch(() => {});
         }
-      } catch (iaErr) {
-        console.error("IA falhou na extração de tokens:", iaErr.message);
-        await base44.asServiceRole.entities.ErrorLog.create({
-          context: "generatePetitionDocx — IA tokens",
-          error_type: "api",
-          message: iaErr.message,
-          petition_id: petitionId,
-          resolved: false,
-          occurred_at: new Date().toISOString(),
-        }).catch(() => {});
-        // Continua sem tokens da IA — os tokens base ainda serão usados
       }
 
       // Merge: aiTokens sobrescreve baseTokens quando IA encontrou dado melhor
       // Sanitiza TODOS os valores para eliminar markdown cru e seções proibidas
       const finalTokens = sanitizeTokens({ ...baseTokens, ...aiTokens });
 
-      // ── 5. Baixa modelo e logo em paralelo ───────────────────────────────
-      const [modelBuffer, logoBuffer] = await Promise.all([
-        fetchDocx(modeloDocxUrl),
-        fetchImageBuffer(cfg.logo_url || ""),
-      ]);
-
-      const { buffer: docxBuffer, tokensFaltando } = await renderDocx(modelBuffer, finalTokens, logoBuffer);
+      // ── 5. Baixa e preenche o modelo DOCX ───────────────────────────────
+      // O logo e layout ficam no header nativo do .docx (igual ao Vigilante).
+      const modelBuffer = await fetchDocx(modeloDocxUrl);
+      const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens);
 
       // ── 6. Faz upload do DOCX gerado ──────────────────────────────────────
       const nomeArquivo = `${(petition.claimant_name || "peticao").replace(/\s+/g, "_")}_${template.name.replace(/\s+/g, "_")}.docx`;
