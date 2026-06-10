@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId, modeloIA } = await req.json();
+    const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId, modeloIA, petitionConfig } = await req.json();
     if (!petitionId || !templateParts) {
       return Response.json({ error: 'petitionId e templateParts são obrigatórios' }, { status: 400 });
     }
@@ -182,12 +182,40 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
         finalStatus = "revisao_necessaria";
       }
 
+      // ── Aplica padrão obrigatório do escritório (PetitionConfig) ─────────
+      // Cabeçalho e rodapé são injetados como blocos de texto estruturado.
+      // Logo/imagem é referenciada por URL para ser usada nos exportadores (PDF/DOCX).
+      // Este bloco é OBRIGATÓRIO — toda petição sai com este padrão.
+      const cfg = petitionConfig || {};
+      const linhasCabecalho = [
+        cfg.escritorio       && `ESCRITÓRIO: ${cfg.escritorio}`,
+        cfg.advogado_principal && `Advogado: ${cfg.advogado_principal}`,
+        cfg.oab              && `OAB: ${cfg.oab}${cfg.uf_oab ? `/${cfg.uf_oab}` : ""}`,
+        cfg.cabecalho_texto  && cfg.cabecalho_texto,
+        cfg.logo_url         && `[LOGO: ${cfg.logo_url}]`,
+      ].filter(Boolean);
+
+      const linhasRodape = [
+        cfg.rodape_texto     && cfg.rodape_texto,
+        cfg.papel_timbrado_url && `[PAPEL_TIMBRADO: ${cfg.papel_timbrado_url}]`,
+        cfg.email_contato    && `E-mail: ${cfg.email_contato}`,
+        cfg.telefone         && `Tel.: ${cfg.telefone}`,
+        cfg.site             && cfg.site,
+      ].filter(Boolean);
+
+      const cabecalhoBloco = linhasCabecalho.length > 0
+        ? linhasCabecalho.join("\n") + "\n\n" + "─".repeat(60) + "\n\n"
+        : "";
+      const rodapeBloco = linhasRodape.length > 0
+        ? "\n\n" + "─".repeat(60) + "\n\n" + linhasRodape.join("\n")
+        : "";
+
       // ── Salva o documento (SEMPRE persiste, mesmo com pendências) ────────
-      let savedContent = fullText;
+      let savedContent = cabecalhoBloco + fullText + rodapeBloco;
 
       // Se a IA falhou e não há conteúdo útil, salva ao menos o esqueleto do template
       if (!aiResponse && templateContent && templateContent.trim().length >= 50) {
-        savedContent = templateContent;
+        savedContent = cabecalhoBloco + templateContent + rodapeBloco;
         finalStatus = "revisao_necessaria";
       }
 

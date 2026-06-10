@@ -2,26 +2,29 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Sparkles, Loader2, CheckCircle2, AlertTriangle, RotateCcw,
-  ShieldCheck, ShieldAlert, Users, FileText
+  ShieldCheck, ShieldAlert, FileText
 } from "lucide-react";
 
 /**
- * Componente de seleção automática de modelo com IA.
+ * Seleção automática de modelo com IA — totalmente dinâmica.
+ * Considera TODOS os templates ativos passados via props.
+ * Regras de confiança:
+ *   - Alta → seleção automática (pré-seleciona o template)
+ *   - Baixa → revisão humana (mostra candidatos para o usuário escolher)
  *
  * Props:
  *   form             — dados do formulário NewPetition
- *   templates        — lista de PetitionTemplate ativos compatíveis
+ *   templates        — lista de PetitionTemplate ativos (todos, sem filtro externo)
  *   selectedTemplateId — ID selecionado atualmente
  *   onSelect(id)     — callback ao escolher um template
- *   threshold        — limiar de confiança configurado em PetitionConfig (default 0.6)
+ *   threshold        — limiar de confiança de PetitionConfig (default 0.6, reservado para uso futuro)
  */
 export default function SelecaoModeloIA({ form, templates, selectedTemplateId, onSelect, threshold = 0.6 }) {
   const [analisando, setAnalisando] = useState(false);
-  const [resultado, setResultado] = useState(null); // { templateId, confianca, justificativa, candidatos, modo }
+  const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState("");
   const [jaRodou, setJaRodou] = useState(false);
 
-  // Roda automaticamente quando os templates estiverem disponíveis e ainda não rodou
   useEffect(() => {
     if (!jaRodou && templates.length > 0 && (form.claimant_role || form.additional_facts || form.irregularities)) {
       analisar();
@@ -35,80 +38,44 @@ export default function SelecaoModeloIA({ form, templates, selectedTemplateId, o
     setResultado(null);
     setJaRodou(true);
 
-    // ── Regras locais (sem IA) para casos com tag conhecida ──────────────
-    const funcao = (form.claimant_role || "").toLowerCase();
-    const isVigilante = /vigilant|agente de segur|vigil[aâ]/i.test(funcao);
-    const isPorteiro  = /porteiro|controlador de acesso|portaria/i.test(funcao);
-
-    const autoSelecionaveis   = templates.filter(t => (t.tags || []).includes("auto_selecionavel"));
-    const enquadramentoPendente = templates.filter(t => (t.tags || []).includes("enquadramento_pendente"));
-
-    // ALTA CONFIANÇA — vigilante + template auto_selecionavel
-    if (isVigilante && autoSelecionaveis.length > 0) {
-      const melhor = autoSelecionaveis[0];
-      const res = {
-        templateId: melhor.id,
-        confianca: "alta",
-        modo: "automatico",
-        justificativa: `Função "${form.claimant_role}" identificada como vigilante/agente de segurança. Modelo "${melhor.name}" (tag auto_selecionavel) selecionado automaticamente.`,
-        candidatos: [],
-      };
-      setResultado(res);
-      onSelect(melhor.id);
-      setAnalisando(false);
-      return;
-    }
-
-    // BAIXA CONFIANÇA — porteiro + enquadramento_pendente
-    if (isPorteiro && enquadramentoPendente.length > 0) {
-      const res = {
-        templateId: null,
-        confianca: "baixa",
-        modo: "revisao_humana",
-        justificativa: `Função "${form.claimant_role}" identificada como porteiro/controlador de acesso. A regra de enquadramento SINDEEPRES × SIEMACO ainda não foi configurada — escolha manualmente o modelo adequado.`,
-        candidatos: enquadramentoPendente,
-        avisoEnquadramento: true,
-      };
-      setResultado(res);
-      setAnalisando(false);
-      return;
-    }
-
-    // ── Sem regra local clara: usa IA para pontuar ────────────────────────
     try {
+      // Lista todos os templates com seus metadados relevantes para a IA
       const listaModelos = templates.map((t, i) =>
-        `${i + 1}. ID: "${t.id}" | Nome: "${t.name}" | Tags: [${(t.tags || []).join(", ")}] | Descrição: "${t.description || ""}"`
+        `${i + 1}. ID: "${t.id}" | Nome: "${t.name}" | Tipo: "${t.case_type || ""}" | Tags: [${(t.tags || []).join(", ")}] | Descrição: "${t.description || ""}"`
       ).join("\n");
 
       const contexto = [
-        form.claimant_role && `Função do reclamante: ${form.claimant_role}`,
-        form.irregularities && `Irregularidades: ${form.irregularities.slice(0, 400)}`,
+        form.claimant_role    && `Função do reclamante: ${form.claimant_role}`,
+        form.defendant_name   && `Reclamada: ${form.defendant_name}`,
+        form.work_schedule    && `Jornada: ${form.work_schedule.slice(0, 200)}`,
+        form.irregularities   && `Irregularidades: ${form.irregularities.slice(0, 500)}`,
         form.additional_facts && `Contexto: ${form.additional_facts.slice(0, 400)}`,
-        form.work_schedule && `Jornada: ${form.work_schedule.slice(0, 200)}`,
-        form.defendant_name && `Reclamada: ${form.defendant_name}`,
+        form.case_type        && `Tipo de ação: ${form.case_type}`,
       ].filter(Boolean).join("\n");
 
-      const prompt = `Você é um sistema de triagem jurídica trabalhista. Com base nos dados do caso e nos modelos disponíveis, indique qual modelo melhor se adequa.
+      const prompt = `Você é um sistema de triagem jurídica trabalhista. Com base nos dados do caso abaixo e nos modelos disponíveis, determine qual modelo é o mais adequado.
 
 DADOS DO CASO:
 ${contexto}
 
-MODELOS DISPONÍVEIS:
+MODELOS DISPONÍVEIS (analise tags, nome e descrição de cada um):
 ${listaModelos}
 
-Responda SOMENTE com JSON:
-{
-  "templateId": "<ID do modelo mais adequado ou null se nenhum for claro>",
-  "confianca": "alta" ou "baixa",
-  "justificativa": "<1-2 linhas explicando a escolha com base nos dados reais do caso>",
-  "candidatos_ids": ["<id1>", "<id2>"]
-}
+Regras de classificação:
+- "alta" confiança: há correspondência clara e objetiva entre os dados do caso e o modelo (função, tipo de ação, tags explícitas como "auto_selecionavel"). Neste caso, selecione automaticamente.
+- "baixa" confiança: há ambiguidade, mais de um modelo candidato igualmente válido, ou a função não está claramente mapeada (ex: porteiro com tag "enquadramento_pendente" — sindicato ainda não definido). Neste caso, apresente os candidatos para o advogado escolher.
+- candidatos_ids: liste os 2-3 modelos mais adequados (incluindo o escolhido quando alta confiança).
+- Se nenhum modelo for adequado, retorne templateId null e confianca "baixa".
+- NÃO invente dados. Use apenas o que foi fornecido.
 
-Regras:
-- "alta" somente se houver correspondência clara entre função/fatos e o modelo.
-- "baixa" se houver dúvida ou ambiguidade.
-- candidatos_ids: lista dos 2-3 modelos mais próximos (incluindo o escolhido).
-- NÃO invente dados. Use apenas o que foi fornecido.`;
+Responda SOMENTE com JSON válido:
+{
+  "templateId": "<ID do modelo ou null>",
+  "confianca": "alta",
+  "justificativa": "<1-2 linhas explicando a escolha com base nos dados reais>",
+  "candidatos_ids": ["<id1>", "<id2>"],
+  "aviso_enquadramento": false
+}`;
 
       const ia = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -116,10 +83,11 @@ Regras:
         response_json_schema: {
           type: "object",
           properties: {
-            templateId:     { type: ["string", "null"] },
-            confianca:      { type: "string" },
-            justificativa:  { type: "string" },
-            candidatos_ids: { type: "array", items: { type: "string" } },
+            templateId:          { type: ["string", "null"] },
+            confianca:           { type: "string" },
+            justificativa:       { type: "string" },
+            candidatos_ids:      { type: "array", items: { type: "string" } },
+            aviso_enquadramento: { type: "boolean" },
           }
         }
       });
@@ -128,22 +96,20 @@ Regras:
         .map(id => templates.find(t => t.id === id))
         .filter(Boolean);
 
-      const confiancaEfetiva = ia.confianca === "alta" && parseFloat(threshold) <= 0.5 ? "alta"
-        : ia.confianca === "alta" ? "alta"
-        : "baixa";
+      const isAlta = ia.confianca === "alta" && !!ia.templateId;
 
       const res = {
-        templateId: ia.confianca === "alta" ? ia.templateId : null,
-        confianca: confiancaEfetiva,
-        modo: ia.confianca === "alta" ? "automatico" : "revisao_humana",
+        templateId: isAlta ? ia.templateId : null,
+        confianca: isAlta ? "alta" : "baixa",
+        modo: isAlta ? "automatico" : "revisao_humana",
         justificativa: ia.justificativa || "IA não encontrou correspondência clara.",
         candidatos,
+        avisoEnquadramento: !!ia.aviso_enquadramento,
       };
 
       setResultado(res);
-      if (res.templateId && ia.confianca === "alta") {
-        onSelect(res.templateId);
-      }
+      if (isAlta) onSelect(res.templateId);
+
     } catch (e) {
       setErro("Não foi possível analisar automaticamente: " + (e.message || String(e)));
     } finally {
@@ -204,15 +170,15 @@ Regras:
         </button>
       </div>
 
-      {/* Aviso de enquadramento pendente */}
+      {/* Aviso de enquadramento pendente (sinalizado pela IA) */}
       {resultado.avisoEnquadramento && (
         <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-100/60 border border-amber-200 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
-          <Users className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span><strong>Regra SINDEEPRES × SIEMACO não configurada.</strong> Quando o enquadramento for definido em PetitionConfig, a seleção será automática.</span>
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span><strong>Enquadramento pendente.</strong> A regra de sindicato/CCT para esta função ainda não foi configurada. Quando definida em PetitionConfig, a seleção poderá ser automática.</span>
         </div>
       )}
 
-      {/* Candidatos (revisão humana) */}
+      {/* Candidatos para revisão humana */}
       {!isAlta && resultado.candidatos?.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Modelos candidatos — escolha um:</p>
@@ -244,7 +210,7 @@ Regras:
         </div>
       )}
 
-      {/* Confirmação seleção automática */}
+      {/* Confirmação alta confiança */}
       {isAlta && resultado.templateId && (
         <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
           <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />

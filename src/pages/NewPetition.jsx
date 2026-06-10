@@ -265,6 +265,7 @@ export default function NewPetition() {
         templateName: selectedTemplate.name,
         templateId: selectedTemplate.id,
         modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
+        petitionConfig: petitionConfig || null,
       });
     } catch (err) {
       setGenerating(false);
@@ -647,11 +648,11 @@ function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, sele
         </p>
       </div>
 
-      {/* Seleção automática por IA */}
+      {/* Seleção automática por IA — usa todos os templates ativos */}
       {hasAny && (
         <SelecaoModeloIA
           form={form}
-          templates={hasCompatible ? templates : allTemplates}
+          templates={allTemplates}
           selectedTemplateId={form.selected_template_id}
           onSelect={(id) => updateForm("selected_template_id", id)}
           threshold={petitionConfig?.threshold_confianca ?? 0.6}
