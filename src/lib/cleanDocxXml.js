@@ -1,76 +1,74 @@
 /**
- * cleanDocxXml — limpeza universal do document.xml de templates tokenizados FAV.
+ * cleanDocxXml — limpeza segura do document.xml de templates tokenizados FAV.
  *
- * Remove do XML:
- *  1. Tudo antes e inclusive o marcador "INÍCIO DA PEÇA" (preâmbulo de instruções)
- *  2. Parágrafos de instrução: iniciados com "▸" (alternativas, marcadores de bloco)
- *  3. Notas internas: iniciadas com "ℹ" ou contendo "NÃO copiar para a peça"
- *  4. Blocos condicionais inativos (baseado nos tokens finais passados)
- *  5. Remove shading/highlight dos parágrafos mantidos (faixas coloridas de instrução)
+ * PRINCÍPIO: opera como manipulação de árvore XML — localiza e remove <w:p> DENTRO
+ * de <w:body>, nunca corta strings fora dos parágrafos. O envelope completo
+ * (<?xml ...?>, <w:document ...namespaces...>, <w:body>, </w:body></w:document>)
+ * é SEMPRE preservado intacto.
  *
- * Se o modelo NÃO contiver "INÍCIO DA PEÇA", retorna o XML intacto (Vigilante sem preâmbulo).
+ * Remove do corpo:
+ *  1. Parágrafos do preâmbulo (tudo até e inclusive "INÍCIO DA PEÇA")
+ *  2. Parágrafos iniciados com "▸" (marcadores de bloco e alternativas)
+ *  3. Notas internas "ℹ" / "NÃO copiar para a peça"
+ *  4. Blocos condicionais inativos ▸ [SE TOKEN] … ▸ [FIM SE]
+ *  5. Shading/highlight dos parágrafos mantidos
  *
- * @param {string} xmlContent — conteúdo de word/document.xml
- * @param {object} finalTokens — tokens finais (flags booleanas + dados do caso)
- * @returns {string} — XML limpo
+ * Se o modelo NÃO contiver "INÍCIO DA PEÇA", retorna o XML intacto.
  */
-export function cleanDocxXml(xmlContent, finalTokens) {
-  const INICIO_MARKER  = /INÍCIO DA PEÇA/i;
-  const BLOCO_OPEN_RE  = /^\s*▸\s*\[SE\s+/i;      // ▸ [SE TOKEN]
-  const BLOCO_CLOSE_RE = /^\s*▸\s*\[FIM\s+(SE|BLOCO)/i; // ▸ [FIM SE] / ▸ [FIM BLOCO]
-  // Qualquer parágrafo que começa com ▸ é marcador de instrução — remover sempre
-  const MARCADOR_RE    = /^\s*▸/;
-  // Notas internas ℹ ou "NÃO copiar para a peça"
-  const NOTA_RE        = /^\s*ℹ/;
-  const NAO_COPIAR_RE  = /NÃO\s+cop[i]?ar\s+para\s+a\s+pe[çc]/i;
 
-  // Se não tem marcador INÍCIO DA PEÇA, não há preâmbulo de instruções — retorna intacto
-  if (!INICIO_MARKER.test(xmlContent)) return xmlContent;
+// ── Helpers XML de baixo nível ──────────────────────────────────────────────
 
-  // ── Extrai parágrafos ────────────────────────────────────────────────────
-  const paraRE = /(<w:p[ >][\s\S]*?<\/w:p>)/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  while ((match = paraRE.exec(xmlContent)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: "raw", content: xmlContent.slice(lastIndex, match.index) });
-    }
-    parts.push({ type: "para", content: match[0] });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < xmlContent.length) {
-    parts.push({ type: "raw", content: xmlContent.slice(lastIndex) });
-  }
+/** Extrai o texto puro de um <w:p> (concatenando todos os <w:t>) */
+function extractParaText(paraXml) {
+  const matches = paraXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+  return matches.map(m => m.replace(/<[^>]+>/g, "")).join("").trim();
+}
 
-  // ── Fase 1: encontra e remove tudo até "INÍCIO DA PEÇA" (inclusive) ─────
-  let inicioIdx = -1;
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].type === "para" && INICIO_MARKER.test(extractParaText(parts[i].content))) {
-      inicioIdx = i;
+/** Remove shading e highlight de um parágrafo XML */
+function removeParaShading(paraXml) {
+  let c = paraXml.replace(/<w:shd[^>]*\/>/g, "");
+  c = c.replace(/<w:shd[^>]*>[\s\S]*?<\/w:shd>/g, "");
+  c = c.replace(/<w:highlight[^>]*\/>/g, "");
+  c = c.replace(/<w:highlight[^>]*>[\s\S]*?<\/w:highlight>/g, "");
+  return c;
+}
+
+// ── Lógica de filtragem de parágrafos ───────────────────────────────────────
+
+const INICIO_MARKER  = /INÍCIO DA PEÇA/i;
+const BLOCO_OPEN_RE  = /^\s*▸\s*\[SE\s+/i;
+const BLOCO_CLOSE_RE = /^\s*▸\s*\[FIM\s+(SE|BLOCO)/i;
+const MARCADOR_RE    = /^\s*▸/;
+const NOTA_RE        = /^\s*ℹ/;
+const NAO_COPIAR_RE  = /NÃO\s+cop[i]?ar\s+para\s+a\s+pe[çc]/i;
+
+/**
+ * Recebe um array de strings de parágrafos (cada item = XML de um <w:p>)
+ * e retorna o subarray filtrado de acordo com os tokens.
+ */
+function filterParagraphs(paras, finalTokens) {
+  // Fase 1: encontra "INÍCIO DA PEÇA" e descarta tudo antes (inclusive)
+  let startIdx = 0;
+  for (let i = 0; i < paras.length; i++) {
+    if (INICIO_MARKER.test(extractParaText(paras[i]))) {
+      startIdx = i + 1;
       break;
     }
   }
-  const workParts = inicioIdx >= 0 ? parts.slice(inicioIdx + 1) : parts;
+  const workParas = startIdx > 0 ? paras.slice(startIdx) : paras;
 
-  // ── Fase 2: filtra marcadores, notas e blocos condicionais ───────────────
+  // Fase 2: filtra marcadores, notas e blocos condicionais
   const result = [];
-  const blocoStack = []; // stack de bool: true=ativo, false=inativo
+  const blocoStack = []; // true = bloco ativo (manter), false = inativo (descartar)
 
-  for (const part of workParts) {
-    if (part.type === "raw") {
-      result.push(part.content);
-      continue;
-    }
+  for (const para of workParas) {
+    const text = extractParaText(para);
 
-    const text = extractParaText(part.content);
-
-    // Remove notas internas ℹ
+    // Notas internas
     if (NOTA_RE.test(text)) continue;
-    // Remove "NÃO copiar para a peça"
     if (NAO_COPIAR_RE.test(text)) continue;
 
-    // Detecta abertura de bloco condicional: ▸ [SE TOKEN] ou ▸ [SE TOKEN = valor]
+    // Abertura de bloco condicional: ▸ [SE TOKEN] ou ▸ [SE TOKEN = valor]
     if (BLOCO_OPEN_RE.test(text)) {
       const tokenMatch = text.match(/\[SE\s+([A-Z0-9_]+)\s*(?:=\s*["']?([^"'\]]+)["']?)?\]/i);
       let blocoAtivo = false;
@@ -88,56 +86,119 @@ export function cleanDocxXml(xmlContent, finalTokens) {
       continue; // remove o marcador ▸ em si
     }
 
-    // Detecta fechamento: ▸ [FIM SE] ou ▸ [FIM BLOCO]
+    // Fechamento: ▸ [FIM SE] / ▸ [FIM BLOCO]
     if (BLOCO_CLOSE_RE.test(text)) {
       blocoStack.pop();
       continue; // remove o marcador ▸ em si
     }
 
-    // Qualquer outro parágrafo que começa com ▸ é instrução — remover
+    // Qualquer outro ▸ é instrução
     if (MARCADOR_RE.test(text)) continue;
 
     // Dentro de bloco inativo: descarta
     if (blocoStack.length > 0 && !blocoStack[blocoStack.length - 1]) continue;
 
-    // ── Remove shading/highlight do parágrafo (faixas coloridas de instrução)
-    // Apenas remove w:shd dos runs e do parágrafo, preserva negrito, fonte, numeração
-    const paraLimpo = removeParaShadingAndHighlight(part.content);
-    result.push(paraLimpo);
+    // Remove shading do parágrafo mantido
+    result.push(removeParaShading(para));
   }
 
-  return result.join("");
+  return result;
 }
 
-/**
- * Extrai o texto puro de um nó XML <w:p>.
- */
-function extractParaText(paraXml) {
-  const matches = paraXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
-  return matches.map(m => m.replace(/<[^>]+>/g, "")).join("").trim();
-}
+// ── API pública ─────────────────────────────────────────────────────────────
 
 /**
- * Remove w:shd (shading/background color) e w:highlight dos elementos
- * de um parágrafo XML, preservando demais formatações.
- * Isso elimina as faixas vermelhas/azuis dos blocos de instrução.
+ * Limpa o document.xml preservando o envelope XML intacto.
+ *
+ * Estratégia:
+ *  1. Extrai o bloco <w:body>…</w:body> por regex (preserva tudo fora)
+ *  2. Dentro do body, coleta todos os <w:p> e itens não-parágrafo
+ *  3. Filtra os <w:p> com filterParagraphs
+ *  4. Reconstrói o body substituindo apenas o seu conteúdo interno
+ *  5. Retorna o XML original com apenas o interior do body modificado
+ *
+ * @param {string} xmlContent — conteúdo de word/document.xml
+ * @param {object} finalTokens — tokens finais (flags booleanas + dados)
+ * @returns {string} — XML limpo (envelope intacto)
  */
-function removeParaShadingAndHighlight(paraXml) {
-  // Remove tags <w:shd .../> (self-closing e com conteúdo)
-  let cleaned = paraXml.replace(/<w:shd[^>]*\/>/g, "");
-  cleaned = cleaned.replace(/<w:shd[^>]*>[\s\S]*?<\/w:shd>/g, "");
-  // Remove tags <w:highlight .../> 
-  cleaned = cleaned.replace(/<w:highlight[^>]*\/>/g, "");
-  cleaned = cleaned.replace(/<w:highlight[^>]*>[\s\S]*?<\/w:highlight>/g, "");
-  return cleaned;
+export function cleanDocxXml(xmlContent, finalTokens) {
+  // Sem marcador de início: retorna intacto (ex: Vigilante sem preâmbulo)
+  if (!INICIO_MARKER.test(xmlContent)) return xmlContent;
+
+  // Localiza o bloco <w:body>...</w:body>
+  const bodyMatch = xmlContent.match(/(<w:body[^>]*>)([\s\S]*)(<\/w:body>)/);
+  if (!bodyMatch) return xmlContent; // formato inesperado — devolve intacto
+
+  const bodyOpenTag  = bodyMatch[1];  // "<w:body>" ou "<w:body ...>"
+  const bodyContent  = bodyMatch[2];  // tudo entre as tags
+  const bodyCloseTag = bodyMatch[3];  // "</w:body>"
+
+  // Divide o interior do body em parágrafos (<w:p>) e outros elementos
+  // Outros elementos (tabelas <w:tbl>, sectPr <w:sectPr>, etc.) são preservados
+  const ITEM_RE = /(<w:p[ >][\s\S]*?<\/w:p>|<w:tbl[\s\S]*?<\/w:tbl>|<w:sectPr[\s\S]*?<\/w:sectPr>|<[^/][^>]*\/>)/g;
+  const items = [];
+  let lastIdx = 0;
+  let m;
+  while ((m = ITEM_RE.exec(bodyContent)) !== null) {
+    if (m.index > lastIdx) {
+      // Texto entre elementos (whitespace, etc.) — preserva
+      const between = bodyContent.slice(lastIdx, m.index);
+      if (between.trim()) items.push({ type: "other", xml: between });
+    }
+    if (m[0].startsWith("<w:p")) {
+      items.push({ type: "para", xml: m[0] });
+    } else {
+      items.push({ type: "other", xml: m[0] });
+    }
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < bodyContent.length) {
+    const tail = bodyContent.slice(lastIdx);
+    if (tail.trim()) items.push({ type: "other", xml: tail });
+  }
+
+  // Separa parágrafos dos outros para filtrar
+  const paraXmls  = items.filter(i => i.type === "para").map(i => i.xml);
+  const filtered  = filterParagraphs(paraXmls, finalTokens);
+
+  // Reconstrói o body: substitui cada parágrafo (na ordem) pelos filtrados,
+  // preservando outros elementos (tabelas, sectPr) no lugar original.
+  let paraIdx = 0;
+  const rebuiltParts = [];
+  for (const item of items) {
+    if (item.type === "other") {
+      rebuiltParts.push(item.xml);
+    } else {
+      // type === "para": pega do array filtrado se ainda houver
+      // Se o parágrafo foi removido na filtragem, não emite nada.
+      // Para manter a ordem correta, calculamos se este parágrafo específico sobreviveu.
+      // Como filterParagraphs pode pular parágrafos, precisamos de um approach diferente:
+      // simplesmente emitimos os filtrados em sequência depois dos outros itens.
+      // => Abordagem: marcadores de posição.
+      rebuiltParts.push(`__PARA_PLACEHOLDER_${paraIdx++}__`);
+    }
+  }
+
+  // Substitui os placeholders pelos parágrafos filtrados (em ordem)
+  let filteredIdx = 0;
+  const rebuiltBody = rebuiltParts.map(part => {
+    if (/__PARA_PLACEHOLDER_\d+__/.test(part)) {
+      const p = filtered[filteredIdx];
+      filteredIdx++;
+      return p || ""; // se foi filtrado, emite string vazia
+    }
+    return part;
+  }).join("");
+
+  // Reconstrói o XML completo: substitui apenas o interior do <w:body>
+  const newBodyBlock = bodyOpenTag + rebuiltBody + bodyCloseTag;
+  return xmlContent.replace(/(<w:body[^>]*>)([\s\S]*)(<\/w:body>)/, newBodyBlock);
 }
 
 /**
  * Aplica cleanDocxXml diretamente num objeto PizZip.
- * Modifica word/document.xml in-place e retorna um log.
- *
  * @param {object} zip — instância PizZip já carregada
- * @param {object} finalTokens — tokens finais (flags booleanas + dados)
+ * @param {object} finalTokens — tokens finais
  * @returns {{ cleaned: boolean, error: string|null }}
  */
 export function applyCleanToZip(zip, finalTokens) {
@@ -157,9 +218,7 @@ export function applyCleanToZip(zip, finalTokens) {
 }
 
 /**
- * Valida o documento final: verifica se ainda contém artefatos proibidos
- * ou tokens essenciais vazios após a geração.
- *
+ * Valida o documento final: artefatos proibidos + tokens essenciais + XML bem formado.
  * @param {object} zip — instância PizZip após render
  * @param {object} tokens — tokens finais usados
  * @returns {{ valid: boolean, errors: string[] }}
@@ -170,12 +229,19 @@ export function validateFinalDocx(zip, tokens) {
   try {
     const docXml = zip.file("word/document.xml")?.asText() || "";
 
-    // Extrai todo o texto do documento para validação
+    // 1. Verifica se o envelope XML está presente (bem formado no mínimo)
+    if (!docXml.includes("<w:document") || !docXml.includes("<w:body")) {
+      errors.push("document.xml está corrompido: envelope <w:document>/<w:body> ausente");
+    }
+    if (!docXml.includes("</w:body>") || !docXml.includes("</w:document>")) {
+      errors.push("document.xml está corrompido: tags de fechamento </w:body></w:document> ausentes");
+    }
+
+    // 2. Extrai texto para checar artefatos
     const allText = (docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [])
       .map(m => m.replace(/<[^>]+>/g, ""))
       .join(" ");
 
-    // Artefatos proibidos
     const ARTEFATOS = [
       { re: /▸/, msg: "Documento contém marcadores de bloco condicional (▸)" },
       { re: /ℹ/, msg: "Documento contém notas internas (ℹ)" },
@@ -186,9 +252,9 @@ export function validateFinalDocx(zip, tokens) {
       if (re.test(allText)) errors.push(msg);
     }
 
-    // Tokens essenciais não podem estar vazios
+    // 3. Tokens essenciais não podem estar vazios
     const ESSENCIAIS = [
-      { key: "RECL_NOME", label: "Nome do reclamante" },
+      { key: "RECL_NOME",  label: "Nome do reclamante" },
       { key: "RECL1_NOME", label: "Nome da 1ª reclamada" },
       { key: "RECL1_CNPJ", label: "CNPJ da 1ª reclamada" },
     ];

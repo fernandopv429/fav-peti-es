@@ -51,78 +51,91 @@ function cleanDocxXml(xmlContent, finalTokens) {
 
   if (!INICIO_MARKER.test(xmlContent)) return xmlContent;
 
-  const paraRE = /(<w:p[ >][\s\S]*?<\/w:p>)/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  while ((match = paraRE.exec(xmlContent)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: "raw", content: xmlContent.slice(lastIndex, match.index) });
+  // ── Preserva o envelope XML intacto ─────────────────────────────────────
+  // Localiza APENAS o interior de <w:body>…</w:body> para manipulação.
+  const bodyMatch = xmlContent.match(/(<w:body[^>]*>)([\s\S]*)(<\/w:body>)/);
+  if (!bodyMatch) return xmlContent;
+
+  const bodyOpen    = bodyMatch[1];
+  const bodyContent = bodyMatch[2];
+  const bodyClose   = bodyMatch[3];
+
+  // Coleta parágrafos e outros elementos do body
+  const ITEM_RE = /(<w:p[ >][\s\S]*?<\/w:p>|<w:tbl[\s\S]*?<\/w:tbl>|<w:sectPr[\s\S]*?<\/w:sectPr>)/g;
+  const items = [];
+  let lastIdx = 0;
+  let m;
+  while ((m = ITEM_RE.exec(bodyContent)) !== null) {
+    if (m.index > lastIdx) {
+      const between = bodyContent.slice(lastIdx, m.index);
+      if (between.trim()) items.push({ type: "other", xml: between });
     }
-    parts.push({ type: "para", content: match[0] });
-    lastIndex = match.index + match[0].length;
+    items.push({ type: m[0].startsWith("<w:p") ? "para" : "other", xml: m[0] });
+    lastIdx = m.index + m[0].length;
   }
-  if (lastIndex < xmlContent.length) {
-    parts.push({ type: "raw", content: xmlContent.slice(lastIndex) });
+  if (lastIdx < bodyContent.length) {
+    const tail = bodyContent.slice(lastIdx);
+    if (tail.trim()) items.push({ type: "other", xml: tail });
   }
+
+  // Filtra os parágrafos
+  const paraXmls = items.filter(i => i.type === "para").map(i => i.xml);
 
   // Fase 1: encontra "INÍCIO DA PEÇA" e descarta tudo antes (inclusive)
-  let inicioIdx = -1;
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].type === "para" && INICIO_MARKER.test(extractParaText(parts[i].content))) {
-      inicioIdx = i;
-      break;
-    }
+  let startIdx = 0;
+  for (let i = 0; i < paraXmls.length; i++) {
+    if (INICIO_MARKER.test(extractParaText(paraXmls[i]))) { startIdx = i + 1; break; }
   }
-  const workParts = inicioIdx >= 0 ? parts.slice(inicioIdx + 1) : parts;
+  const workParas = startIdx > 0 ? paraXmls.slice(startIdx) : paraXmls;
 
-  // Fase 2: filtra marcadores, notas e blocos condicionais
-  const result = [];
+  // Fase 2: filtra marcadores, notas, blocos condicionais
+  const filtered = [];
   const blocoStack = [];
-
-  for (const part of workParts) {
-    if (part.type === "raw") { result.push(part.content); continue; }
-
-    const text = extractParaText(part.content);
-
+  for (const para of workParas) {
+    const text = extractParaText(para);
     if (NOTA_RE.test(text)) continue;
     if (NAO_COPIAR_RE.test(text)) continue;
-
-    // Abertura de bloco condicional: ▸ [SE TOKEN] ou ▸ [SE TOKEN = valor]
     if (BLOCO_OPEN_RE.test(text)) {
       const tokenMatch = text.match(/\[SE\s+([A-Z0-9_]+)\s*(?:=\s*["']?([^"'\]]+)["']?)?\]/i);
-      let blocoAtivo = false;
+      let ativo = false;
       if (tokenMatch) {
-        const tokenNome = tokenMatch[1].toUpperCase();
-        const tokenValor = tokenMatch[2]?.trim().toLowerCase();
-        const tokenData = finalTokens[tokenNome];
-        if (tokenValor !== undefined) {
-          blocoAtivo = String(tokenData || "").toLowerCase() === tokenValor;
-        } else {
-          blocoAtivo = !!tokenData && tokenData !== false && tokenData !== "false" && tokenData !== "0" && tokenData !== "Não";
-        }
+        const nome = tokenMatch[1].toUpperCase();
+        const val  = tokenMatch[2]?.trim().toLowerCase();
+        const data = finalTokens[nome];
+        ativo = val !== undefined
+          ? String(data || "").toLowerCase() === val
+          : !!data && data !== false && data !== "false" && data !== "0" && data !== "Não";
       }
-      blocoStack.push(blocoAtivo);
+      blocoStack.push(ativo);
       continue;
     }
-
-    // Fechamento: ▸ [FIM SE] / ▸ [FIM BLOCO]
-    if (BLOCO_CLOSE_RE.test(text)) {
-      blocoStack.pop();
-      continue;
-    }
-
-    // Qualquer outro ▸ é instrução — remover
+    if (BLOCO_CLOSE_RE.test(text)) { blocoStack.pop(); continue; }
     if (MARCADOR_RE.test(text)) continue;
-
-    // Dentro de bloco inativo: descarta
     if (blocoStack.length > 0 && !blocoStack[blocoStack.length - 1]) continue;
-
-    // Remove shading do parágrafo mantido
-    result.push(removeParaShading(part.content));
+    filtered.push(removeParaShading(para));
   }
 
-  return result.join("");
+  // Reconstrói body preservando outros elementos (tabelas, sectPr)
+  // substituindo cada <w:p> (na ordem original) pelo filtrado correspondente
+  let filtIdx = 0;
+  const rebuiltParts = [];
+  for (const item of items) {
+    if (item.type === "other") {
+      rebuiltParts.push(item.xml);
+    } else {
+      // Emite placeholder; substituímos depois em ordem
+      rebuiltParts.push(`\x00PARA${filtIdx++}\x00`);
+    }
+  }
+  let fi = 0;
+  const rebuiltBody = rebuiltParts.map(p => {
+    if (p.startsWith("\x00PARA")) { return filtered[fi++] || ""; }
+    return p;
+  }).join("");
+
+  // Substitui o interior do body no XML original — envelope intacto
+  return xmlContent.replace(/(<w:body[^>]*>)([\s\S]*)(<\/w:body>)/,
+    bodyOpen + rebuiltBody + bodyClose);
 }
 
 /**
@@ -197,8 +210,19 @@ function isVisualFile(url) {
     lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".gif");
 }
 
-async function fetchDocx(url) {
-  // Usa backend proxy para evitar CORS no app publicado
+async function fetchDocx(url, base44) {
+  // Usa o endpoint interno de proxy para evitar CORS no app publicado
+  try {
+    const result = await base44.asServiceRole.functions.invoke("fetchDocxTemplate", { url });
+    const b64 = result?.base64 || result?.data?.base64;
+    if (b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+  } catch (_) {}
+  // Fallback: fetch direto (funciona em ambiente local/dev)
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Falha ao baixar modelo DOCX (${resp.status}): ${url}`);
   const ab = await resp.arrayBuffer();
@@ -338,7 +362,7 @@ Deno.serve(async (req) => {
     // Autenticação via createClientFromRequest já garante o contexto do usuário
     // Não é necessário chamar base44.auth.me() explicitamente
 
-    const { petitionId, templateId, modeloIA, formTokens } = await req.json();
+    const { petitionId, templateId, modeloIA, formTokens, casoVigilanteId } = await req.json();
     if (!petitionId || !templateId) {
       return Response.json({ error: 'petitionId e templateId são obrigatórios' }, { status: 400 });
     }
@@ -408,7 +432,69 @@ Deno.serve(async (req) => {
       const laudoAnalise = (petition.analise_documentos && petition.analise_status === "concluida")
         ? petition.analise_documentos : "";
 
-      // ── 3. Monta tokens base a partir dos dados da Petition ───────────────
+      // ── 3. Carrega dados do CasoVigilante (quando disponível) ────────────
+      // O CasoVigilante tem os campos estruturados do formulário (RECL_NOME, RECL1_NOME,
+      // jornada, salário, etc.) preenchidos pelo advogado — máxima confiança.
+      let casoTokens = {};
+      const casoId = casoVigilanteId || formTokens?._casoVigilanteId;
+      if (casoId) {
+        try {
+          const casos = await base44.asServiceRole.entities.CasoVigilante.filter({ id: casoId });
+          const caso = casos?.[0];
+          if (caso) {
+            // Extrai todos os campos relevantes diretamente da entidade
+            const CAMPOS_CASO = [
+              "RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","RECL_PIS",
+              "RECL_SERIE","RECL_CTPS","RECL_CPF","RECL_NASC","RECL_FILIACAO","RECL_ENDERECO","RECL_CEP",
+              "RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL",
+              "RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL",
+              "RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL",
+              "COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL",
+              "DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO",
+              "JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","LOCAL_DATA_ASSINATURA",
+              "CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","VALOR_CAUSA",
+            ];
+            for (const k of CAMPOS_CASO) {
+              if (caso[k] !== undefined && caso[k] !== null && caso[k] !== "") {
+                casoTokens[k] = String(caso[k]);
+              }
+            }
+            // Expande valores_pedidos (P01..P87)
+            const vp = caso.valores_pedidos || {};
+            for (let i = 1; i <= 87; i++) {
+              const key = `P${String(i).padStart(2, "0")}`;
+              if (vp[key]) casoTokens[key] = String(vp[key]);
+            }
+            // Flags de rescisão e teses (booleanas)
+            const RESCISAO_FLAGS = ["t_dispensa","t_indireta","t_reversao","t_demissao","t_coacao"];
+            for (const f of RESCISAO_FLAGS) {
+              if (caso[f] !== undefined) casoTokens[f] = !!caso[f];
+            }
+            // Mapeia tipo_dispensa → flags de rescisão se ainda não houver flag direta
+            if (!RESCISAO_FLAGS.some(f => casoTokens[f]) && caso.tipo_dispensa) {
+              const MAP = {
+                sem_justa_causa: "t_dispensa", rescisao_indireta: "t_indireta",
+                nulidade_pedido_demissao: "t_coacao", reversao_justa_causa: "t_reversao",
+              };
+              const flag = MAP[caso.tipo_dispensa];
+              if (flag) casoTokens[flag] = true;
+            }
+            // Jornada
+            if (caso.jornada_12x36 !== undefined) casoTokens.jornada_12x36 = !!caso.jornada_12x36;
+            if (caso.jornada_5x2 !== undefined)   casoTokens.jornada_5x2   = !!caso.jornada_5x2;
+            // Flags opcionais
+            const FLAGS_OPT = ["tem_subsidiaria","tem_desvio","tem_adic_noturno","tem_acumulo","tem_insalubridade","tem_periculosidade"];
+            for (const f of FLAGS_OPT) {
+              if (caso[f] !== undefined) casoTokens[f] = !!caso[f];
+            }
+            console.log(`CasoVigilante ${casoId} carregado: ${Object.keys(casoTokens).length} tokens`);
+          }
+        } catch (casoErr) {
+          console.error("Erro ao carregar CasoVigilante:", casoErr.message);
+        }
+      }
+
+      // ── 4. Monta tokens base a partir dos dados da Petition ───────────────
       const baseTokens = buildBaseTokens(petition, extraDefendants);
 
       // ── 4. IA extrai APENAS dados curtos (datas, valores, nomes, horários) ──
@@ -490,18 +576,19 @@ REGRAS ABSOLUTAS:
         }
       }
 
-      // Merge prioridade: formTokens (formulário) > aiTokens (IA) > baseTokens (Petition)
-      // formTokens vêm do GenericoForm — dados revisados pelo advogado, máxima confiança
+      // Merge com prioridade: casoTokens (entidade, máxima confiança)
+      //   > formTokens (formulário revisado pelo advogado)
+      //   > aiTokens (extração IA de documentos)
+      //   > baseTokens (campos Petition — mínima confiança)
       const safeFormTokens = {};
       if (formTokens && typeof formTokens === "object") {
         for (const [k, v] of Object.entries(formTokens)) {
-          if (k === "titulo" || k === "id" || k === "status") continue;
+          if (k === "titulo" || k === "id" || k === "status" || k === "_casoVigilanteId") continue;
           if (typeof v === "boolean") { safeFormTokens[k] = v; continue; }
           if (v !== null && v !== undefined && v !== "") safeFormTokens[k] = String(v);
         }
       }
-      // Merge com prioridade: formTokens > aiTokens > baseTokens
-      const merged = { ...baseTokens, ...aiTokens, ...safeFormTokens };
+      const merged = { ...baseTokens, ...aiTokens, ...safeFormTokens, ...casoTokens };
       // Sanitiza strings longas (remove markdown, pipes, cabeçalhos)
       const finalTokens = {};
       for (const [k, v] of Object.entries(merged)) {
@@ -511,7 +598,7 @@ REGRAS ABSOLUTAS:
       // ── 5. Baixa e preenche o modelo DOCX ───────────────────────────────
       // O logo e layout ficam no header nativo do .docx (igual ao Vigilante).
       // cleanupLog rastreia se a limpeza de instruções foi executada e se houve erro.
-      const modelBuffer = await fetchDocx(modeloDocxUrl);
+      const modelBuffer = await fetchDocx(modeloDocxUrl, base44);
       const cleanupLog = {};
       const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens, cleanupLog);
 

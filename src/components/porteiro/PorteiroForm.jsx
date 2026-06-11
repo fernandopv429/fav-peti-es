@@ -340,7 +340,8 @@ export default function PorteiroForm({
             if (confirmandoTeses === "docx") {
               handleGerarDocxIdêntico(dadosConfirmados);
             } else {
-              onGerarComDados({ ...dadosConfirmados, titulo: dados.titulo });
+              // Passa o casoId para o backend carregar os dados diretamente da entidade
+              onGerarComDados({ ...dadosConfirmados, titulo: dados.titulo, _casoVigilanteId: casoId || undefined });
             }
           }}
         />

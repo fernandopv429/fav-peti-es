@@ -464,8 +464,9 @@ Retorne a petição completa, sem comentários adicionais.`;
         petitionId,
         templateId: templateSelecionado.id,
         modeloIA: petitionConfig?.modelo_ia || "claude_sonnet_4_6",
-        // Passa tokens do formulário — o backend fará merge com buildBaseTokens
         formTokens: dadosForm,
+        // casoVigilanteId: fonte primária de dados (carregado diretamente do banco)
+        casoVigilanteId: dadosForm._casoVigilanteId || undefined,
       });
     } catch (err) {
       toast.error("Erro ao iniciar geração: " + err.message);
