@@ -6,6 +6,37 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const CAMPOS = ["RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","RECL_PIS","RECL_SERIE","RECL_CTPS","RECL_CPF","RECL_NASC","RECL_FILIACAO","RECL_ENDERECO","RECL_CEP","RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL","RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL","RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL","COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL","DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO","JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO"];
 
+// Tabela determinística UF → TRT (sem IA)
+const UF_REGIAO_TRT = {
+  SP: { REGIAO_TRT: "SEGUNDA REGIÃO", trt: "TRT-2" },
+  RJ: { REGIAO_TRT: "PRIMEIRA REGIÃO", trt: "TRT-1" },
+  MG: { REGIAO_TRT: "TERCEIRA REGIÃO", trt: "TRT-3" },
+  RS: { REGIAO_TRT: "QUARTA REGIÃO", trt: "TRT-4" },
+  BA: { REGIAO_TRT: "QUINTA REGIÃO", trt: "TRT-5" },
+  CE: { REGIAO_TRT: "SÉTIMA REGIÃO", trt: "TRT-7" },
+  PA: { REGIAO_TRT: "OITAVA REGIÃO", trt: "TRT-8" },
+  AM: { REGIAO_TRT: "OITAVA REGIÃO", trt: "TRT-8" },
+  PR: { REGIAO_TRT: "NONA REGIÃO", trt: "TRT-9" },
+  DF: { REGIAO_TRT: "DÉCIMA REGIÃO", trt: "TRT-10" },
+  SC: { REGIAO_TRT: "DÉCIMA SEGUNDA REGIÃO", trt: "TRT-12" },
+  MT: { REGIAO_TRT: "DÉCIMA TERCEIRA REGIÃO (NA PRÁTICA TRT-23)", trt: "TRT-23" },
+  GO: { REGIAO_TRT: "DÉCIMA OITAVA REGIÃO", trt: "TRT-18" },
+  PE: { REGIAO_TRT: "SEXTA REGIÃO", trt: "TRT-6" },
+  ES: { REGIAO_TRT: "DÉCIMA SÉTIMA REGIÃO", trt: "TRT-17" },
+  MS: { REGIAO_TRT: "VIGÉSIMA QUARTA REGIÃO", trt: "TRT-24" },
+  AL: { REGIAO_TRT: "DÉCIMA NONA REGIÃO", trt: "TRT-19" },
+  RN: { REGIAO_TRT: "VIGÉSIMA PRIMEIRA REGIÃO", trt: "TRT-21" },
+  PI: { REGIAO_TRT: "VIGÉSIMA SEGUNDA REGIÃO", trt: "TRT-22" },
+  MA: { REGIAO_TRT: "DÉCIMA SEXTA REGIÃO", trt: "TRT-16" },
+  RO: { REGIAO_TRT: "DÉCIMA QUARTA REGIÃO", trt: "TRT-14" },
+  AC: { REGIAO_TRT: "DÉCIMA QUARTA REGIÃO", trt: "TRT-14" },
+  PB: { REGIAO_TRT: "DÉCIMA TERCEIRA REGIÃO", trt: "TRT-13" },
+  SE: { REGIAO_TRT: "VIGÉSIMA REGIÃO", trt: "TRT-20" },
+  AP: { REGIAO_TRT: "OITAVA REGIÃO", trt: "TRT-8" },
+  RR: { REGIAO_TRT: "DÉCIMA PRIMEIRA REGIÃO", trt: "TRT-11" },
+  TO: { REGIAO_TRT: "VIGÉSIMA SÉTIMA REGIÃO", trt: "TRT-27" },
+};
+
 // Campos booleanos/enum extraídos da entrevista padrão do escritório
 const CAMPOS_ENTREVISTA = ["tipo_dispensa", "acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno"];
 
@@ -13,6 +44,15 @@ const SCHEMA = {
   type: "object",
   properties: {
     ...Object.fromEntries(CAMPOS.map(c => [c, { type: "string" }])),
+    // Override com descriptions específicas para campos críticos
+    RECL_RG: {
+      type: "string",
+      description: "RG do reclamante (número do documento de identidade). Extrair de CTPS, entrevista ou qualquer documento de identificação pessoal."
+    },
+    SALARIO: {
+      type: "string",
+      description: "Último salário do empregado no formato 'R$ X.XXX,XX'. Priorizar o salário do empregador RÉUS na ação (1ª reclamada = empregadora direta). Se a CTPS tiver múltiplos vínculos, usar o do último emprego relacionado ao caso."
+    },
     // Seção 1 — Tipo de Dispensa (checkbox marcado na entrevista)
     tipo_dispensa: {
       type: "string",
@@ -183,9 +223,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Derivação determinística REGIAO_TRT a partir de COMARCA_UF ──────────
+    // Se REGIAO_TRT ou FORO_COMPETENCIA estiverem vazios e COMARCA_UF tiver uma UF conhecida,
+    // preenche via tabela — sem IA, sem ambiguidade.
+    if (merged.COMARCA_UF && !merged.REGIAO_TRT) {
+      // Extrai a UF do final da string "CIDADE/SP" ou "CIDADE - SP" ou apenas "SP"
+      const ufMatch = merged.COMARCA_UF.toUpperCase().match(/\b([A-Z]{2})$/);
+      const uf = ufMatch?.[1];
+      if (uf && UF_REGIAO_TRT[uf]) {
+        merged.REGIAO_TRT = UF_REGIAO_TRT[uf].REGIAO_TRT;
+        if (!merged.FORO_COMPETENCIA) {
+          merged.FORO_COMPETENCIA = merged.COMARCA_UF;
+        }
+      }
+    }
+
     // Filtra apenas campos válidos (não-vazios)
     const extraidos = Object.fromEntries(
-      Object.entries(merged).filter(([, v]) => v && String(v).trim())
+      Object.entries(merged).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
     );
 
     const totalExtraidos = Object.keys(extraidos).length;

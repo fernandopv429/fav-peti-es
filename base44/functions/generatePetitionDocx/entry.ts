@@ -435,8 +435,12 @@ Deno.serve(async (req) => {
       // ── 3. Carrega dados do CasoVigilante (quando disponível) ────────────
       // O CasoVigilante tem os campos estruturados do formulário (RECL_NOME, RECL1_NOME,
       // jornada, salário, etc.) preenchidos pelo advogado — máxima confiança.
-      let casoTokens = {};
       const casoId = casoVigilanteId || formTokens?._casoVigilanteId;
+      // ABORT GUARD: sem casoId E sem nome na Petition → aborta imediatamente
+      if (!casoId && !petition.claimant_name?.trim()) {
+        throw new Error("casoVigilanteId ausente e Petition sem claimant_name — abortando para evitar DOCX vazio");
+      }
+      let casoTokens = {};
       if (casoId) {
         try {
           const casos = await base44.asServiceRole.entities.CasoVigilante.filter({ id: casoId });
@@ -487,7 +491,20 @@ Deno.serve(async (req) => {
             for (const f of FLAGS_OPT) {
               if (caso[f] !== undefined) casoTokens[f] = !!caso[f];
             }
-            console.log(`CasoVigilante ${casoId} carregado: ${Object.keys(casoTokens).length} tokens`);
+            // Derivação determinística REGIAO_TRT dentro do casoTokens
+            if (casoTokens.COMARCA_UF && !casoTokens.REGIAO_TRT) {
+              const UF_TRT_INLINE = {
+                SP: "SEGUNDA REGIÃO", RJ: "PRIMEIRA REGIÃO", MG: "TERCEIRA REGIÃO",
+                RS: "QUARTA REGIÃO", BA: "QUINTA REGIÃO", CE: "SÉTIMA REGIÃO",
+                PA: "OITAVA REGIÃO", AM: "OITAVA REGIÃO", PR: "NONA REGIÃO",
+                DF: "DÉCIMA REGIÃO", SC: "DÉCIMA SEGUNDA REGIÃO", GO: "DÉCIMA OITAVA REGIÃO",
+                PE: "SEXTA REGIÃO", ES: "DÉCIMA SÉTIMA REGIÃO", MS: "VIGÉSIMA QUARTA REGIÃO",
+              };
+              const ufM = casoTokens.COMARCA_UF.toUpperCase().match(/\b([A-Z]{2})$/);
+              const uf2 = ufM?.[1];
+              if (uf2 && UF_TRT_INLINE[uf2]) casoTokens.REGIAO_TRT = UF_TRT_INLINE[uf2];
+            }
+            console.log(`CasoVigilante ${casoId} carregado: ${Object.keys(casoTokens).length} tokens, REGIAO_TRT="${casoTokens.REGIAO_TRT || "(derivado depois)"}"`);
           }
         } catch (casoErr) {
           console.error("Erro ao carregar CasoVigilante:", casoErr.message);
@@ -595,12 +612,48 @@ REGRAS ABSOLUTAS:
         finalTokens[k] = typeof v === "string" ? sanitizeTokenValue(v) : v;
       }
 
-      // ── 5. Baixa e preenche o modelo DOCX ───────────────────────────────
+      // ── Derivação determinística REGIAO_TRT ──────────────────────────────
+      // Se REGIAO_TRT estiver vazio mas COMARCA_UF tiver UF conhecida, preenche via tabela.
+      if (finalTokens.COMARCA_UF && !finalTokens.REGIAO_TRT) {
+        const UF_TRT_MAP = {
+          SP: "SEGUNDA REGIÃO", RJ: "PRIMEIRA REGIÃO", MG: "TERCEIRA REGIÃO",
+          RS: "QUARTA REGIÃO", BA: "QUINTA REGIÃO", CE: "SÉTIMA REGIÃO",
+          PA: "OITAVA REGIÃO", AM: "OITAVA REGIÃO", PR: "NONA REGIÃO",
+          DF: "DÉCIMA REGIÃO", SC: "DÉCIMA SEGUNDA REGIÃO", GO: "DÉCIMA OITAVA REGIÃO",
+          PE: "SEXTA REGIÃO", ES: "DÉCIMA SÉTIMA REGIÃO", MS: "VIGÉSIMA QUARTA REGIÃO",
+          AL: "DÉCIMA NONA REGIÃO", RN: "VIGÉSIMA PRIMEIRA REGIÃO", PI: "VIGÉSIMA SEGUNDA REGIÃO",
+          MA: "DÉCIMA SEXTA REGIÃO", RO: "DÉCIMA QUARTA REGIÃO", AC: "DÉCIMA QUARTA REGIÃO",
+          PB: "DÉCIMA TERCEIRA REGIÃO", SE: "VIGÉSIMA REGIÃO", AP: "OITAVA REGIÃO",
+          TO: "VIGÉSIMA SÉTIMA REGIÃO",
+        };
+        const ufMatch = finalTokens.COMARCA_UF.toUpperCase().match(/\b([A-Z]{2})$/);
+        const uf = ufMatch?.[1];
+        if (uf && UF_TRT_MAP[uf]) {
+          finalTokens.REGIAO_TRT = UF_TRT_MAP[uf];
+          if (!finalTokens.FORO_COMPETENCIA) finalTokens.FORO_COMPETENCIA = finalTokens.COMARCA_UF;
+        }
+      }
+
+      // ── 5. Valida tokens essenciais ANTES de renderizar ──────────────────
+      // Se RECL_NOME/RECL1_NOME/RECL1_CNPJ estiverem vazios mesmo após o merge,
+      // aborta imediatamente — gerar o DOCX produziria um documento inútil.
+      const ESSENCIAIS_PRE = [
+        { key: "RECL_NOME",  label: "Nome do reclamante" },
+        { key: "RECL1_NOME", label: "Nome da 1ª reclamada" },
+        { key: "RECL1_CNPJ", label: "CNPJ da 1ª reclamada" },
+      ];
+      const errosPre = ESSENCIAIS_PRE.filter(e => !finalTokens[e.key]?.trim()).map(e => e.label);
+      if (errosPre.length > 0) {
+        throw new Error(`Tokens essenciais vazios após merge — abortando: ${errosPre.join(", ")}. casoId=${casoId || "N/A"}, casoTokens keys=${Object.keys(casoTokens).join(",")}`);
+      }
+
+      // ── 6. Baixa e preenche o modelo DOCX ───────────────────────────────
       // O logo e layout ficam no header nativo do .docx (igual ao Vigilante).
       // cleanupLog rastreia se a limpeza de instruções foi executada e se houve erro.
       const modelBuffer = await fetchDocx(modeloDocxUrl, base44);
       const cleanupLog = {};
       const { buffer: docxBuffer, tokensFaltando } = renderDocx(modelBuffer, finalTokens, cleanupLog);
+      console.log(`Merge final: ${Object.keys(finalTokens).length} tokens, RECL_NOME="${finalTokens.RECL_NOME}", RECL1_NOME="${finalTokens.RECL1_NOME}"`);
 
       // Grava no ErrorLog se a limpeza do XML falhou (não interrompe geração)
       if (cleanupLog.error) {
