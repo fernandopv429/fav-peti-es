@@ -7,6 +7,7 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
+import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo oficial.
@@ -91,7 +92,7 @@ function montarDadosTemplate(dados) {
 }
 
 /**
- * Baixa o modelo .docx, substitui os tokens e retorna o blob pronto para download.
+ * Baixa o modelo .docx, limpa instruções internas, substitui os tokens e retorna o blob.
  * @param {string} modeloDocxUrl — URL do .docx oficial tokenizado
  * @param {object} dados — CasoVigilante
  * @returns {{ blob: Blob, tokensFaltando: string[] }}
@@ -109,10 +110,15 @@ export async function gerarDocxVigilante(modeloDocxUrl, dados) {
     arrayBuffer = await fetchDocxViaBackend(modeloDocxUrl);
   }
 
-  // 2. Carrega no PizZip
-  const zip = new PizZip(arrayBuffer);
+  // 2. Monta os dados do template (necessário antes da limpeza — flags condicionais são usadas)
+  const dadosTemplate = montarDadosTemplate(dados);
 
-  // 3. Inicializa Docxtemplater com delimitadores {{}}
+  // 3. Carrega no PizZip e aplica limpeza do XML:
+  //    remove preâmbulo de instruções, marcadores ▸, notas ℹ e blocos condicionais inativos
+  const zip = new PizZip(arrayBuffer);
+  applyCleanToZip(zip, dadosTemplate);
+
+  // 4. Inicializa Docxtemplater com delimitadores {{}}
   const tokensFaltando = [];
   const doc = new Docxtemplater(zip, {
     delimiters: { start: "{{", end: "}}" },
@@ -129,14 +135,19 @@ export async function gerarDocxVigilante(modeloDocxUrl, dados) {
     errorLogging: false,
   });
 
-  // 4. Monta e injeta os dados
-  const dadosTemplate = montarDadosTemplate(dados);
-
-  // render pode lançar TemplateError — deixamos propagar para o caller tratar
+  // 5. Injeta os dados
   doc.render(dadosTemplate);
 
-  // 5. Gera o blob
-  const blob = doc.getZip().generate({
+  // 6. Validação final — verifica artefatos e tokens essenciais
+  const finalZip = doc.getZip();
+  const { valid, errors } = validateFinalDocx(finalZip, dadosTemplate);
+  if (!valid) {
+    // Lança erro com detalhes para o caller registrar no ErrorLog
+    throw new Error("Validação falhou: " + errors.join("; "));
+  }
+
+  // 7. Gera o blob
+  const blob = finalZip.generate({
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     compression: "DEFLATE",

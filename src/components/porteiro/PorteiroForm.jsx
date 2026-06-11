@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
+import { applyCleanToZip, validateFinalDocx } from "@/lib/cleanDocxXml.js";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 
@@ -112,9 +113,12 @@ function Field({ label, name, value, onChange, full, placeholder }) {
 
 async function gerarDocxPorteiro(templateDocxUrl, dados) {
   const ab = await fetchDocxViaBackend(templateDocxUrl);
-  const buffer = new Uint8Array(ab);
+  const zip = new PizZip(new Uint8Array(ab));
+
+  // Limpa o document.xml: remove preâmbulo, marcadores ▸, notas ℹ e blocos condicionais inativos
+  applyCleanToZip(zip, dados);
+
   const tokensFaltando = [];
-  const zip = new PizZip(buffer);
   const doc = new Docxtemplater(zip, {
     delimiters: { start: "{{", end: "}}" },
     paragraphLoop: true,
@@ -126,7 +130,15 @@ async function gerarDocxPorteiro(templateDocxUrl, dados) {
     errorLogging: false,
   });
   doc.render(dados);
-  const out = doc.getZip().generate({
+
+  // Validação final — verifica artefatos e tokens essenciais
+  const finalZip = doc.getZip();
+  const { valid, errors } = validateFinalDocx(finalZip, dados);
+  if (!valid) {
+    throw new Error("Validação falhou: " + errors.join("; "));
+  }
+
+  const out = finalZip.generate({
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     compression: "DEFLATE",
