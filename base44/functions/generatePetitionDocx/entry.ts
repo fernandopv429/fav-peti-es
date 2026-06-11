@@ -567,7 +567,7 @@ REGRAS ABSOLUTAS:
 7. Para campos não encontrados nos documentos, NÃO inclua no JSON.
 8. TIPO_RESCISAO deve ser um destes valores exatos: "dispensa_sem_justa_causa", "rescisao_indireta", "reversao_justa_causa", "pedido_demissao".`;
 
-          const iaResp = await base44.integrations.Core.InvokeLLM({
+          const iaResp = await base44.asServiceRole.integrations.Core.InvokeLLM({
             prompt: promptIA,
             model: iaModel,
             file_urls: imageOrPdfUrls.length > 0 ? imageOrPdfUrls : undefined,
@@ -709,7 +709,7 @@ REGRAS ABSOLUTAS:
       const docxFile = new File([docxBlob], nomeArquivo, {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
-      const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file: docxFile });
+      const { file_url: docxUrl } = await base44.asServiceRole.integrations.Core.UploadFile({ file: docxFile });
 
       // ── 7. Determina status final ──────────────────────────────────────────
       const hasTokensFaltando = tokensFaltando.length > 0;

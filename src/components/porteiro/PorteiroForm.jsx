@@ -227,11 +227,18 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       }
     } catch (e) {
       const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
+      // Monta mensagem com detalhe real do backend (evita "Request failed with status code 500")
+      let logMsg = detalhe;
+      if (e?.response) {
+        const d = e.response.data;
+        const body = d ? (d.message || d.error || d.detail || (typeof d === "string" ? d : JSON.stringify(d))) : "(sem corpo)";
+        logMsg = `HTTP ${e.response.status}: ${body} | ${detalhe}`;
+      }
       toast.error("Erro ao gerar DOCX: " + detalhe, { duration: 8000 });
       base44.entities.ErrorLog.create({
         context: `Geração DOCX ${templateName}`,
         error_type: "template",
-        message: detalhe,
+        message: logMsg,
       }).catch(() => {});
     } finally {
       setGerandoDocx(false);
