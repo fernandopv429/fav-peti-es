@@ -1,27 +1,32 @@
 /**
- * PorteiroForm — Formulário determinístico IDÊNTICO ao VigilanteForm
- * para os modelos SINDEEPRES e SIEMACO (Porteiro/Controlador de Acesso).
- *
- * Seções fixas: Reclamante, Reclamadas, Foro e Local, Contrato e Jornada,
- * CCT e Valores Unitários, Valores dos Pedidos (P01–P87).
- * Funções idênticas ao Vigilante: salvar caso, dados.json, extrair IA,
- * Gerar DOCX Idêntico, Gerar Petição com IA (via ConfirmarTesesPorteiro).
+ * PorteiroForm — pipeline IDÊNTICO ao VigilanteForm.
+ * Única diferença: usa gerarDocxPorteiro (flags porteiro) e ConfirmarTesesPorteiro.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import {
-  ChevronDown, ChevronRight, Save, Download, Loader2,
-  FileDown, Wand2,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
-import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
-import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
-import { applyCleanToZip, validateFinalDocx } from "@/lib/cleanDocxXml.js";
-import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
+import { gerarDocxPorteiro } from "@/lib/gerarDocxPorteiro.js";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
+import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
 
-// ── Labels dos pedidos (contexto Porteiro — P01–P87) ──────────────────────
+const EMPTY_CASO = {
+  titulo: "",
+  COMARCA_UF: "", REGIAO_TRT: "",
+  RECL_NOME: "", RECL_NACIONALIDADE: "brasileiro", RECL_ESTADOCIVIL: "", RECL_RG: "",
+  RECL_PIS: "", RECL_SERIE: "", RECL_CTPS: "", RECL_CPF: "", RECL_NASC: "",
+  RECL_FILIACAO: "", RECL_ENDERECO: "", RECL_CEP: "",
+  RECL1_NOME: "", RECL1_CNPJ: "", RECL1_LOGRADOURO: "", RECL1_ENDCOMPL: "",
+  RECL2_NOME: "", RECL2_CNPJ: "", RECL2_LOGRADOURO: "", RECL2_ENDCOMPL: "",
+  RECL3_NOME: "", RECL3_CNPJ: "", RECL3_LOGRADOURO: "", RECL3_ENDCOMPL: "",
+  FORO_COMPETENCIA: "", LOCAL_PRESTACAO: "", LOCAL_PRESTACAO_COMPL: "",
+  DATA_ADMISSAO: "", FUNCAO: "Porteiro", DATA_RESCISAO: "", SALARIO: "",
+  JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
+  LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "", ADIC_CONV: "",
+  VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  valores_pedidos: {},
+};
+
 const P_LABELS = {
   P01:"Aviso Prévio Indenizado",P02:"FGTS + 40% s/ Aviso",P03:"Saldo de Salário",
   P04:"13º Proporcional",P05:"Férias Proporcionais + 1/3",P06:"Férias Vencidas + 1/3",
@@ -59,25 +64,6 @@ const P_LABELS = {
   P87:"TOTAL GERAL DA CAUSA",
 };
 
-const EMPTY_DADOS = {
-  titulo: "",
-  COMARCA_UF: "", REGIAO_TRT: "",
-  RECL_NOME: "", RECL_NACIONALIDADE: "brasileiro", RECL_ESTADOCIVIL: "", RECL_RG: "",
-  RECL_PIS: "", RECL_SERIE: "", RECL_CTPS: "", RECL_CPF: "", RECL_NASC: "",
-  RECL_FILIACAO: "", RECL_ENDERECO: "", RECL_CEP: "",
-  RECL1_NOME: "", RECL1_CNPJ: "", RECL1_LOGRADOURO: "", RECL1_ENDCOMPL: "",
-  RECL2_NOME: "", RECL2_CNPJ: "", RECL2_LOGRADOURO: "", RECL2_ENDCOMPL: "",
-  RECL3_NOME: "", RECL3_CNPJ: "", RECL3_LOGRADOURO: "", RECL3_ENDCOMPL: "",
-  FORO_COMPETENCIA: "", LOCAL_PRESTACAO: "", LOCAL_PRESTACAO_COMPL: "",
-  DATA_ADMISSAO: "", FUNCAO: "Porteiro", DATA_RESCISAO: "", SALARIO: "",
-  JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
-  LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "", ADIC_CONV: "",
-  VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
-  valores_pedidos: {},
-};
-
-// ── Sub-componentes ────────────────────────────────────────────────────────
-
 function Section({ title, open, onToggle, children }) {
   return (
     <div className="border border-border rounded-xl overflow-hidden">
@@ -94,7 +80,7 @@ function Section({ title, open, onToggle, children }) {
   );
 }
 
-function Field({ label, name, value, onChange, full, placeholder }) {
+function Field({ label, name, value, onChange, full }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
       <label className="block text-xs text-muted-foreground mb-1">{label}</label>
@@ -102,114 +88,60 @@ function Field({ label, name, value, onChange, full, placeholder }) {
         type="text"
         value={value || ""}
         onChange={e => onChange(name, e.target.value)}
-        placeholder={placeholder || ""}
         className="w-full bg-input border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
   );
 }
 
-// ── Helper: gera DOCX determinístico ──────────────────────────────────────
-
-async function gerarDocxPorteiro(templateDocxUrl, dados) {
-  const ab = await fetchDocxViaBackend(templateDocxUrl);
-  const zip = new PizZip(new Uint8Array(ab));
-
-  // Limpa o document.xml: remove preâmbulo, marcadores ▸, notas ℹ e blocos condicionais inativos
-  applyCleanToZip(zip, dados);
-
-  const tokensFaltando = [];
-  const doc = new Docxtemplater(zip, {
-    delimiters: { start: "{{", end: "}}" },
-    paragraphLoop: true,
-    linebreaks: true,
-    nullGetter: (part) => {
-      if (part?.module === undefined && part?.value) tokensFaltando.push(part.value);
-      return "";
-    },
-    errorLogging: false,
-  });
-  doc.render(dados);
-
-  // Validação final — verifica artefatos e tokens essenciais
-  const finalZip = doc.getZip();
-  const { valid, errors } = validateFinalDocx(finalZip, dados);
-  if (!valid) {
-    throw new Error("Validação falhou: " + errors.join("; "));
-  }
-
-  const out = finalZip.generate({
-    type: "blob",
-    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    compression: "DEFLATE",
-  });
-  return { blob: out, tokensFaltando };
-}
-
-// ── Componente principal ───────────────────────────────────────────────────
-
-export default function PorteiroForm({
-  templateDocxUrl, templateId, templateName, documentUrls = [], onGerarComDados,
-}) {
-  const [dados, setDados] = useState(EMPTY_DADOS);
-  const [sections, setSections] = useState({
-    reclamante: true, reclamadas: false, foro: false,
-    contrato: false, cct: false, pedidos: false,
-  });
+export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templateId, templateName, documentUrls = [] }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
+  const [dados, setDados] = useState(EMPTY_CASO);
+  const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, pedidos: false });
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
   const [mostrarExtrair, setMostrarExtrair] = useState(false);
-  // null | "docx" | "ia"
+  // modo: null | "docx" | "ia"
   const [confirmandoTeses, setConfirmandoTeses] = useState(null);
 
-  // Carrega casos salvos para este template
   useEffect(() => {
-    if (!templateId) return;
-    base44.entities.CasoVigilante.list()
-      .then(list => {
-        const filtrados = (list || []).filter(
-          c => (c.valores_pedidos || {})._templateId === templateId,
-        );
-        setCasos(filtrados);
-      })
-      .catch(() => {});
+    base44.entities.CasoVigilante.list().then(list => {
+      // Filtra casos deste template (pelo _templateId em valores_pedidos)
+      const filtrados = (list || []).filter(c =>
+        !templateId || !(c.valores_pedidos?._templateId) || c.valores_pedidos._templateId === templateId
+      );
+      setCasos(filtrados);
+    }).catch(() => {});
   }, [templateId]);
-
-  const handleChange = (key, val) => setDados(prev => ({ ...prev, [key]: val }));
-  const handlePedido = (p, val) =>
-    setDados(prev => ({ ...prev, valores_pedidos: { ...prev.valores_pedidos, [p]: val } }));
-  const toggleSection = s => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
   const handleCarregar = (id) => {
     setCasoId(id);
-    if (!id) { setDados(EMPTY_DADOS); return; }
+    if (!id) { setDados(EMPTY_CASO); return; }
     const found = casos.find(c => c.id === id);
-    if (!found) return;
-    const { _templateId, ...savedDados } = found.valores_pedidos || {};
-    setDados({ ...EMPTY_DADOS, ...found, valores_pedidos: savedDados || {} });
+    if (found) {
+      setDados({ ...EMPTY_CASO, ...found, valores_pedidos: found.valores_pedidos || {} });
+    }
   };
+
+  const handleChange = (key, val) => setDados(prev => ({ ...prev, [key]: val }));
+  const handlePedido = (p, val) => setDados(prev => ({ ...prev, valores_pedidos: { ...prev.valores_pedidos, [p]: val } }));
+  const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
   const handleSalvar = async () => {
     setSalvando(true);
     try {
-      const payload = {
-        titulo: dados.titulo || `${templateName} — ${new Date().toLocaleDateString("pt-BR")}`,
-        status: "preenchido",
-        RECL_NOME: dados.RECL_NOME || "",
-        RECL1_NOME: dados.RECL1_NOME || "",
-        valores_pedidos: { ...(dados.valores_pedidos || {}), _templateId: templateId },
-        // persiste demais campos no próprio registro
-        ...Object.fromEntries(
-          Object.entries(dados).filter(([k]) => k !== "valores_pedidos" && k !== "titulo"),
-        ),
-      };
+      const payload = { ...dados, status: "preenchido" };
+      let saved;
       if (casoId) {
-        await base44.entities.CasoVigilante.update(casoId, payload);
+        saved = await base44.entities.CasoVigilante.update(casoId, payload);
         toast.success("Caso atualizado!");
       } else {
-        const saved = await base44.entities.CasoVigilante.create(payload);
+        saved = await base44.entities.CasoVigilante.create({
+          ...payload,
+          titulo: dados.titulo || `${templateName || "Porteiro"} — ${new Date().toLocaleDateString("pt-BR")}`,
+          valores_pedidos: { ...(dados.valores_pedidos || {}), _templateId: templateId },
+        });
         setCasoId(saved.id);
         setCasos(prev => [...prev, saved]);
         toast.success("Caso salvo!");
@@ -222,113 +154,76 @@ export default function PorteiroForm({
   };
 
   const handleBaixarJson = () => {
-    const { titulo, id, created_date, updated_date, created_by_id, ...campos } = dados;
-    const blob = new Blob([JSON.stringify({ campos, titulo }, null, 2)], { type: "application/json" });
+    const { titulo, status, petition_id, id, created_date, updated_date, created_by_id, ...campos } = dados;
+    const { valores_pedidos, ...camposSemPedidos } = campos;
+    const json = { campos: camposSemPedidos, valores_pedidos: valores_pedidos || {} };
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `${dados.RECL_NOME || "caso"}_dados.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `${dados.RECL_NOME || "caso"}_dados.json`;
+    a.click(); URL.revokeObjectURL(url);
     toast.success("dados.json baixado!");
   };
 
-  // Normaliza flags booleanas: converte strings "true"/"false" para boolean real
-  const normalizarFlags = (obj) => {
-    const BOOL_FLAGS = [
-      "t_dispensa","t_coacao","t_indireta","t_reversao",
-      "jornada_12x36","jornada_5x2",
-      "tem_2a_reclamada","ente_publico","comp_portaria","tem_descaracterizacao",
-      "tem_adic_noturno","tem_acumulo","tem_insalubridade","tem_periculosidade",
-      "tem_assiduidade","tem_doenca","tem_pericia","tem_subsidiaria",
-      "acumulo_funcao",
-    ];
-    const result = { ...obj };
-    for (const k of BOOL_FLAGS) {
-      if (k in result) result[k] = result[k] === "true" ? true : result[k] === "false" ? false : !!result[k];
-    }
-    return result;
-  };
-
-  // Chamado após confirmação de teses no modo "docx"
+  // Chamado após confirmação do modal (modo "docx") — pipeline IDÊNTICO ao Vigilante
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
-    // Garante que o caso esteja salvo antes de gerar (para ter casoId)
-    let casoIdAtual = casoId;
-    if (!casoIdAtual && dadosConfirmados.RECL_NOME) {
-      try {
-        const payload = {
-          titulo: dados.titulo || `${templateName} — ${new Date().toLocaleDateString("pt-BR")}`,
-          status: "preenchido",
-          RECL_NOME: dadosConfirmados.RECL_NOME || "",
-          RECL1_NOME: dadosConfirmados.RECL1_NOME || "",
-          valores_pedidos: { ...(dados.valores_pedidos || {}), _templateId: templateId },
-          ...Object.fromEntries(
-            Object.entries(dadosConfirmados).filter(([k]) => k !== "valores_pedidos" && k !== "titulo"),
-          ),
-        };
-        const saved = await base44.entities.CasoVigilante.create(payload);
-        casoIdAtual = saved.id;
-        setCasoId(saved.id);
-        setCasos(prev => [...prev, saved]);
-      } catch (_) {}
-    }
-
+    const dadosFinais = dadosConfirmados || dados;
+    if (!templateDocxUrl) return;
     setGerandoDocx(true);
     try {
-      // Monta objeto plano de tokens: dados + pedidos expandidos + flags normalizadas
-      const tokensFlat = normalizarFlags({
-        ...dadosConfirmados,
-        ...(dadosConfirmados.valores_pedidos || {}),
-      });
-      delete tokensFlat.valores_pedidos;
+      const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, dadosFinais);
 
-      const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, tokensFlat);
-      const nomeArquivo = `${dadosConfirmados.RECL_NOME || "porteiro"}_${templateName.replace(/\s+/g, "_")}.docx`;
+      const nomeArquivo = `${dadosFinais.RECL_NOME || "porteiro"}_${(templateName || "peticao").replace(/\s+/g, "_")}.docx`;
 
-      // Download imediato
-      const urlDl = URL.createObjectURL(blob);
+      // 1. Download imediato
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = urlDl; a.download = nomeArquivo; a.click();
-      URL.revokeObjectURL(urlDl);
+      a.href = url; a.download = nomeArquivo; a.click();
+      URL.revokeObjectURL(url);
 
-      // Persiste na entidade Petition
+      // 2. Upload e persistência na Petition
       try {
         const file = new File([blob], nomeArquivo, {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
-        const tituloPet = dados.titulo ||
-          `${dadosConfirmados.RECL_NOME || "Porteiro"} × ${dadosConfirmados.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+
+        const titulo = dadosFinais.titulo ||
+          `${dadosFinais.RECL_NOME || "Porteiro"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+
         const petitionPayload = {
-          title: tituloPet,
+          title: titulo,
           case_type: "trabalhista",
-          claimant_name: dadosConfirmados.RECL_NOME || "—",
-          defendant_name: dadosConfirmados.RECL1_NOME || "—",
-          defendant_cnpj: dadosConfirmados.RECL1_CNPJ || "",
+          claimant_name: dadosFinais.RECL_NOME || "—",
+          defendant_name: dadosFinais.RECL1_NOME || "—",
+          defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
           status: "revisao_necessaria",
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
-          template_used: templateId,
+          template_used: templateId || "porteiro",
         };
-        const existingPetId = dadosConfirmados.petition_id || null;
-        let petId = existingPetId;
+
+        const existingPetitionId = dadosFinais.petition_id || null;
+        let petId = existingPetitionId;
         if (petId) {
           await base44.entities.Petition.update(petId, petitionPayload).catch(() => {});
         } else {
           const criada = await base44.entities.Petition.create(petitionPayload).catch(() => null);
           petId = criada?.id;
         }
-        if (petId && casoIdAtual) {
-          base44.entities.CasoVigilante.update(casoIdAtual, { petition_id: petId, status: "gerado" }).catch(() => {});
+
+        if (petId && casoId) {
+          await base44.entities.CasoVigilante.update(casoId, { petition_id: petId, status: "gerado" }).catch(() => {});
           setDados(prev => ({ ...prev, petition_id: petId }));
         }
-        if (tokensFaltando.length > 0) {
-          toast.warning(`DOCX salvo! Tokens em branco: ${tokensFaltando.slice(0, 6).join(", ")}${tokensFaltando.length > 6 ? "..." : ""}`);
-        } else {
-          toast.success("DOCX gerado e salvo em Minhas Petições!");
-        }
+
+        if (petId) toast.success(`DOCX salvo em Minhas Petições!`);
       } catch (uploadErr) {
         toast.warning("Download OK, mas falha ao salvar: " + uploadErr.message);
+      }
+
+      if (tokensFaltando.length > 0) {
+        toast.warning(`Tokens em branco: ${tokensFaltando.slice(0, 8).join(", ")}${tokensFaltando.length > 8 ? "..." : ""}`);
       }
     } catch (e) {
       const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
@@ -343,24 +238,22 @@ export default function PorteiroForm({
     }
   };
 
-  // Callback do ExtrairDadosIA (reutiliza o componente do Vigilante)
   const handleConfirmarExtracao = (dadosExtraidos, casoIdRetornado) => {
     setDados(prev => ({ ...prev, ...dadosExtraidos }));
     if (casoIdRetornado && casoIdRetornado !== casoId) {
       setCasoId(casoIdRetornado);
-      base44.entities.CasoVigilante.list()
-        .then(list => {
-          const filtrados = (list || []).filter(c => (c.valores_pedidos || {})._templateId === templateId);
-          setCasos(filtrados);
-        })
-        .catch(() => {});
+      base44.entities.CasoVigilante.list().then(list => {
+        const filtrados = (list || []).filter(c =>
+          !templateId || !(c.valores_pedidos?._templateId) || c.valores_pedidos._templateId === templateId
+        );
+        setCasos(filtrados);
+      }).catch(() => {});
     }
     toast.success("Campos preenchidos! Revise e salve o caso.");
     setSections(prev => ({ ...prev, reclamante: true, reclamadas: true, contrato: true }));
   };
 
   const pedidosKeys = Array.from({ length: 87 }, (_, i) => `P${String(i + 1).padStart(2, "0")}`);
-  const todasUrlsDocs = documentUrls || [];
 
   return (
     <div className="space-y-4">
@@ -368,7 +261,7 @@ export default function PorteiroForm({
       {confirmandoTeses && (
         <ConfirmarTesesPorteiro
           dadosIniciais={dados}
-          documentUrls={todasUrlsDocs}
+          documentUrls={documentUrls}
           templateId={templateId}
           templateName={templateName}
           onCancelar={() => setConfirmandoTeses(null)}
@@ -378,28 +271,23 @@ export default function PorteiroForm({
             if (confirmandoTeses === "docx") {
               handleGerarDocxIdêntico(dadosConfirmados);
             } else {
-              // Passa o casoId para o backend carregar os dados diretamente da entidade
-              onGerarComDados({ ...dadosConfirmados, titulo: dados.titulo, _casoVigilanteId: casoId || undefined });
+              onGerarComDados({ ...dadosConfirmados, _casoVigilanteId: casoId || undefined });
             }
           }}
         />
       )}
 
-      {/* Extração IA (componente do Vigilante reutilizado) */}
       {mostrarExtrair && (
         <ExtrairDadosIA
           casoVigilanteId={casoId || null}
           petitionId={dados.petition_id || null}
-          documentUrls={todasUrlsDocs}
+          documentUrls={documentUrls}
           onConfirmar={handleConfirmarExtracao}
-          onFechar={() => {
-            console.log("Fechando modal ExtrairDadosIA");
-            setMostrarExtrair(false);
-          }}
+          onFechar={() => setMostrarExtrair(false)}
         />
       )}
 
-      {/* Carregar caso salvo */}
+      {/* Seletor de caso existente */}
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <label className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Carregar caso salvo</label>
@@ -409,9 +297,7 @@ export default function PorteiroForm({
             className="w-full bg-input border border-border text-foreground rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">— Novo caso —</option>
-            {casos.map(c => (
-              <option key={c.id} value={c.id}>{c.titulo || c.RECL_NOME || c.id}</option>
-            ))}
+            {casos.map(c => <option key={c.id} value={c.id}>{c.titulo || c.RECL_NOME || c.id}</option>)}
           </select>
         </div>
         <button
@@ -423,13 +309,10 @@ export default function PorteiroForm({
         </button>
       </div>
 
-      {/* Extrair dados com IA */}
+      {/* Botão extrair com IA */}
       <button
         type="button"
-        onClick={() => {
-          console.log("Abrindo modal ExtrairDadosIA");
-          setMostrarExtrair(true);
-        }}
+        onClick={() => setMostrarExtrair(true)}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 text-primary text-sm font-semibold transition-colors"
       >
         <Wand2 className="w-4 h-4" /> Extrair dados dos documentos com IA
@@ -442,12 +325,12 @@ export default function PorteiroForm({
           type="text"
           value={dados.titulo || ""}
           onChange={e => handleChange("titulo", e.target.value)}
-          placeholder="Ex: Fernando x Belfort"
+          placeholder="Ex: Maycon x DL Prestação"
           className="w-full bg-input border border-border text-foreground rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
-      {/* ── Seções do formulário (idênticas ao VigilanteForm) ─────────────── */}
+      {/* Seções */}
       <Section title="👤 Reclamante" open={sections.reclamante} onToggle={() => toggleSection("reclamante")}>
         <Field label="Nome completo" name="RECL_NOME" value={dados.RECL_NOME} onChange={handleChange} full />
         <Field label="Nacionalidade" name="RECL_NACIONALIDADE" value={dados.RECL_NACIONALIDADE} onChange={handleChange} />
