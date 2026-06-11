@@ -79,7 +79,11 @@ function filterParagraphs(paras, finalTokens) {
         if (tokenValor !== undefined) {
           blocoAtivo = String(tokenData || "").toLowerCase() === tokenValor;
         } else {
-          blocoAtivo = !!tokenData && tokenData !== false && tokenData !== "false" && tokenData !== "0" && tokenData !== "Não";
+          // Normaliza: "true"/"false" strings vindas do BD, além de booleans e valores vazios
+          const normalized = tokenData === "true" ? true
+            : tokenData === "false" ? false
+            : tokenData;
+          blocoAtivo = !!normalized && normalized !== false && normalized !== "false" && normalized !== "0" && normalized !== "Não" && normalized !== "";
         }
       }
       blocoStack.push(blocoAtivo);

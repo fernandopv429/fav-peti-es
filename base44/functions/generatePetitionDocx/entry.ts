@@ -634,17 +634,39 @@ REGRAS ABSOLUTAS:
         }
       }
 
-      // ── 5. Valida tokens essenciais ANTES de renderizar ──────────────────
-      // Se RECL_NOME/RECL1_NOME/RECL1_CNPJ estiverem vazios mesmo após o merge,
-      // aborta imediatamente — gerar o DOCX produziria um documento inútil.
+      // ── 5. Valida tokens essenciais APÓS merge — guard definitivo ────────
+      // Verifica RECL_NOME/RECL1_NOME/RECL1_CNPJ no finalTokens resultante.
+      // Nunca entrega/salva DOCX se os campos essenciais estiverem vazios.
       const ESSENCIAIS_PRE = [
         { key: "RECL_NOME",  label: "Nome do reclamante" },
         { key: "RECL1_NOME", label: "Nome da 1ª reclamada" },
         { key: "RECL1_CNPJ", label: "CNPJ da 1ª reclamada" },
       ];
-      const errosPre = ESSENCIAIS_PRE.filter(e => !finalTokens[e.key]?.trim()).map(e => e.label);
+      const errosPre = ESSENCIAIS_PRE.filter(e => !String(finalTokens[e.key] || "").trim()).map(e => e.label);
       if (errosPre.length > 0) {
-        throw new Error(`Tokens essenciais vazios após merge — abortando: ${errosPre.join(", ")}. casoId=${casoId || "N/A"}, casoTokens keys=${Object.keys(casoTokens).join(",")}`);
+        // Diagnóstico detalhado: quais fontes tinham o campo, o que chegou
+        const diag = {
+          erros: errosPre,
+          casoId: casoId || null,
+          tinha_casoId: !!casoId,
+          casoTokens_keys: Object.keys(casoTokens),
+          formTokens_keys: Object.keys(safeFormTokens),
+          RECL_NOME_sources: {
+            casoTokens: casoTokens.RECL_NOME || null,
+            formTokens: safeFormTokens.RECL_NOME || null,
+            baseTokens: baseTokens.RECL_NOME || null,
+            aiTokens: aiTokens.RECL_NOME || null,
+          },
+        };
+        await base44.asServiceRole.entities.ErrorLog.create({
+          context: "generatePetitionDocx — guard_tokens_vazios",
+          error_type: "geracao",
+          message: `Tokens essenciais vazios após merge: ${errosPre.join(", ")}. Diagnóstico: ${JSON.stringify(diag)}`,
+          petition_id: petitionId,
+          resolved: false,
+          occurred_at: new Date().toISOString(),
+        }).catch(() => {});
+        throw new Error(`DOCX abortado — tokens essenciais vazios: ${errosPre.join(", ")}. casoId=${casoId || "N/A"} tinha_casoId=${!!casoId} casoTokens_keys=${Object.keys(casoTokens).length}`);
       }
 
       // ── 6. Baixa e preenche o modelo DOCX ───────────────────────────────

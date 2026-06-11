@@ -233,15 +233,53 @@ export default function PorteiroForm({
     toast.success("dados.json baixado!");
   };
 
+  // Normaliza flags booleanas: converte strings "true"/"false" para boolean real
+  const normalizarFlags = (obj) => {
+    const BOOL_FLAGS = [
+      "t_dispensa","t_coacao","t_indireta","t_reversao",
+      "jornada_12x36","jornada_5x2",
+      "tem_2a_reclamada","ente_publico","comp_portaria","tem_descaracterizacao",
+      "tem_adic_noturno","tem_acumulo","tem_insalubridade","tem_periculosidade",
+      "tem_assiduidade","tem_doenca","tem_pericia","tem_subsidiaria",
+      "acumulo_funcao",
+    ];
+    const result = { ...obj };
+    for (const k of BOOL_FLAGS) {
+      if (k in result) result[k] = result[k] === "true" ? true : result[k] === "false" ? false : !!result[k];
+    }
+    return result;
+  };
+
   // Chamado após confirmação de teses no modo "docx"
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
+    // Garante que o caso esteja salvo antes de gerar (para ter casoId)
+    let casoIdAtual = casoId;
+    if (!casoIdAtual && dadosConfirmados.RECL_NOME) {
+      try {
+        const payload = {
+          titulo: dados.titulo || `${templateName} — ${new Date().toLocaleDateString("pt-BR")}`,
+          status: "preenchido",
+          RECL_NOME: dadosConfirmados.RECL_NOME || "",
+          RECL1_NOME: dadosConfirmados.RECL1_NOME || "",
+          valores_pedidos: { ...(dados.valores_pedidos || {}), _templateId: templateId },
+          ...Object.fromEntries(
+            Object.entries(dadosConfirmados).filter(([k]) => k !== "valores_pedidos" && k !== "titulo"),
+          ),
+        };
+        const saved = await base44.entities.CasoVigilante.create(payload);
+        casoIdAtual = saved.id;
+        setCasoId(saved.id);
+        setCasos(prev => [...prev, saved]);
+      } catch (_) {}
+    }
+
     setGerandoDocx(true);
     try {
-      // Monta objeto plano de tokens: dados + pedidos expandidos
-      const tokensFlat = {
+      // Monta objeto plano de tokens: dados + pedidos expandidos + flags normalizadas
+      const tokensFlat = normalizarFlags({
         ...dadosConfirmados,
         ...(dadosConfirmados.valores_pedidos || {}),
-      };
+      });
       delete tokensFlat.valores_pedidos;
 
       const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, tokensFlat);
@@ -280,8 +318,8 @@ export default function PorteiroForm({
           const criada = await base44.entities.Petition.create(petitionPayload).catch(() => null);
           petId = criada?.id;
         }
-        if (petId && casoId) {
-          base44.entities.CasoVigilante.update(casoId, { petition_id: petId, status: "gerado" }).catch(() => {});
+        if (petId && casoIdAtual) {
+          base44.entities.CasoVigilante.update(casoIdAtual, { petition_id: petId, status: "gerado" }).catch(() => {});
           setDados(prev => ({ ...prev, petition_id: petId }));
         }
         if (tokensFaltando.length > 0) {
