@@ -112,6 +112,7 @@ function montarDadosTemplate(dados) {
 
   // ── Flags opcionais ──────────────────────────────────────────────────────
   campos.tem_2a_reclamada     = !!(dados.tem_2a_reclamada || dados.RECL2_NOME);
+  campos.tem_3a_reclamada     = !!(dados.tem_3a_reclamada || dados.RECL3_NOME);
   campos.ente_publico         = !!(dados.ente_publico);
   campos.comp_portaria        = !!(dados.comp_portaria);
   campos.tem_descaracterizacao= !!(dados.tem_descaracterizacao);
@@ -162,7 +163,7 @@ export async function gerarDocxPorteiro(modeloDocxUrl, dados) {
     paragraphLoop: true,
     linebreaks: true,
     nullGetter: (part) => {
-      if (part && part.module === undefined && part.value) {
+      if (part?.module === undefined && part?.value) {
         tokensFaltando.push(part.value);
       }
       return "";
@@ -173,12 +174,18 @@ export async function gerarDocxPorteiro(modeloDocxUrl, dados) {
   // 5. Injeta os dados
   doc.render(dadosTemplate);
 
-  // 6. Validação final
+  // 6. Validação final — apenas artefatos estruturais lançam erro;
+  // tokens essenciais vazios viram warnings em tokensFaltando (não abortam a geração).
   const finalZip = doc.getZip();
-  const { valid, errors } = validateFinalDocx(finalZip, dadosTemplate);
-  if (!valid) {
-    throw new Error("Validação falhou: " + errors.join("; "));
+  const { errors } = validateFinalDocx(finalZip, dadosTemplate);
+  // Separa erros estruturais (corrompem o XML) de avisos de tokens vazios
+  const structuralErrors = errors.filter(e => !e.startsWith("Token essencial"));
+  const tokenWarnings = errors.filter(e => e.startsWith("Token essencial"));
+  if (structuralErrors.length > 0) {
+    throw new Error("Validação falhou: " + structuralErrors.join("; "));
   }
+  // Tokens essenciais vazios → avisa mas não aborta
+  tokenWarnings.forEach(w => tokensFaltando.push(w));
 
   // 7. Gera o blob
   const blob = finalZip.generate({
