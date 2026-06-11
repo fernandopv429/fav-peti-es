@@ -6,14 +6,47 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const CAMPOS = ["RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","RECL_PIS","RECL_SERIE","RECL_CTPS","RECL_CPF","RECL_NASC","RECL_FILIACAO","RECL_ENDERECO","RECL_CEP","RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL","RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL","RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL","COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL","DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO","JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO"];
 
+// Campos booleanos/enum extraídos da entrevista padrão do escritório
+const CAMPOS_ENTREVISTA = ["tipo_dispensa", "acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno"];
+
 const SCHEMA = {
   type: "object",
-  properties: Object.fromEntries(CAMPOS.map(c => [c, { type: "string" }])),
+  properties: {
+    ...Object.fromEntries(CAMPOS.map(c => [c, { type: "string" }])),
+    // Seção 1 — Tipo de Dispensa (checkbox marcado na entrevista)
+    tipo_dispensa: {
+      type: "string",
+      enum: ["sem_justa_causa", "rescisao_indireta", "nulidade_pedido_demissao", "reversao_justa_causa"],
+      description: "Tipo de dispensa marcado na seção '1. Tipo de Dispensa' da entrevista: (X) Sem justa causa → sem_justa_causa | (X) Rescisão indireta → rescisao_indireta | (X) Pedido de demissão → nulidade_pedido_demissao | (X) Justa causa → reversao_justa_causa"
+    },
+    // Seção 8 — Acúmulo/Desvio de função
+    acumulo_funcao: {
+      type: "boolean",
+      description: "true se a entrevista (seção 8) indicar acúmulo ou desvio de função (atividades além das atribuições contratadas)"
+    },
+    // Seção 13 — Insalubridade/Periculosidade
+    tem_insalubridade: {
+      type: "boolean",
+      description: "true se a entrevista (seção 13) indicar exposição a agentes insalubres"
+    },
+    tem_periculosidade: {
+      type: "boolean",
+      description: "true se a entrevista (seção 13) indicar atividade perigosa (inflamáveis, explosivos, eletricidade, etc.)"
+    },
+    // Jornada noturna
+    tem_adic_noturno: {
+      type: "boolean",
+      description: "true se JORNADA_HORARIO contiver horas entre 22:00 e 05:00 (adicional noturno art. 73 CLT)"
+    },
+  },
 };
 
 // Campos com default que não contam como "extraídos"
 const CAMPOS_COM_DEFAULT = new Set(["RECL_NACIONALIDADE"]);
 const DEFAULTS = { RECL_NACIONALIDADE: "brasileiro" };
+
+// Campos booleanos — precisam de tratamento separado
+const CAMPOS_BOOL = new Set(["acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno"]);
 
 function isVisualFile(url) {
   const lower = (url || "").toLowerCase().split("?")[0];
@@ -41,6 +74,12 @@ Deno.serve(async (req) => {
         if (fichas?.[0]) {
           for (const c of CAMPOS) {
             if (fichas[0][c]) camposExistentes[c] = fichas[0][c];
+          }
+          // Lê também os campos da entrevista
+          for (const c of CAMPOS_ENTREVISTA) {
+            if (fichas[0][c] !== undefined && fichas[0][c] !== null) {
+              camposExistentes[c] = fichas[0][c];
+            }
           }
         }
       } catch (readErr) {
@@ -86,8 +125,27 @@ Deno.serve(async (req) => {
         for (const [key, value] of Object.entries(output)) {
           // Ignora campos que são apenas o default do schema
           if (CAMPOS_COM_DEFAULT.has(key) && value === DEFAULTS[key]) continue;
-          
-          // Só considera se o valor for não-vazio e diferente do default
+
+          // Campos booleanos: só marca true (nunca apaga um true existente com false)
+          if (CAMPOS_BOOL.has(key)) {
+            if (value === true && !merged[key]) {
+              merged[key] = true;
+              camposPreenchidosNesteDoc++;
+            }
+            continue;
+          }
+
+          // Campo enum tipo_dispensa
+          if (key === "tipo_dispensa") {
+            const VALID = ["sem_justa_causa","rescisao_indireta","nulidade_pedido_demissao","reversao_justa_causa"];
+            if (value && VALID.includes(value) && !merged[key]) {
+              merged[key] = value;
+              camposPreenchidosNesteDoc++;
+            }
+            continue;
+          }
+
+          // Campos string normais
           if (value && String(value).trim() && String(value).trim() !== DEFAULTS[key]) {
             if (!merged[key]) {
               merged[key] = String(value).trim();

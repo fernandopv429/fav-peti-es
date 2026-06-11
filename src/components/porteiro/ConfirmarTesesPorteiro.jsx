@@ -54,35 +54,66 @@ const FLAGS_OPCIONAIS = [
   { key: "tem_doenca",            label: "Doença ocupacional / acidente de trabalho", sub: "Nexo causal entre doença/lesão e condições de trabalho" },
 ];
 
-// Flags com default inicial deriváveis dos dados iniciais
+// Mapa tipo_dispensa (campo estruturado) → flag interna
+const TIPO_DISPENSA_MAP = {
+  sem_justa_causa:         "t_dispensa",
+  rescisao_indireta:       "t_indireta",
+  nulidade_pedido_demissao:"t_coacao",
+  reversao_justa_causa:    "t_reversao",
+  // aliases legados
+  dispensa_sem_justa_causa:"t_dispensa",
+  pedido_demissao:         "t_coacao",
+};
+
+// Detecta jornada 12x36 a partir do campo JORNADA_HORARIO
+function detectar12x36(jornada) {
+  if (!jornada) return false;
+  return /12[x×]36/i.test(jornada);
+}
+
+// Flags com default inicial deriváveis dos dados iniciais — pré-seleção DETERMINÍSTICA
 function buildInitialFlags(dadosIniciais) {
   const d = dadosIniciais || {};
   const flags = {};
 
-  // Rescisão — mapeia TIPO_RESCISAO (legado) ou t_* já presente
-  RESCISAO_FLAGS.forEach(f => { flags[f] = d[f] ?? false; });
-  if (!RESCISAO_FLAGS.some(f => d[f])) {
-    // Converte valor legado de TIPO_RESCISAO
-    const map = {
-      dispensa_sem_justa_causa: "t_dispensa",
-      pedido_demissao: "t_coacao",
-      rescisao_indireta: "t_indireta",
-      reversao_justa_causa: "t_reversao",
-    };
-    const legado = map[d.TIPO_RESCISAO];
-    if (legado) flags[legado] = true;
+  // ── Rescisão: prioridade 1 — t_* já gravado no caso ──────────────────────
+  RESCISAO_FLAGS.forEach(f => { flags[f] = !!(d[f]); });
+
+  // ── Rescisão: prioridade 2 — campo estruturado tipo_dispensa ─────────────
+  if (!RESCISAO_FLAGS.some(f => flags[f]) && d.tipo_dispensa) {
+    const mapped = TIPO_DISPENSA_MAP[d.tipo_dispensa];
+    if (mapped) flags[mapped] = true;
   }
 
-  // Jornada
-  flags.jornada_12x36 = d.jornada_12x36 ?? false;
-  flags.jornada_5x2   = d.jornada_5x2   ?? false;
-  // Default jornada_5x2 true se nenhuma marcada
+  // ── Rescisão: prioridade 3 — TIPO_RESCISAO legado ────────────────────────
+  if (!RESCISAO_FLAGS.some(f => flags[f]) && d.TIPO_RESCISAO) {
+    const mapped = TIPO_DISPENSA_MAP[d.TIPO_RESCISAO];
+    if (mapped) flags[mapped] = true;
+  }
+
+  // ── Jornada: determinística a partir do campo JORNADA_HORARIO ─────────────
+  if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined) {
+    // Usa flags já gravadas no caso
+    flags.jornada_12x36 = !!(d.jornada_12x36);
+    flags.jornada_5x2   = !!(d.jornada_5x2);
+  } else {
+    // Detecta pela string da jornada
+    const is12x36 = detectar12x36(d.JORNADA_HORARIO);
+    flags.jornada_12x36 = is12x36;
+    flags.jornada_5x2   = !is12x36;
+  }
+  // Garante que pelo menos uma esteja marcada
   if (!flags.jornada_12x36 && !flags.jornada_5x2) flags.jornada_5x2 = true;
 
-  // Opcionais
-  FLAGS_OPCIONAIS.forEach(({ key }) => { flags[key] = d[key] ?? false; });
+  // ── Opcionais ─────────────────────────────────────────────────────────────
+  FLAGS_OPCIONAIS.forEach(({ key }) => { flags[key] = !!(d[key]); });
   // tem_2a_reclamada: detecta automaticamente se houver RECL2_NOME
   if (!flags.tem_2a_reclamada && d.RECL2_NOME) flags.tem_2a_reclamada = true;
+  // Campos estruturados da extração de documentos
+  if (d.acumulo_funcao)       flags.tem_acumulo       = true;
+  if (d.tem_insalubridade)    flags.tem_insalubridade = true;
+  if (d.tem_periculosidade)   flags.tem_periculosidade= true;
+  if (d.tem_adic_noturno)     flags.tem_adic_noturno  = true;
 
   return flags;
 }
@@ -147,9 +178,32 @@ export default function ConfirmarTesesPorteiro({
     });
   };
 
-  // Análise automática ao abrir se não houver tipo definido
+  // Rastreia quais campos foram preenchidos deterministicamente (não devem ser sobrescritos pela IA)
+  const [flagsDeterministicas] = useState(() => {
+    const d = dadosIniciais || {};
+    const det = new Set();
+    // Rescisão determinística
+    if (RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO) {
+      RESCISAO_FLAGS.forEach(f => det.add(f));
+    }
+    // Jornada determinística
+    if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined || detectar12x36(d.JORNADA_HORARIO)) {
+      det.add("jornada_12x36"); det.add("jornada_5x2");
+    }
+    // Flags dos campos estruturados
+    if (d.acumulo_funcao)     det.add("tem_acumulo");
+    if (d.tem_insalubridade)  det.add("tem_insalubridade");
+    if (d.tem_periculosidade) det.add("tem_periculosidade");
+    if (d.tem_adic_noturno)   det.add("tem_adic_noturno");
+    if (d.RECL2_NOME)         det.add("tem_2a_reclamada");
+    return det;
+  });
+
+  // Análise automática ao abrir se rescisão não tiver sido preenchida deterministicamente
   useEffect(() => {
-    if (!rescisaoAtiva) analisarComIA();
+    const d = dadosIniciais || {};
+    const temRescisaoDeterministica = RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO;
+    if (!temRescisaoDeterministica) analisarComIA();
   }, []);
 
   const analisarComIA = async () => {
@@ -230,36 +284,61 @@ Retorne SOMENTE JSON válido (sem markdown):
 
     try {
       const fileUrls = (documentUrls || []).filter(Boolean);
-      const resultado = await base44.integrations.Core.InvokeLLM({
+
+      // Timeout de 20s — se a IA não responder, mantém pré-seleções determinísticas
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 20000)
+      );
+      const iaPromise = base44.integrations.Core.InvokeLLM({
         prompt,
-        model: "claude_opus_4_8",
+        model: "claude_sonnet_4_6",
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
         response_json_schema: { type: "object", additionalProperties: true },
       });
+
+      const resultado = await Promise.race([iaPromise, timeoutPromise]);
 
       setSugestao(resultado);
 
       setFlags(prev => {
         const f = { ...prev };
-        // Rescisão — garante mutuamente exclusiva
-        const rescFlags = RESCISAO_FLAGS.filter(k => resultado[k] === true);
-        if (rescFlags.length === 1) {
-          RESCISAO_FLAGS.forEach(k => { f[k] = k === rescFlags[0]; });
+        // Rescisão — só aplica se NÃO foi preenchida deterministicamente
+        if (!flagsDeterministicas.has("t_dispensa")) {
+          const rescFlags = RESCISAO_FLAGS.filter(k => resultado[k] === true);
+          if (rescFlags.length === 1) {
+            RESCISAO_FLAGS.forEach(k => { f[k] = k === rescFlags[0]; });
+          }
         }
-        // Jornada — garante mutuamente exclusiva
-        if (typeof resultado.jornada_12x36 === "boolean" || typeof resultado.jornada_5x2 === "boolean") {
-          const is12x36 = resultado.jornada_12x36 === true;
-          f.jornada_12x36 = is12x36;
-          f.jornada_5x2   = !is12x36;
+        // Jornada — só aplica se NÃO foi preenchida deterministicamente
+        if (!flagsDeterministicas.has("jornada_12x36")) {
+          if (typeof resultado.jornada_12x36 === "boolean" || typeof resultado.jornada_5x2 === "boolean") {
+            const is12x36 = resultado.jornada_12x36 === true;
+            f.jornada_12x36 = is12x36;
+            f.jornada_5x2   = !is12x36;
+          }
         }
-        // Opcionais
+        // Opcionais — só preenche os que não vieram de campo estruturado
         FLAGS_OPCIONAIS.forEach(({ key }) => {
-          if (typeof resultado[key] === "boolean") f[key] = resultado[key];
+          if (!flagsDeterministicas.has(key) && typeof resultado[key] === "boolean") {
+            f[key] = resultado[key];
+          }
         });
         return f;
       });
     } catch (e) {
-      setErroIA("Não foi possível analisar automaticamente: " + (e.message || String(e)));
+      const isTimeout = e.message === "timeout";
+      setErroIA(
+        isTimeout
+          ? "Classificação automática indisponível — selecione manualmente."
+          : "Não foi possível analisar automaticamente: " + (e.message || String(e))
+      );
+      // Loga no ErrorLog para diagnóstico
+      base44.entities.ErrorLog.create({
+        context: "ConfirmarTesesPorteiro — analisarComIA",
+        error_type: "api",
+        message: e.message || String(e),
+        occurred_at: new Date().toISOString(),
+      }).catch(() => {});
     } finally {
       setAnalisando(false);
     }

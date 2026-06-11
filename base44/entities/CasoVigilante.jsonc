@@ -22,6 +22,36 @@
       "type": "string",
       "description": "ID da Petition vinculada"
     },
+    "tipo_dispensa": {
+      "type": "string",
+      "enum": [
+        "sem_justa_causa",
+        "rescisao_indireta",
+        "nulidade_pedido_demissao",
+        "reversao_justa_causa"
+      ],
+      "description": "Tipo de dispensa capturado da entrevista (se\u00e7\u00e3o 1 \u2014 Tipo de Dispensa). Usado para pr\u00e9-sele\u00e7\u00e3o determin\u00edstica no modal Confirmar Teses."
+    },
+    "acumulo_funcao": {
+      "type": "boolean",
+      "default": false,
+      "description": "Ac\u00famulo/desvio de fun\u00e7\u00e3o detectado na entrevista (se\u00e7\u00e3o 8)"
+    },
+    "tem_insalubridade": {
+      "type": "boolean",
+      "default": false,
+      "description": "Insalubridade detectada na entrevista (se\u00e7\u00e3o 13)"
+    },
+    "tem_periculosidade": {
+      "type": "boolean",
+      "default": false,
+      "description": "Periculosidade detectada na entrevista (se\u00e7\u00e3o 13)"
+    },
+    "tem_adic_noturno": {
+      "type": "boolean",
+      "default": false,
+      "description": "Adicional noturno: jornada com horas entre 22h e 05h"
+    },
     "COMARCA_UF": {
       "type": "string",
       "description": "Comarca/UF da Vara (ex: ARUJ\u00c1/SP)"

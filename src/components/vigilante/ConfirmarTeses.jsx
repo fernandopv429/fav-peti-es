@@ -18,20 +18,42 @@ const TIPOS_RESCISAO = [
  *   onCancelar()
  */
 export default function ConfirmarTeses({ dadosIniciais, documentUrls = [], onConfirmar, onCancelar }) {
-  const [tipoRescisao, setTipoRescisao]     = useState(dadosIniciais?.TIPO_RESCISAO || "");
-  const [temSubsidiaria, setTemSubsidiaria] = useState(dadosIniciais?.tem_subsidiaria ?? true);
-  const [temDesvio, setTemDesvio]           = useState(dadosIniciais?.tem_desvio ?? false);
-  const [temAdicNoturno, setTemAdicNoturno] = useState(dadosIniciais?.tem_adic_noturno ?? false);
+  // ── Pré-seleção determinística ───────────────────────────────────────────
+  // tipo_dispensa (campo estruturado) > TIPO_RESCISAO (legado)
+  const TIPO_DISPENSA_MAP_V = {
+    sem_justa_causa:          "dispensa_sem_justa_causa",
+    rescisao_indireta:        "rescisao_indireta",
+    nulidade_pedido_demissao: "pedido_demissao",
+    reversao_justa_causa:     "reversao_justa_causa",
+  };
+  const rescisaoInicial =
+    (dadosIniciais?.tipo_dispensa && TIPO_DISPENSA_MAP_V[dadosIniciais.tipo_dispensa])
+    || dadosIniciais?.TIPO_RESCISAO
+    || "";
+
+  const [tipoRescisao, setTipoRescisao]     = useState(rescisaoInicial);
+  const [temSubsidiaria, setTemSubsidiaria] = useState(dadosIniciais?.tem_subsidiaria ?? !!(dadosIniciais?.RECL2_NOME));
+  const [temDesvio, setTemDesvio]           = useState(!!(dadosIniciais?.tem_desvio || dadosIniciais?.acumulo_funcao));
+  const [temAdicNoturno, setTemAdicNoturno] = useState(!!(dadosIniciais?.tem_adic_noturno));
+
+  // Rastreia o que já foi preenchido deterministicamente
+  const [detDefined] = useState(() => {
+    const d = dadosIniciais || {};
+    const s = new Set();
+    if (d.tipo_dispensa || d.TIPO_RESCISAO) s.add("tipo_rescisao");
+    if (d.RECL2_NOME || d.tem_subsidiaria !== undefined) s.add("tem_subsidiaria");
+    if (d.acumulo_funcao || d.tem_desvio !== undefined) s.add("tem_desvio");
+    if (d.tem_adic_noturno !== undefined) s.add("tem_adic_noturno");
+    return s;
+  });
 
   const [analisando, setAnalisando]   = useState(false);
-  const [sugestao, setSugestao]       = useState(null); // { tipo_rescisao, tem_subsidiaria, tem_desvio, tem_adic_noturno, justificativas, confianca }
+  const [sugestao, setSugestao]       = useState(null);
   const [erroIA, setErroIA]           = useState("");
 
-  // Executa análise automaticamente ao abrir o modal (se não há tipo já definido)
+  // Executa análise automática apenas se rescisão NÃO foi preenchida deterministicamente
   useEffect(() => {
-    if (!dadosIniciais?.TIPO_RESCISAO) {
-      analisarComIA();
-    }
+    if (!rescisaoInicial) analisarComIA();
   }, []);
 
   const analisarComIA = async () => {
@@ -89,7 +111,12 @@ Se não houver informação suficiente para decidir com segurança algum item, u
 
     try {
       const fileUrls = (documentUrls || []).filter(Boolean);
-      const resultado = await base44.integrations.Core.InvokeLLM({
+
+      // Timeout de 20s
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 20000)
+      );
+      const iaPromise = base44.integrations.Core.InvokeLLM({
         prompt,
         model: "claude_sonnet_4_6",
         file_urls: fileUrls.length > 0 ? fileUrls : undefined,
@@ -114,16 +141,28 @@ Se não houver informação suficiente para decidir com segurança algum item, u
         }
       });
 
+      const resultado = await Promise.race([iaPromise, timeoutPromise]);
       setSugestao(resultado);
 
-      // Pré-seleciona as sugestões
-      if (resultado.tipo_rescisao) setTipoRescisao(resultado.tipo_rescisao);
-      if (typeof resultado.tem_subsidiaria === "boolean") setTemSubsidiaria(resultado.tem_subsidiaria);
-      if (typeof resultado.tem_desvio === "boolean")      setTemDesvio(resultado.tem_desvio);
-      if (typeof resultado.tem_adic_noturno === "boolean") setTemAdicNoturno(resultado.tem_adic_noturno);
+      // Aplica sugestões apenas para campos NÃO preenchidos deterministicamente
+      if (!detDefined.has("tipo_rescisao") && resultado.tipo_rescisao) setTipoRescisao(resultado.tipo_rescisao);
+      if (!detDefined.has("tem_subsidiaria") && typeof resultado.tem_subsidiaria === "boolean") setTemSubsidiaria(resultado.tem_subsidiaria);
+      if (!detDefined.has("tem_desvio") && typeof resultado.tem_desvio === "boolean")           setTemDesvio(resultado.tem_desvio);
+      if (!detDefined.has("tem_adic_noturno") && typeof resultado.tem_adic_noturno === "boolean") setTemAdicNoturno(resultado.tem_adic_noturno);
 
     } catch (e) {
-      setErroIA("Não foi possível analisar automaticamente: " + (e.message || String(e)));
+      const isTimeout = e.message === "timeout";
+      setErroIA(
+        isTimeout
+          ? "Classificação automática indisponível — selecione manualmente."
+          : "Não foi possível analisar automaticamente: " + (e.message || String(e))
+      );
+      base44.entities.ErrorLog.create({
+        context: "ConfirmarTeses — analisarComIA",
+        error_type: "api",
+        message: e.message || String(e),
+        occurred_at: new Date().toISOString(),
+      }).catch(() => {});
     } finally {
       setAnalisando(false);
     }
