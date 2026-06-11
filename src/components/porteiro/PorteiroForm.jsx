@@ -234,7 +234,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
         const body = d ? (d.message || d.error || d.detail || (typeof d === "string" ? d : JSON.stringify(d))) : "(sem corpo)";
         logMsg = `HTTP ${e.response.status}: ${body} | ${detalhe}`;
       }
-      toast.error("Erro ao gerar DOCX: " + detalhe, { duration: 8000 });
+      toast.error("Falha ao gerar DOCX: " + logMsg, { duration: 10000 });
       base44.entities.ErrorLog.create({
         context: `Geração DOCX ${templateName}`,
         error_type: "template",

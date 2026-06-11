@@ -1,18 +1,16 @@
 /**
  * fetchDocxTemplate — baixa um arquivo .docx de uma URL e devolve o conteúdo
- * em base64 para o frontend. Resolve o bloqueio CORS no app publicado, onde
- * o navegador não consegue fazer fetch cross-origin das URLs de arquivo do Base44.
+ * em base64 para o frontend. Resolve o bloqueio CORS no app publicado.
  *
- * Chamada pelo frontend via: base44.functions.invoke("fetchDocxTemplate", { url })
- * Retorna: { base64: string }
+ * NÃO requer autenticação — a URL do arquivo já é o controle de acesso.
+ * Qualquer usuário (inclusive anônimo no app publicado) pode chamar esta função.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Inicializa o cliente mas NÃO exige auth — a função só faz fetch de URL pública
+    createClientFromRequest(req);
 
     const { url } = await req.json();
     if (!url || typeof url !== 'string') {
