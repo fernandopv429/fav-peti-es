@@ -581,11 +581,21 @@ REGRAS ABSOLUTAS:
             aiTokens = iaResp;
           }
         } catch (iaErr) {
-          console.error("IA falhou na extração de tokens:", iaErr.message);
+          let iaErrMsg;
+          if (iaErr.response) {
+            const data = iaErr.response.data;
+            const dataStr = data
+              ? (data.message || data.error || (typeof data === "string" ? data : JSON.stringify(data)))
+              : "(sem corpo)";
+            iaErrMsg = `HTTP ${iaErr.response.status}: ${dataStr} | original: ${iaErr.message}`;
+          } else {
+            iaErrMsg = `${iaErr.message}${iaErr.stack ? `\nStack: ${iaErr.stack.slice(0, 600)}` : ""}`;
+          }
+          console.error("IA falhou na extração de tokens:", iaErrMsg);
           await base44.asServiceRole.entities.ErrorLog.create({
             context: "generatePetitionDocx — IA tokens",
             error_type: "api",
-            message: iaErr.message,
+            message: iaErrMsg,
             petition_id: petitionId,
             resolved: false,
             occurred_at: new Date().toISOString(),
@@ -746,13 +756,24 @@ REGRAS ABSOLUTAS:
     });
 
     bgWork.catch(async (fatalErr) => {
-      console.error("Erro fatal generatePetitionDocx:", fatalErr.message);
+      // Monta mensagem detalhada: inclui corpo da resposta HTTP quando disponível
+      let fatalMsg;
+      if (fatalErr.response) {
+        const data = fatalErr.response.data;
+        const dataStr = data
+          ? (data.message || data.error || (typeof data === "string" ? data : JSON.stringify(data)))
+          : "(sem corpo)";
+        fatalMsg = `HTTP ${fatalErr.response.status}: ${dataStr} | original: ${fatalErr.message}`;
+      } else {
+        fatalMsg = `${fatalErr.message}${fatalErr.stack ? `\nStack: ${fatalErr.stack.slice(0, 800)}` : ""}`;
+      }
+      console.error("Erro fatal generatePetitionDocx:", fatalMsg);
 
       try {
         await base44.asServiceRole.entities.ErrorLog.create({
           context: "generatePetitionDocx — fatal",
           error_type: "geracao",
-          message: fatalErr.message,
+          message: fatalMsg,
           petition_id: petitionId,
           resolved: false,
           occurred_at: new Date().toISOString(),
