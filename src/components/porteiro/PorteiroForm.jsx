@@ -268,11 +268,9 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           onConfirmar={(dadosConfirmados) => {
             setDados(dadosConfirmados);
             setConfirmandoTeses(null);
-            if (confirmandoTeses === "docx") {
-              handleGerarDocxIdêntico(dadosConfirmados);
-            } else {
-              onGerarComDados({ ...dadosConfirmados, _casoVigilanteId: casoId || undefined });
-            }
+            // Ambos os caminhos ("docx" e "ia") usam o mesmo pipeline frontend
+            // (gerarDocxPorteiro) — nunca o backend que reconstrói do zero.
+            handleGerarDocxIdêntico(dadosConfirmados);
           }}
         />
       )}
@@ -422,24 +420,14 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           {salvando ? "Salvando..." : "Salvar caso"}
         </button>
 
-        {templateDocxUrl && (
-          <button
-            type="button"
-            onClick={() => setConfirmandoTeses("docx")}
-            disabled={gerandoDocx}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
-          >
-            {gerandoDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-            {gerandoDocx ? "Gerando DOCX..." : "Gerar DOCX Idêntico ao Modelo"}
-          </button>
-        )}
-
         <button
           type="button"
-          onClick={() => setConfirmandoTeses("ia")}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
+          onClick={() => setConfirmandoTeses("docx")}
+          disabled={gerandoDocx || !templateDocxUrl}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors"
         >
-          <Wand2 className="w-4 h-4" /> Gerar Petição com IA →
+          {gerandoDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+          {gerandoDocx ? "Gerando DOCX..." : "Gerar DOCX Idêntico ao Modelo"}
         </button>
       </div>
     </div>
