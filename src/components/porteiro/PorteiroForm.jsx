@@ -107,11 +107,9 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
 
   useEffect(() => {
     base44.entities.CasoVigilante.list().then(list => {
-      // Filtra casos deste template (pelo _templateId em valores_pedidos)
-      const filtrados = (list || []).filter(c =>
-        !templateId || !(c.valores_pedidos?._templateId) || c.valores_pedidos._templateId === templateId
-      );
-      setCasos(filtrados);
+      // Mostra todos os casos — sem filtro restritivo por templateId
+      // (casos salvos antes do campo _templateId existir ainda aparecem)
+      setCasos(list || []);
     }).catch(() => {});
   }, [templateId]);
 
@@ -165,11 +163,33 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
     toast.success("dados.json baixado!");
   };
 
-  // Chamado após confirmação do modal (modo "docx") — pipeline IDÊNTICO ao Vigilante
+  // Chamado após confirmação do modal — pipeline determinístico via gerarDocxPorteiro
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
     const dadosFinais = dadosConfirmados || dados;
     if (!templateDocxUrl) return;
     setGerandoDocx(true);
+    const startTime = Date.now();
+
+    // Auto-salva o caso antes de gerar para garantir sincronismo com o banco
+    let casoIdFinal = casoId;
+    try {
+      const payload = { ...dadosFinais, status: "preenchido" };
+      if (casoIdFinal) {
+        await base44.entities.CasoVigilante.update(casoIdFinal, payload);
+      } else {
+        const saved = await base44.entities.CasoVigilante.create({
+          ...payload,
+          titulo: dadosFinais.titulo || `${templateName || "Porteiro"} — ${new Date().toLocaleDateString("pt-BR")}`,
+          valores_pedidos: { ...(dadosFinais.valores_pedidos || {}), _templateId: templateId },
+        });
+        casoIdFinal = saved.id;
+        setCasoId(casoIdFinal);
+        setCasos(prev => [...prev, saved]);
+      }
+    } catch (saveErr) {
+      toast.warning("Aviso: não foi possível auto-salvar o caso: " + saveErr.message);
+    }
+
     try {
       const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, dadosFinais);
 
@@ -182,6 +202,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       URL.revokeObjectURL(url);
 
       // 2. Upload e persistência na Petition
+      let petId = null;
       try {
         const file = new File([blob], nomeArquivo, {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -197,14 +218,14 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           claimant_name: dadosFinais.RECL_NOME || "—",
           defendant_name: dadosFinais.RECL1_NOME || "—",
           defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
-          status: "revisao_necessaria",
+          status: tokensFaltando.length > 0 ? "revisao_necessaria" : "concluida",
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: templateId || "porteiro",
         };
 
         const existingPetitionId = dadosFinais.petition_id || null;
-        let petId = existingPetitionId;
+        petId = existingPetitionId;
         if (petId) {
           await base44.entities.Petition.update(petId, petitionPayload).catch(() => {});
         } else {
@@ -212,22 +233,32 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           petId = criada?.id;
         }
 
-        if (petId && casoId) {
-          await base44.entities.CasoVigilante.update(casoId, { petition_id: petId, status: "gerado" }).catch(() => {});
+        if (petId && casoIdFinal) {
+          await base44.entities.CasoVigilante.update(casoIdFinal, { petition_id: petId, status: "gerado" }).catch(() => {});
           setDados(prev => ({ ...prev, petition_id: petId }));
         }
 
-        if (petId) toast.success(`DOCX salvo em Minhas Petições!`);
+        if (petId) toast.success("DOCX salvo em Minhas Petições!");
       } catch (uploadErr) {
         toast.warning("Download OK, mas falha ao salvar: " + uploadErr.message);
       }
+
+      // 3. Grava GenerationLog
+      base44.entities.GenerationLog.create({
+        petition_id: petId || "",
+        petition_title: dadosFinais.titulo || dadosFinais.RECL_NOME || templateName,
+        status: "concluido",
+        model_used: "gerarDocxPorteiro+" + (templateName || "porteiro"),
+        template_id: templateId || "",
+        duration_seconds: Math.round((Date.now() - startTime) / 1000),
+        generated_at: new Date().toISOString(),
+      }).catch(() => {});
 
       if (tokensFaltando.length > 0) {
         toast.warning(`Tokens em branco: ${tokensFaltando.slice(0, 8).join(", ")}${tokensFaltando.length > 8 ? "..." : ""}`);
       }
     } catch (e) {
       const detalhe = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
-      // Monta mensagem com detalhe real do backend (evita "Request failed with status code 500")
       let logMsg = detalhe;
       if (e?.response) {
         const d = e.response.data;
@@ -237,8 +268,17 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       toast.error("Falha ao gerar DOCX: " + logMsg, { duration: 10000 });
       base44.entities.ErrorLog.create({
         context: `Geração DOCX ${templateName}`,
-        error_type: "template",
+        error_type: "geracao",
         message: logMsg,
+      }).catch(() => {});
+      // GenerationLog de erro
+      base44.entities.GenerationLog.create({
+        petition_id: "",
+        status: "erro",
+        model_used: "gerarDocxPorteiro+" + (templateName || "porteiro"),
+        template_id: templateId || "",
+        error_message: logMsg,
+        generated_at: new Date().toISOString(),
       }).catch(() => {});
     } finally {
       setGerandoDocx(false);
@@ -250,10 +290,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
     if (casoIdRetornado && casoIdRetornado !== casoId) {
       setCasoId(casoIdRetornado);
       base44.entities.CasoVigilante.list().then(list => {
-        const filtrados = (list || []).filter(c =>
-          !templateId || !(c.valores_pedidos?._templateId) || c.valores_pedidos._templateId === templateId
-        );
-        setCasos(filtrados);
+        setCasos(list || []);
       }).catch(() => {});
     }
     toast.success("Campos preenchidos! Revise e salve o caso.");
