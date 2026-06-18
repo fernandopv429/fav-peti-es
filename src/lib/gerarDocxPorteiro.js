@@ -9,6 +9,7 @@ import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
 import { derivarFlags } from "./derivarFlags.js";
+import { normalizarComarcaUF, normalizarRegiaoTRT, sanitizarCampos } from "./normalizarCampos.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo Porteiro.
@@ -21,27 +22,9 @@ function montarDadosTemplate(dados) {
   const SALARIO_EXT    = valorPorExtenso(dados.SALARIO || "");
   const VALOR_CAUSA_EXT = valorPorExtenso(dados.VALOR_CAUSA || "");
 
-  // Derivação determinística REGIAO_TRT por tabela UF→TRT (sem IA)
-  const UF_TRT = {
-    SP:"SEGUNDA REGIÃO",RJ:"PRIMEIRA REGIÃO",MG:"TERCEIRA REGIÃO",RS:"QUARTA REGIÃO",
-    BA:"QUINTA REGIÃO",PE:"SEXTA REGIÃO",CE:"SÉTIMA REGIÃO",PA:"OITAVA REGIÃO",
-    AM:"OITAVA REGIÃO",PR:"NONA REGIÃO",DF:"DÉCIMA REGIÃO",SC:"DÉCIMA SEGUNDA REGIÃO",
-    PB:"DÉCIMA TERCEIRA REGIÃO",RO:"DÉCIMA QUARTA REGIÃO",AC:"DÉCIMA QUARTA REGIÃO",
-    MA:"DÉCIMA SEXTA REGIÃO",ES:"DÉCIMA SÉTIMA REGIÃO",GO:"DÉCIMA OITAVA REGIÃO",
-    AL:"DÉCIMA NONA REGIÃO",SE:"VIGÉSIMA REGIÃO",RN:"VIGÉSIMA PRIMEIRA REGIÃO",
-    PI:"VIGÉSIMA SEGUNDA REGIÃO",MS:"VIGÉSIMA QUARTA REGIÃO",TO:"VIGÉSIMA SÉTIMA REGIÃO",
-    AP:"OITAVA REGIÃO",RR:"DÉCIMA PRIMEIRA REGIÃO",
-  };
-  let regiaoTrt = dados.REGIAO_TRT || "";
-  if (!regiaoTrt && dados.COMARCA_UF) {
-    const ufM = dados.COMARCA_UF.toUpperCase().match(/\b([A-Z]{2})$/);
-    const uf = ufM?.[1];
-    if (uf && UF_TRT[uf]) regiaoTrt = UF_TRT[uf];
-  }
-
   const campos = {
     COMARCA_UF:            dados.COMARCA_UF || "",
-    REGIAO_TRT:            regiaoTrt,
+    REGIAO_TRT:            dados.REGIAO_TRT || "",
     FORO_COMPETENCIA:      dados.FORO_COMPETENCIA || "",
     LOCAL_PRESTACAO:       dados.LOCAL_PRESTACAO || "",
     LOCAL_PRESTACAO_COMPL: dados.LOCAL_PRESTACAO_COMPL || "",
@@ -97,6 +80,11 @@ function montarDadosTemplate(dados) {
   // ── Flags booleanas — 100% determinísticas via derivarFlags ──────────────
   const flags = derivarFlags(dados, "porteiro");
   Object.assign(campos, flags);
+
+  // ── Normalização: COMARCA_UF → CIDADE/UF, REGIAO_TRT → nome por extenso, nulos → "" ──
+  campos.COMARCA_UF = normalizarComarcaUF(campos.COMARCA_UF, dados.LOCAL_PRESTACAO, dados.FORO_COMPETENCIA);
+  campos.REGIAO_TRT = normalizarRegiaoTRT(campos.REGIAO_TRT, campos.COMARCA_UF);
+  sanitizarCampos(campos);
 
   return campos;
 }

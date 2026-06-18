@@ -9,6 +9,7 @@ import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
 import { derivarFlags } from "./derivarFlags.js";
+import { normalizarComarcaUF, normalizarRegiaoTRT, sanitizarCampos } from "./normalizarCampos.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo oficial.
@@ -80,6 +81,11 @@ function montarDadosTemplate(dados) {
   // ── Flags booleanas — 100% determinísticas via derivarFlags ──────────────
   const flags = derivarFlags(dados, "vigilante");
   Object.assign(campos, flags);
+
+  // ── Normalização: COMARCA_UF → CIDADE/UF, REGIAO_TRT → nome por extenso, nulos → "" ──
+  campos.COMARCA_UF = normalizarComarcaUF(campos.COMARCA_UF, dados.LOCAL_PRESTACAO, dados.FORO_COMPETENCIA);
+  campos.REGIAO_TRT = normalizarRegiaoTRT(campos.REGIAO_TRT, campos.COMARCA_UF);
+  sanitizarCampos(campos);
 
   return campos;
 }
