@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, X, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { derivarFlags } from "@/lib/derivarFlags.js";
 
 const TIPOS_RESCISAO = [
   { value: "dispensa_sem_justa_causa", label: "Dispensa sem justa causa" },
@@ -18,29 +19,29 @@ const TIPOS_RESCISAO = [
  *   onCancelar()
  */
 export default function ConfirmarTeses({ dadosIniciais, documentUrls = [], onConfirmar, onCancelar }) {
-  // ── Pré-seleção determinística ───────────────────────────────────────────
-  // tipo_dispensa (campo estruturado) > TIPO_RESCISAO (legado)
-  const TIPO_DISPENSA_MAP_V = {
-    sem_justa_causa:          "dispensa_sem_justa_causa",
-    rescisao_indireta:        "rescisao_indireta",
-    nulidade_pedido_demissao: "pedido_demissao",
-    reversao_justa_causa:     "reversao_justa_causa",
+  // ── Pré-seleção 100% determinística via derivarFlags ─────────────────────
+  const flagsIniciais = derivarFlags(dadosIniciais || {}, "vigilante");
+
+  // Mapa flag interna → valor TIPO_RESCISAO esperado pelos selects
+  const FLAG_TO_TIPO = {
+    t_dispensa: "dispensa_sem_justa_causa",
+    t_indireta: "rescisao_indireta",
+    t_coacao:   "pedido_demissao",
+    t_reversao: "reversao_justa_causa",
   };
   const rescisaoInicial =
-    (dadosIniciais?.tipo_dispensa && TIPO_DISPENSA_MAP_V[dadosIniciais.tipo_dispensa])
-    || dadosIniciais?.TIPO_RESCISAO
-    || "";
+    FLAG_TO_TIPO[Object.keys(FLAG_TO_TIPO).find(f => flagsIniciais[f])] || "";
 
   const [tipoRescisao, setTipoRescisao]     = useState(rescisaoInicial);
-  const [temSubsidiaria, setTemSubsidiaria] = useState(dadosIniciais?.tem_subsidiaria ?? !!(dadosIniciais?.RECL2_NOME));
-  const [temDesvio, setTemDesvio]           = useState(!!(dadosIniciais?.tem_desvio || dadosIniciais?.acumulo_funcao));
-  const [temAdicNoturno, setTemAdicNoturno] = useState(!!(dadosIniciais?.tem_adic_noturno));
+  const [temSubsidiaria, setTemSubsidiaria] = useState(flagsIniciais.tem_subsidiaria);
+  const [temDesvio, setTemDesvio]           = useState(flagsIniciais.tem_desvio);
+  const [temAdicNoturno, setTemAdicNoturno] = useState(flagsIniciais.tem_adic_noturno);
 
-  // Rastreia o que já foi preenchido deterministicamente
+  // Rastreia o que já foi preenchido deterministicamente (não deixa IA sobrescrever)
   const [detDefined] = useState(() => {
     const d = dadosIniciais || {};
     const s = new Set();
-    if (d.tipo_dispensa || d.TIPO_RESCISAO) s.add("tipo_rescisao");
+    if (d.tipo_dispensa || d.TIPO_RESCISAO || ["t_dispensa","t_coacao","t_indireta","t_reversao"].some(f => d[f])) s.add("tipo_rescisao");
     if (d.RECL2_NOME || d.tem_subsidiaria !== undefined) s.add("tem_subsidiaria");
     if (d.acumulo_funcao || d.tem_desvio !== undefined) s.add("tem_desvio");
     if (d.tem_adic_noturno !== undefined) s.add("tem_adic_noturno");
@@ -172,8 +173,24 @@ Se não houver informação suficiente para decidir com segurança algum item, u
 
   const handleConfirmar = () => {
     if (!podeGerar) return;
+    // Mapa TIPO_RESCISAO → flag t_*
+    const TIPO_TO_FLAG = {
+      dispensa_sem_justa_causa: "t_dispensa",
+      rescisao_indireta:        "t_indireta",
+      pedido_demissao:          "t_coacao",
+      reversao_justa_causa:     "t_reversao",
+    };
+    const flagAtiva = TIPO_TO_FLAG[tipoRescisao] || null;
+    const flagsRescisao = {
+      t_dispensa: flagAtiva === "t_dispensa",
+      t_coacao:   flagAtiva === "t_coacao",
+      t_indireta: flagAtiva === "t_indireta",
+      t_reversao: flagAtiva === "t_reversao",
+      t_demissao: flagAtiva === "t_coacao",
+    };
     onConfirmar({
       ...dadosIniciais,
+      ...flagsRescisao,
       TIPO_RESCISAO:    tipoRescisao,
       tem_subsidiaria:  temSubsidiaria,
       tem_desvio:       temDesvio,

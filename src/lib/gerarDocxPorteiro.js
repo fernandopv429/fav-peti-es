@@ -8,6 +8,7 @@ import Docxtemplater from "docxtemplater";
 import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
+import { derivarFlags } from "./derivarFlags.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo Porteiro.
@@ -93,38 +94,9 @@ function montarDadosTemplate(dados) {
     campos[key] = vp[key] || "";
   }
 
-  // ── Flags de rescisão (mutuamente exclusivas) ────────────────────────────
-  // Lê diretamente as flags booleanas do objeto (vindas do ConfirmarTesesPorteiro),
-  // com fallback para o campo legado TIPO_RESCISAO.
-  const tipo = dados.TIPO_RESCISAO || "";
-  campos.t_dispensa = !!(dados.t_dispensa ?? (tipo === "dispensa_sem_justa_causa"));
-  campos.t_coacao   = !!(dados.t_coacao   ?? (tipo === "pedido_demissao"));
-  campos.t_indireta = !!(dados.t_indireta ?? (tipo === "rescisao_indireta"));
-  campos.t_reversao = !!(dados.t_reversao ?? (tipo === "reversao_justa_causa"));
-  // alias usado pelo modelo Vigilante (compatibilidade)
-  campos.t_demissao = campos.t_coacao;
-
-  // ── Flags de jornada ─────────────────────────────────────────────────────
-  campos.jornada_12x36 = !!(dados.jornada_12x36);
-  campos.jornada_5x2   = !!(dados.jornada_5x2);
-  // Garante que pelo menos uma esteja marcada se nenhuma foi definida
-  if (!campos.jornada_12x36 && !campos.jornada_5x2) campos.jornada_5x2 = true;
-
-  // ── Flags opcionais ──────────────────────────────────────────────────────
-  campos.tem_2a_reclamada     = !!(dados.tem_2a_reclamada || dados.RECL2_NOME);
-  campos.tem_3a_reclamada     = !!(dados.tem_3a_reclamada || dados.RECL3_NOME);
-  campos.ente_publico         = !!(dados.ente_publico);
-  campos.comp_portaria        = !!(dados.comp_portaria);
-  campos.tem_descaracterizacao= !!(dados.tem_descaracterizacao);
-  campos.tem_subsidiaria      = campos.tem_2a_reclamada; // alias
-  campos.tem_desvio           = !!(dados.tem_acumulo || dados.acumulo_funcao);
-  campos.tem_acumulo          = campos.tem_desvio;
-  campos.tem_adic_noturno     = !!(dados.tem_adic_noturno);
-  campos.tem_insalubridade    = !!(dados.tem_insalubridade);
-  campos.tem_periculosidade   = !!(dados.tem_periculosidade);
-  campos.tem_pericia          = !!(campos.tem_insalubridade || campos.tem_periculosidade);
-  campos.tem_assiduidade      = !!(dados.tem_assiduidade);
-  campos.tem_doenca           = !!(dados.tem_doenca);
+  // ── Flags booleanas — 100% determinísticas via derivarFlags ──────────────
+  const flags = derivarFlags(dados, "porteiro");
+  Object.assign(campos, flags);
 
   return campos;
 }

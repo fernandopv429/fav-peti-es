@@ -24,6 +24,10 @@ const EMPTY_CASO = {
   JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
   LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "", ADIC_CONV: "",
   VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  // flags de fato (alimentam derivarFlags automaticamente)
+  tipo_dispensa: "", acumulo_funcao: false, tem_adic_noturno: undefined,
+  tem_insalubridade: false, tem_periculosidade: false, tem_pericia: false,
+  tem_ft: undefined, tem_vt_folgas: undefined, tem_va_folgas: undefined,
   valores_pedidos: {},
 };
 

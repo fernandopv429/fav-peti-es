@@ -13,6 +13,7 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, X, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { derivarFlags } from "@/lib/derivarFlags.js";
 
 // ── Mapeamento TIPO_RESCISAO → flags booleanas ───────────────────────────
 const RESCISAO_OPCOES = [
@@ -54,78 +55,15 @@ const FLAGS_OPCIONAIS = [
   { key: "tem_doenca",            label: "Doença ocupacional / acidente de trabalho", sub: "Nexo causal entre doença/lesão e condições de trabalho" },
 ];
 
-// Mapa tipo_dispensa (campo estruturado) → flag interna
-const TIPO_DISPENSA_MAP = {
-  sem_justa_causa:         "t_dispensa",
-  rescisao_indireta:       "t_indireta",
-  nulidade_pedido_demissao:"t_coacao",
-  reversao_justa_causa:    "t_reversao",
-  // aliases legados
-  dispensa_sem_justa_causa:"t_dispensa",
-  pedido_demissao:         "t_coacao",
-};
-
-// Detecta jornada 12x36 a partir do campo JORNADA_HORARIO
-function detectar12x36(jornada) {
-  if (!jornada) return false;
-  return /12[x×]36/i.test(jornada);
-}
-
 // Flags com default inicial deriváveis dos dados iniciais — pré-seleção DETERMINÍSTICA
+// Delega toda a lógica para derivarFlags (módulo centralizado)
 function buildInitialFlags(dadosIniciais) {
-  const d = dadosIniciais || {};
-  const flags = {};
-
-  // ── Rescisão: prioridade 1 — t_* já gravado no caso ──────────────────────
-  RESCISAO_FLAGS.forEach(f => { flags[f] = !!(d[f]); });
-
-  // ── Rescisão: prioridade 2 — campo estruturado tipo_dispensa ─────────────
-  if (!RESCISAO_FLAGS.some(f => flags[f]) && d.tipo_dispensa) {
-    const mapped = TIPO_DISPENSA_MAP[d.tipo_dispensa];
-    if (mapped) flags[mapped] = true;
-  }
-
-  // ── Rescisão: prioridade 3 — TIPO_RESCISAO legado ────────────────────────
-  if (!RESCISAO_FLAGS.some(f => flags[f]) && d.TIPO_RESCISAO) {
-    const mapped = TIPO_DISPENSA_MAP[d.TIPO_RESCISAO];
-    if (mapped) flags[mapped] = true;
-  }
-
-  // ── Jornada: determinística a partir do campo JORNADA_HORARIO ─────────────
-  if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined) {
-    // Usa flags já gravadas no caso
-    flags.jornada_12x36 = !!(d.jornada_12x36);
-    flags.jornada_5x2   = !!(d.jornada_5x2);
-  } else {
-    // Detecta pela string da jornada
-    const is12x36 = detectar12x36(d.JORNADA_HORARIO);
-    flags.jornada_12x36 = is12x36;
-    flags.jornada_5x2   = !is12x36;
-  }
-  // Garante que pelo menos uma esteja marcada
-  if (!flags.jornada_12x36 && !flags.jornada_5x2) flags.jornada_5x2 = true;
-
-  // ── Opcionais ─────────────────────────────────────────────────────────────
-  FLAGS_OPCIONAIS.forEach(({ key }) => { flags[key] = !!(d[key]); });
-  // tem_2a_reclamada: detecta automaticamente se houver RECL2_NOME
-  if (!flags.tem_2a_reclamada && d.RECL2_NOME) flags.tem_2a_reclamada = true;
-  // Campos estruturados da extração de documentos
-  if (d.acumulo_funcao)       flags.tem_acumulo       = true;
-  if (d.tem_insalubridade)    flags.tem_insalubridade = true;
-  if (d.tem_periculosidade)   flags.tem_periculosidade= true;
-  if (d.tem_adic_noturno)     flags.tem_adic_noturno  = true;
-
-  return flags;
+  return derivarFlags(dadosIniciais || {}, "porteiro");
 }
 
-// Calcula tem_pericia e garante dependências
+// Computa flags derivadas (pericia, dependências) — delega para derivarFlags
 function computeFlags(flags) {
-  const f = { ...flags };
-  // tem_pericia = insalubridade OR periculosidade
-  f.tem_pericia = !!(f.tem_insalubridade || f.tem_periculosidade);
-  // ente_publico só pode ser true se tem_2a_reclamada
-  if (!f.tem_2a_reclamada) f.ente_publico = false;
-  return f;
+  return derivarFlags(flags, "porteiro");
 }
 
 // Aviso específico de cada modelo
@@ -182,28 +120,29 @@ export default function ConfirmarTesesPorteiro({
   const [flagsDeterministicas] = useState(() => {
     const d = dadosIniciais || {};
     const det = new Set();
-    // Rescisão determinística
+    // Rescisão determinística se qualquer fonte definiu o tipo
     if (RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO) {
       RESCISAO_FLAGS.forEach(f => det.add(f));
     }
-    // Jornada determinística
-    if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined || detectar12x36(d.JORNADA_HORARIO)) {
+    // Jornada determinística se definida explicitamente ou detectada
+    if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined || /12[x×]36/i.test(d.JORNADA_HORARIO || "")) {
       det.add("jornada_12x36"); det.add("jornada_5x2");
     }
-    // Flags dos campos estruturados
-    if (d.acumulo_funcao)     det.add("tem_acumulo");
-    if (d.tem_insalubridade)  det.add("tem_insalubridade");
-    if (d.tem_periculosidade) det.add("tem_periculosidade");
-    if (d.tem_adic_noturno)   det.add("tem_adic_noturno");
-    if (d.RECL2_NOME)         det.add("tem_2a_reclamada");
+    // Flags dos campos estruturados da entrevista
+    if (d.acumulo_funcao !== undefined || d.tem_acumulo !== undefined) det.add("tem_acumulo");
+    if (d.tem_insalubridade !== undefined)  det.add("tem_insalubridade");
+    if (d.tem_periculosidade !== undefined) det.add("tem_periculosidade");
+    if (d.tem_adic_noturno !== undefined)   det.add("tem_adic_noturno");
+    if (d.RECL2_NOME)                       det.add("tem_2a_reclamada");
+    if (d.RECL3_NOME)                       det.add("tem_3a_reclamada");
     return det;
   });
 
   // Análise automática ao abrir se rescisão não tiver sido preenchida deterministicamente
   useEffect(() => {
     const d = dadosIniciais || {};
-    const temRescisaoDeterministica = RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO;
-    if (!temRescisaoDeterministica) analisarComIA();
+    const temRescisaoDet = RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO;
+    if (!temRescisaoDet) analisarComIA();
   }, []);
 
   const analisarComIA = async () => {

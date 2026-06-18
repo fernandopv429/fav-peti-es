@@ -8,6 +8,7 @@ import Docxtemplater from "docxtemplater";
 import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
+import { derivarFlags } from "./derivarFlags.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo oficial.
@@ -76,17 +77,9 @@ function montarDadosTemplate(dados) {
     campos[key] = vp[key] || "";
   }
 
-  // Flags booleanas de tipo de rescisão (mutuamente exclusivas)
-  const tipo = dados.TIPO_RESCISAO || "";
-  campos.t_dispensa  = tipo === "dispensa_sem_justa_causa";
-  campos.t_indireta  = tipo === "rescisao_indireta";
-  campos.t_reversao  = tipo === "reversao_justa_causa";
-  campos.t_demissao  = tipo === "pedido_demissao";
-
-  // Teses opcionais
-  campos.tem_subsidiaria  = !!dados.tem_subsidiaria;
-  campos.tem_desvio       = !!dados.tem_desvio;
-  campos.tem_adic_noturno = !!dados.tem_adic_noturno;
+  // ── Flags booleanas — 100% determinísticas via derivarFlags ──────────────
+  const flags = derivarFlags(dados, "vigilante");
+  Object.assign(campos, flags);
 
   return campos;
 }
