@@ -211,7 +211,6 @@ export function limparSeparadoresOrfaos(zip) {
     cleaned = cleaned.replace(/,\s*;/g, ";");
     cleaned = cleaned.replace(/;\s*;/g, ";");
     cleaned = cleaned.replace(/,\s*,/g, ",");
-    cleaned = cleaned.replace(/,\s*$/, "");
     return open + cleaned + close;
   });
   zip.file("word/document.xml", xml);
