@@ -138,11 +138,9 @@ export default function ConfirmarTesesPorteiro({
     return det;
   });
 
-  // Análise automática ao abrir se rescisão não tiver sido preenchida deterministicamente
+  // Sempre executa análise IA ao abrir — pré-seleciona campos faltantes a partir dos documentos e dados
   useEffect(() => {
-    const d = dadosIniciais || {};
-    const temRescisaoDet = RESCISAO_FLAGS.some(f => d[f]) || d.tipo_dispensa || d.TIPO_RESCISAO;
-    if (!temRescisaoDet) analisarComIA();
+    analisarComIA();
   }, []);
 
   const analisarComIA = async () => {
@@ -239,26 +237,29 @@ Retorne SOMENTE JSON válido (sem markdown):
 
       setSugestao(resultado);
 
+      // Confiança por campo — se presente, evita pré-selecionar campos incertos
+      const cc = resultado.confianca_campos || resultado.confianca_por_campo || {};
+
       setFlags(prev => {
         const f = { ...prev };
-        // Rescisão — só aplica se NÃO foi preenchida deterministicamente
+        // Rescisão — só aplica se NÃO foi preenchida deterministicamente E confiança não é baixa
         if (!flagsDeterministicas.has("t_dispensa")) {
           const rescFlags = RESCISAO_FLAGS.filter(k => resultado[k] === true);
-          if (rescFlags.length === 1) {
+          if (rescFlags.length === 1 && cc.rescisao !== "baixa") {
             RESCISAO_FLAGS.forEach(k => { f[k] = k === rescFlags[0]; });
           }
         }
         // Jornada — só aplica se NÃO foi preenchida deterministicamente
         if (!flagsDeterministicas.has("jornada_12x36")) {
-          if (typeof resultado.jornada_12x36 === "boolean" || typeof resultado.jornada_5x2 === "boolean") {
+          if ((typeof resultado.jornada_12x36 === "boolean" || typeof resultado.jornada_5x2 === "boolean") && cc.jornada !== "baixa") {
             const is12x36 = resultado.jornada_12x36 === true;
             f.jornada_12x36 = is12x36;
             f.jornada_5x2   = !is12x36;
           }
         }
-        // Opcionais — só preenche os que não vieram de campo estruturado
+        // Opcionais — só preenche os que não vieram de campo estruturado e têm confiança alta
         FLAGS_OPCIONAIS.forEach(({ key }) => {
-          if (!flagsDeterministicas.has(key) && typeof resultado[key] === "boolean") {
+          if (!flagsDeterministicas.has(key) && typeof resultado[key] === "boolean" && cc[key] !== "baixa") {
             f[key] = resultado[key];
           }
         });
