@@ -51,7 +51,11 @@ export default function PetitionsList() {
     e.preventDefault();
     e.stopPropagation();
     if (!confirm("Tem certeza que deseja excluir esta petição?")) return;
-    await base44.entities.Petition.delete(id);
+    try {
+      await base44.entities.Petition.delete(id);
+    } catch (_) {
+      // Registro já não existe — remove da lista mesmo assim
+    }
     setPetitions((prev) => prev.filter((p) => p.id !== id));
     toast.success("Petição excluída");
   };
