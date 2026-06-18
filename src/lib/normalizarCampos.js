@@ -64,60 +64,136 @@ export function sanitizarCampos(campos) {
   return campos;
 }
 
+// Municípios de SP capital / Grande SP → TRT-2 (SEGUNDA REGIÃO)
+const MUNICIPIOS_TRT2 = new Set([
+  "SÃO PAULO", "SAO PAULO", "GUARULHOS", "OSASCO", "SANTO ANDRÉ", "SÃO BERNARDO DO CAMPO",
+  "SAO BERNARDO DO CAMPO", "SÃO CAETANO DO SUL", "SAO CAETANO DO SUL", "DIADEMA", "MAUÁ", "MAUA",
+  "RIBEIRÃO PIRES", "RIBEIRAO PIRES", "RIO GRANDE DA SERRA", "CARAPICUÍBA", "CARAPICUIBA",
+  "BARUERI", "SANTANA DE PARNAÍBA", "SANTANA DE PARNAIBA", "PIRAPORA DO BOM JESUS",
+  "COTIA", "VARGEM GRANDE PAULISTA", "EMBU DAS ARTES", "EMBU-GUAÇU", "EMBU GUACU",
+  "ITAPECERICA DA SERRA", "JUQUITIBA", "SÃO LOURENÇO DA SERRA", "SAO LOURENCO DA SERRA",
+  "MOGI DAS CRUZES", "SUZANO", "POÁ", "POA", "FERRAZ DE VASCONCELOS", "ITAQUAQUECETUBA",
+  "ARUJÁ", "ARUJA", "BIRITIBA-MIRIM", "BIRITIBA MIRIM", "SALESÓPOLIS", "SALESOPOLIS",
+  "GUARAREMA", "CAIEIRAS", "CAJAMAR", "FRANCO DA ROCHA", "FRANCISCO MORATO",
+  "MAIRIPORÃ", "MAIRIPORA", "JANDIRA", "ITAPEVI", "São ROQUE", "SAO ROQUE",
+  "VÁRZEA PAULISTA", "VARZEA PAULISTA", "CAMPO LIMPO PAULISTA", "JUNDIAÍ", "JUNDIAI",
+  "TABOÃO DA SERRA", "ITAIM PAULISTA",
+]);
+
+// Municípios de SP interior → TRT-15 (DÉCIMA QUINTA REGIÃO)
+const MUNICIPIOS_TRT15 = new Set([
+  "CAMPINAS", "SOROCABA", "RIBEIRÃO PRETO", "RIBEIRAO PRETO", "SÃO JOSÉ DOS CAMPOS",
+  "SAO JOSE DOS CAMPOS", "TAUBATÉ", "TAUBATE", "PIRACICABA", "AMERICANA",
+  "LIMEIRA", "ARARAQUARA", "SÃO CARLOS", "SAO CARLOS", "SÃO JOSÉ DO RIO PRETO",
+  "SAO JOSE DO RIO PRETO", "BAURU", "MARÍLIA", "MARILIA", "PRESIDENTE PRUDENTE",
+  "ARAÇATUBA", "ARACATUBA", "BOTUCATU", "SÃO JOÃO DA BOA VISTA", "SAO JOAO DA BOA VISTA",
+  "FRANCA", "OURINHOS", "JABOTICABAL", "JAÚ", "JAU", "INDAIATUBA", "SUMARÉ", "SUMARE",
+  "HORTOLÂNDIA", "HORTOLANDIA", "NOVA ODESSA", "SANTA BÁRBARA D'OESTE", "SANTA BARBARA D OESTE",
+  "PAULÍNIA", "PAULINIA", "VALINHOS", "VINHEDO", "ITUPEVA",
+]);
+
+/**
+ * Extrai a UF de qualquer string (busca 2 letras maiúsculas no padrão esperado).
+ */
+function extrairUF(str) {
+  if (!str) return null;
+  const s = str.toUpperCase().trim();
+  // "CIDADE/UF"
+  const m1 = s.match(/\/([A-Z]{2})$/);
+  if (m1) return m1[1];
+  // "CIDADE - UF" ou "CIDADE – UF"
+  const m2 = s.match(/[-–]\s*([A-Z]{2})$/);
+  if (m2) return m2[1];
+  // "CIDADE, UF"
+  const m3 = s.match(/,\s*([A-Z]{2})$/);
+  if (m3) return m3[1];
+  // Só UF
+  if (/^[A-Z]{2}$/.test(s)) return s;
+  return null;
+}
+
+/**
+ * Extrai a cidade (parte antes do separador) de uma string.
+ */
+function extrairCidade(str) {
+  if (!str) return null;
+  const s = str.toUpperCase().trim();
+  const m = s.match(/^([^/,\-–]+)/);
+  if (m) {
+    const cidade = m[1].trim();
+    if (cidade.length > 1) return cidade;
+  }
+  return null;
+}
+
 /**
  * Normaliza COMARCA_UF para formato "CIDADE/UF" em caixa alta.
- *
- * Se vier só a UF (2 letras), tenta derivar a cidade
- * de FORO_COMPETENCIA ou LOCAL_PRESTACAO.
+ * SEMPRE garante que o resultado termine com "/UF" de 2 letras.
+ * Se a UF não estiver explícita, infere das fontes auxiliares ou do contexto.
  */
 export function normalizarComarcaUF(comarcaUf, localPrestacao, foroCompetencia) {
   let raw = sanitizar(comarcaUf);
   if (typeof raw !== "string") raw = "";
   raw = raw.toUpperCase().trim();
-  if (!raw) return "";
 
-  // Já contém "/" e mais de 3 chars → formato CIDADE/UF, preservar
-  if (raw.includes("/") && raw.length > 3) return raw;
+  // Coleta todas as fontes para extração de UF e cidade
+  const fontes = [raw, foroCompetencia, localPrestacao].map(f => {
+    const s = sanitizar(f);
+    return typeof s === "string" ? s.toUpperCase().trim() : "";
+  }).filter(Boolean);
 
-  // Formato "CIDADE - UF" → normaliza para CIDADE/UF
-  const dashM = raw.match(/^(.+?)\s*[-–]\s*([A-Z]{2})$/);
-  if (dashM) return `${dashM[1].trim()}/${dashM[2]}`;
-
-  // Apenas UF (2 letras) → derivar cidade de fontes auxiliares
-  if (/^[A-Z]{2}$/.test(raw)) {
-    const uf = raw;
-    const fontes = [foroCompetencia, localPrestacao].map(f => {
-      const s = sanitizar(f);
-      return typeof s === "string" ? s.toUpperCase().trim() : "";
-    });
-
-    for (const fonte of fontes) {
-      if (!fonte) continue;
-      // "CIDADE/UF"
-      const m1 = fonte.match(/^([^/]+)\/[A-Z]{2}$/);
-      if (m1 && m1[1].trim().length > 1) return `${m1[1].trim()}/${uf}`;
-      // "CIDADE - UF"
-      const m2 = fonte.match(/^(.+?)\s*[-–]\s*[A-Z]{2}$/);
-      if (m2 && m2[1].trim().length > 1) return `${m2[1].trim()}/${uf}`;
-      // "CIDADE, UF"
-      const m3 = fonte.match(/^(.+?),\s*[A-Z]{2}$/);
-      if (m3 && m3[1].trim().length > 1) return `${m3[1].trim()}/${uf}`;
-      // Nome puro de cidade (só letras, sem números/vírgulas)
-      if (/^[A-ZÀ-Ú\s]+$/.test(fonte) && fonte.length > 2 && fonte.length < 50) {
-        return `${fonte}/${uf}`;
-      }
-    }
-    return uf; // fallback: só UF
+  // Extrai UF de qualquer fonte disponível
+  let uf = null;
+  for (const fonte of fontes) {
+    uf = extrairUF(fonte);
+    if (uf) break;
   }
 
-  return raw;
+  // Se ainda não temos UF, tenta identificar cidade em qualquer fonte e mapeá-la
+  let cidade = null;
+  for (const fonte of fontes) {
+    const c = extrairCidade(fonte);
+    if (c && c.length > 2) {
+      cidade = c;
+      break;
+    }
+  }
+
+  // Se não há UF, inferir de SP pela cidade (caso mais comum)
+  if (!uf && cidade) {
+    if (MUNICIPIOS_TRT2.has(cidade) || MUNICIPIOS_TRT15.has(cidade)) uf = "SP";
+  }
+
+  // Fallback: maioria dos casos é SP
+  if (!uf) uf = "SP";
+
+  // Se temos cidade e UF → montar "CIDADE/UF"
+  if (cidade && uf) return `${cidade}/${uf}`;
+
+  // raw já tem "/" → preservar mas garantir UF
+  if (raw.includes("/")) {
+    const partes = raw.split("/");
+    const cidadeRaw = partes[0].trim();
+    const ufRaw = partes[partes.length - 1].trim();
+    if (/^[A-Z]{2}$/.test(ufRaw) && cidadeRaw.length > 1) return `${cidadeRaw}/${ufRaw}`;
+    if (cidadeRaw.length > 1) return `${cidadeRaw}/${uf}`;
+  }
+
+  // Se só temos UF
+  if (/^[A-Z]{2}$/.test(raw)) return `${raw}/${uf === raw ? uf : uf}`;
+
+  // raw com cidade sem UF → acrescentar UF
+  if (raw.length > 2) return `${raw}/${uf}`;
+
+  return `SÃO PAULO/${uf}`;
 }
 
 /**
  * Normaliza REGIAO_TRT para nome POR EXTENSO em caixa alta.
+ * NUNCA retorna string vazia — fallback é "SEGUNDA REGIÃO".
  *
- * Aceita: número ("2"), "TRT-2", "TRT da 2ª Região", ou já por extenso.
- * Fallback: derivar da UF de COMARCA_UF.
+ * Aceita: número ("2"), "TRT-2", "TRT 2", "2ª REGIÃO", já por extenso, ou vazio.
+ * Fallback: derivar da UF de COMARCA_UF → se SP, distingue TRT-2 vs TRT-15 pela cidade.
  */
 export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
   let raw = sanitizar(regiaoTrt);
@@ -134,16 +210,44 @@ export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
     if (nome) return nome;
   }
 
-  // Vazio ou não reconhecido → derivar da UF (fallback)
+  // Vazio ou não reconhecido → derivar da comarca
   const ufStr = sanitizar(comarcaUf);
   if (typeof ufStr === "string") {
-    const ufMatch = ufStr.toUpperCase().match(/([A-Z]{2})$/);
-    if (ufMatch && UF_TRT[ufMatch[1]]) {
-      return UF_TRT[ufMatch[1]];
+    const up = ufStr.toUpperCase();
+
+    // Para SP: distinguir capital/grande SP (TRT-2) vs interior (TRT-15)
+    const ufMatch = up.match(/\/([A-Z]{2})$/);
+    if (ufMatch && ufMatch[1] === "SP") {
+      const cidade = extrairCidade(up) || "";
+      if (MUNICIPIOS_TRT15.has(cidade)) return "DÉCIMA QUINTA REGIÃO";
+      return "SEGUNDA REGIÃO"; // capital, grande SP, ou SP indeterminado
     }
+
+    // Outros estados: lookup direto
+    if (ufMatch && UF_TRT[ufMatch[1]]) return UF_TRT[ufMatch[1]];
+
+    // Fallback sem "/UF" — tenta extrair UF de qualquer forma
+    const ufAny = extrairUF(up);
+    if (ufAny && UF_TRT[ufAny]) return UF_TRT[ufAny];
   }
 
-  return raw;
+  // Fallback final: nunca deixar vazio
+  return "SEGUNDA REGIÃO";
+}
+
+/**
+ * Aplica normalizarComarcaUF + normalizarRegiaoTRT e devolve ambos
+ * já resolvidos, garantindo que REGIAO_TRT nunca fique vazio.
+ * Use esta função nos montarDadosTemplate de todos os geradores.
+ */
+export function normalizarEndereçamento(dados) {
+  const comarca = normalizarComarcaUF(
+    dados.COMARCA_UF,
+    dados.LOCAL_PRESTACAO,
+    dados.FORO_COMPETENCIA,
+  );
+  const regiao = normalizarRegiaoTRT(dados.REGIAO_TRT, comarca);
+  return { COMARCA_UF: comarca, REGIAO_TRT: regiao };
 }
 
 /**
@@ -211,6 +315,10 @@ export function limparSeparadoresOrfaos(zip) {
     cleaned = cleaned.replace(/,\s*;/g, ";");
     cleaned = cleaned.replace(/;\s*;/g, ";");
     cleaned = cleaned.replace(/,\s*,/g, ",");
+    // Remove traço/hífen solto no final (ex.: "SÃO PAULO –" ou "SÃO PAULO -")
+    cleaned = cleaned.replace(/\s*[–\-]\s*$/, "");
+    // Remove traço/hífen no início (ex.: "– SEGUNDA REGIÃO" quando comarca ficou vazia)
+    cleaned = cleaned.replace(/^\s*[–\-]\s*/, "");
     return open + cleaned + close;
   });
   zip.file("word/document.xml", xml);
