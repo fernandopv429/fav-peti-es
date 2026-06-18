@@ -494,6 +494,20 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           {gerandoDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
           {gerandoDocx ? "Gerando DOCX..." : "Gerar DOCX Idêntico ao Modelo"}
         </button>
+
+        {templateId === "6a3433edd50679b069e1986a" && (
+          <button
+            type="button"
+            onClick={() => {
+              const dadosClassificados = autoClassificar(dados, "porteiro");
+              if (dadosClassificados._alertaClassificacao) toast.warning(dadosClassificados._alertaClassificacao, { duration: 8000 });
+              onGerarComDados(dadosClassificados);
+            }}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
+          >
+            <Wand2 className="w-4 h-4" /> Gerar Petição com IA →
+          </button>
+        )}
       </div>
       <button
         type="button"
