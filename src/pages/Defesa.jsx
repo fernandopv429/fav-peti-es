@@ -193,8 +193,30 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         delimiters: { start: "{{", end: "}}" },
       });
 
-      // 3. Renderiza com {{CONTEUDO}} — modelo tem um único marcador
-      doc.render({ CONTEUDO: conteudo });
+      // 3. Converte Markdown → array de blocos { t, h } para o loop {{#blocos}} do modelo
+      const ROMANO = /^(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3}))\s*[–\-.]/i;
+      const blocos = conteudo
+        .split("\n")
+        .map(l => l.trimEnd())
+        .filter(l => l.trim().length > 0 && !/^[-*]{3,}$/.test(l.trim()))
+        .map(l => {
+          // Limpa Markdown do texto
+          let t = l
+            .replace(/^#{1,6}\s*/, "")       // remove # do início
+            .replace(/^>\s*/, "")             // remove > (blockquote)
+            .replace(/\*\*|__/g, "")          // remove negrito/itálico
+            .replace(/\*|_/g, "")             // remove * e _ soltos
+            .trim();
+          if (!t) return null;
+          // Detecta se é título
+          const isCaixaAlta = t === t.toUpperCase() && t.length < 80 && /[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/.test(t);
+          const isRomano = ROMANO.test(t);
+          const isHeading = /^#{1,6}\s/.test(l); // linha original tinha #
+          return { t, h: isCaixaAlta || isRomano || isHeading };
+        })
+        .filter(Boolean);
+
+      doc.render({ blocos });
 
       // 4. Gera o blob e faz download
       const blob = doc.getZip().generate({
