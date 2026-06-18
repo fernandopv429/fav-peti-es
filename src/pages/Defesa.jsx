@@ -194,27 +194,32 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       });
 
       // 3. Converte Markdown → array de blocos { t, h } para o loop {{#blocos}} do modelo
-      const ROMANO = /^(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3}))\s*[–\-.]/i;
+      const SEP_ONLY = /^[-–—*_=#]{2,}$/;
+      const TITULO_ROMANO  = /^[IVXLCDM]+\s*[–-]\s/i;
+      const TITULO_NUMERAL = /^\d+(\.\d+)*\s*[–-]\s/;
+      const NAO_TITULO     = /^[-•*]|^\w\)|^\d+\)|.*:.+/;
+
       const blocos = conteudo
         .split("\n")
-        .map(l => l.trimEnd())
-        .filter(l => l.trim().length > 0 && !/^[-*]{3,}$/.test(l.trim()))
         .map(l => {
-          // Limpa Markdown do texto
+          // Limpa Markdown
           let t = l
-            .replace(/^#{1,6}\s*/, "")       // remove # do início
-            .replace(/^>\s*/, "")             // remove > (blockquote)
-            .replace(/\*\*|__/g, "")          // remove negrito/itálico
-            .replace(/\*|_/g, "")             // remove * e _ soltos
+            .replace(/^#{1,6}\s*/, "")
+            .replace(/^>\s*/, "")
+            .replace(/[*_`]/g, "")
             .trim();
-          if (!t) return null;
-          // Detecta se é título
-          const isCaixaAlta = t === t.toUpperCase() && t.length < 80 && /[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/.test(t);
-          const isRomano = ROMANO.test(t);
-          const isHeading = /^#{1,6}\s/.test(l); // linha original tinha #
-          return { t, h: isCaixaAlta || isRomano || isHeading };
+          return t;
         })
-        .filter(Boolean);
+        .filter(t => t.length > 0 && !SEP_ONLY.test(t))
+        .map(t => {
+          const letras = t.replace(/[^a-zA-ZÀ-ú]/g, "");
+          const isCaixaAlta = letras.length > 0 && letras === letras.toUpperCase() && t.length <= 70;
+          const isRomano  = TITULO_ROMANO.test(t);
+          const isNumeral = TITULO_NUMERAL.test(t);
+          const naoTitulo = NAO_TITULO.test(t);
+          const h = !naoTitulo && (isCaixaAlta || isRomano || isNumeral);
+          return { t, h };
+        });
 
       doc.render({ blocos });
 
