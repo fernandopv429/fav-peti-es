@@ -3,9 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
-import { autoClassificar } from "@/lib/normalizarCampos.js";
-import { derivarFlags } from "@/lib/derivarFlags.js";
-import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
+import { autoClassificar, nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
 import ConfirmarTeses from "./ConfirmarTeses.jsx";
 
@@ -169,19 +167,14 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   // Modo automático: classifica deterministicamente e gera sem modal
   const handleGerarAutomatico = (modo) => {
-    const flags = derivarFlags(dados, "vigilante");
-    const RESCISAO = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
-    const dadosEnriquecidos = { ...dados, ...flags };
-
-    if (!RESCISAO.some(f => flags[f])) {
-      dadosEnriquecidos.t_dispensa = true;
-      toast.info("Tipo de rescisão não identificado — usando 'Dispensa sem justa causa'. Revise a peça final.");
+    const dadosClassificados = autoClassificar(dados, "vigilante");
+    if (dadosClassificados._alertaClassificacao) {
+      toast.warning(dadosClassificados._alertaClassificacao, { duration: 8000 });
     }
-
     if (modo === "docx") {
-      handleGerarDocxIdêntico(dadosEnriquecidos);
+      handleGerarDocxIdêntico(dadosClassificados);
     } else {
-      onGerarComDados(dadosEnriquecidos);
+      onGerarComDados(dadosClassificados);
     }
   };
 
@@ -223,6 +216,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: "vigilante_unificado",
+          ...(dadosFinais._alertaClassificacao ? { additional_facts: dadosFinais._alertaClassificacao } : {}),
         };
 
         // Usa petition_id já vinculado ao caso (estado local tem o campo)

@@ -5,6 +5,8 @@
  * Usado por gerarDocxVigilante.js e gerarDocxPorteiro.js.
  */
 
+import { derivarFlags } from "./derivarFlags.js";
+
 // Tabela UF → nome por extenso do TRT
 const UF_TRT = {
   SP: "SEGUNDA REGIÃO", RJ: "PRIMEIRA REGIÃO", MG: "TERCEIRA REGIÃO",
@@ -145,13 +147,44 @@ export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
 }
 
 /**
+ * Classificação automática (sem modal): aplica derivarFlags e, se o tipo de
+ * rescisão estiver indeterminado, escolhe a melhor hipótese com alerta.
+ * Retorna o objeto dados enriquecido com flags + TIPO_RESCISAO.
+ *
+ * @param {object} dados  — CasoVigilante
+ * @param {string} perfil — "vigilante" | "porteiro" | etc.
+ * @returns {object} dados + flags + TIPO_RESCISAO + _alertaClassificacao (se houver)
+ */
+export function autoClassificar(dados, perfil) {
+  const flags = derivarFlags(dados, perfil);
+
+  const RESCISAO_FLAGS = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
+  let _alertaClassificacao = "";
+
+  if (!RESCISAO_FLAGS.some(f => flags[f])) {
+    // Nenhum tipo de rescisão determinado — default seguro
+    flags.t_dispensa = true;
+    flags.t_demissao = false;
+    _alertaClassificacao =
+      "⚠️ Tipo de rescisão não identificado nos dados — classificado como 'dispensa sem justa causa' por padrão. REVISAR a peça antes de protocolar.";
+  }
+
+  const FLAG_TO_TIPO = {
+    t_dispensa: "dispensa_sem_justa_causa",
+    t_indireta: "rescisao_indireta",
+    t_coacao:   "pedido_demissao",
+    t_reversao: "reversao_justa_causa",
+  };
+  const tipoAtivo = RESCISAO_FLAGS.find(f => flags[f]);
+  const TIPO_RESCISAO = FLAG_TO_TIPO[tipoAtivo] || "dispensa_sem_justa_causa";
+
+  return { ...dados, ...flags, TIPO_RESCISAO, _alertaClassificacao };
+}
+
+/**
  * Gera o nome do arquivo da petição: "RECLAMANTE x RECLAMADA.docx".
  * Remove caracteres inválidos para nomes de arquivo.
  */
-export function montarTituloPeticao(reclNome, recl1Nome) {
-  return nomeArquivoPeticao(reclNome, recl1Nome);
-}
-
 export function nomeArquivoPeticao(reclNome, recl1Nome) {
   const parts = [reclNome, recl1Nome].map(p => sanitizar(p)).filter(Boolean);
   let nome;

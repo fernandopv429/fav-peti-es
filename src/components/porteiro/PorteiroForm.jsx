@@ -7,8 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarDocxPorteiro } from "@/lib/gerarDocxPorteiro.js";
-import { derivarFlags } from "@/lib/derivarFlags.js";
-import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
+import { autoClassificar, nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
 
@@ -171,16 +170,11 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
 
   // Modo automático: classifica deterministicamente e gera sem modal
   const handleGerarAutomatico = () => {
-    const flags = derivarFlags(dados, "porteiro");
-    const RESCISAO = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
-    const dadosEnriquecidos = { ...dados, ...flags };
-
-    if (!RESCISAO.some(f => flags[f])) {
-      dadosEnriquecidos.t_dispensa = true;
-      toast.info("Tipo de rescisão não identificado — usando 'Dispensa sem justa causa'. Revise a peça final.");
+    const dadosClassificados = autoClassificar(dados, "porteiro");
+    if (dadosClassificados._alertaClassificacao) {
+      toast.warning(dadosClassificados._alertaClassificacao, { duration: 8000 });
     }
-
-    handleGerarDocxIdêntico(dadosEnriquecidos);
+    handleGerarDocxIdêntico(dadosClassificados);
   };
 
   // Chamado após confirmação do modal ou geração automática
@@ -238,10 +232,11 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           claimant_name: dadosFinais.RECL_NOME || "—",
           defendant_name: dadosFinais.RECL1_NOME || "—",
           defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
-          status: tokensFaltando.length > 0 ? "revisao_necessaria" : "concluida",
+          status: "revisao_necessaria",
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: templateId || "porteiro",
+          ...(dadosFinais._alertaClassificacao ? { additional_facts: dadosFinais._alertaClassificacao } : {}),
         };
 
         const existingPetitionId = dadosFinais.petition_id || null;
