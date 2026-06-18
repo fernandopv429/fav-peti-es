@@ -186,16 +186,43 @@ export function derivarFlags(d, perfil) {
   flags.tem_assiduidade       = !!(d.tem_assiduidade);
   flags.tem_doenca            = !!(d.tem_doenca);
 
-  // ── 9. JORNADA (porteiro) ─────────────────────────────────────────────────
+  // ── 9. JORNADA ───────────────────────────────────────────────────────────
+  // Prioridade: flags explícitas > campo `escala` > regex na JORNADA_HORARIO
   if (d.jornada_12x36 !== undefined || d.jornada_5x2 !== undefined) {
+    // Flags já confirmadas pelo advogado — preservar
     flags.jornada_12x36 = !!(d.jornada_12x36);
     flags.jornada_5x2   = !!(d.jornada_5x2);
   } else {
-    const is12x36 = /12[x×]36/i.test(d.JORNADA_HORARIO || "");
+    // Deriva a partir do campo `escala` (entrevista) ou da string JORNADA_HORARIO
+    const escala = (d.escala || "").toString().toLowerCase().trim();
+    let is12x36;
+    if (escala) {
+      // Escala 12x36 → jornada_12x36 = true
+      // Qualquer outra escala (4x2, 6x2, 5x1, 6x1, 5x2, …) → jornada_5x2 = true
+      is12x36 = /12[x×]36/.test(escala);
+    } else {
+      // Fallback: detecta pela string horária da jornada
+      is12x36 = /12[x×]36/i.test(d.JORNADA_HORARIO || "");
+    }
     flags.jornada_12x36 = is12x36;
     flags.jornada_5x2   = !is12x36;
   }
+  // Garante que pelo menos uma esteja ligada
   if (!flags.jornada_12x36 && !flags.jornada_5x2) flags.jornada_5x2 = true;
+
+  // ── 9a. DESCARACTERIZAÇÃO (12x36) ────────────────────────────────────────
+  // Ligada automaticamente se: 12x36 E houver extrapolação habitual registrada
+  // O advogado pode sobrescrever manualmente (d.tem_descaracterizacao explícito tem prioridade)
+  if (d.tem_descaracterizacao !== undefined) {
+    flags.tem_descaracterizacao = !!(d.tem_descaracterizacao);
+  } else if (flags.jornada_12x36) {
+    // Descaracterização = jornada 12x36 com extrapolação habitual documentada
+    const temExtrapola = !!(d.JORNADA_EXTRAPOLA && String(d.JORNADA_EXTRAPOLA).trim()) ||
+                         !!(d.JORNADA_FREQ_EXTRA && String(d.JORNADA_FREQ_EXTRA).trim());
+    flags.tem_descaracterizacao = temExtrapola;
+  } else {
+    flags.tem_descaracterizacao = false;
+  }
 
   return flags;
 }

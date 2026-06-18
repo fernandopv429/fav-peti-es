@@ -38,7 +38,7 @@ const UF_REGIAO_TRT = {
 };
 
 // Campos booleanos/enum extraídos da entrevista padrão do escritório
-const CAMPOS_ENTREVISTA = ["tipo_dispensa", "acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno"];
+const CAMPOS_ENTREVISTA = ["tipo_dispensa", "acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno", "escala"];
 
 const SCHEMA = {
   type: "object",
@@ -78,6 +78,11 @@ const SCHEMA = {
       type: "boolean",
       description: "true se JORNADA_HORARIO contiver horas entre 22:00 e 05:00 (adicional noturno art. 73 CLT)"
     },
+    // Regime de escala (seção da entrevista sobre jornada)
+    escala: {
+      type: "string",
+      description: "Regime de escala marcado na entrevista: '12x36', '4x2', '6x2', '5x1', '6x1', '5x2' ou semelhante. Extrair exatamente como escrito na entrevista."
+    },
   },
 };
 
@@ -87,6 +92,9 @@ const DEFAULTS = { RECL_NACIONALIDADE: "brasileiro" };
 
 // Campos booleanos — precisam de tratamento separado
 const CAMPOS_BOOL = new Set(["acumulo_funcao", "tem_insalubridade", "tem_periculosidade", "tem_adic_noturno"]);
+
+// Campos-chave: se ao menos 2 estiverem preenchidos, a extração é considerada bem-sucedida (sucesso parcial)
+const CAMPOS_CHAVE = new Set(["RECL_NOME","RECL_CPF","RECL_RG","RECL1_NOME","RECL1_CNPJ","DATA_ADMISSAO","DATA_RESCISAO","SALARIO"]);
 
 function isVisualFile(url) {
   const lower = (url || "").toLowerCase().split("?")[0];
@@ -194,14 +202,21 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Se nenhum campo foi preenchido, registra como falha silenciosa
+        // Avalia se a extração foi útil:
+        // — "vazia" = 0 campos preenchidos → falha
+        // — "parcial" = ≥1 campo preenchido mas <2 campos-chave → aproveita, sinaliza para revisão
+        // — "sucesso" = ≥2 campos-chave preenchidos
+        const camposChaveNesteDoc = Object.entries(output).filter(
+          ([key, value]) => CAMPOS_CHAVE.has(key) && value && String(value).trim()
+        ).length;
+
         if (camposPreenchidosNesteDoc === 0) {
+          // Realmente vazio — registra como falha
           docsFalharam.push({
             url,
             nome: nomeDoc,
             erro: "Nenhum campo extraído (resultado vazio ou apenas defaults)",
           });
-
           await base44.asServiceRole.entities.ErrorLog.create({
             context: "extracao_documentos",
             error_type: "api",
@@ -209,7 +224,16 @@ Deno.serve(async (req) => {
             resolved: false,
             occurred_at: new Date().toISOString(),
           }).catch(() => {});
+        } else if (camposChaveNesteDoc < 2) {
+          // Sucesso parcial — dados aproveitados, mas sinalizar para revisão
+          console.log(`[sucesso_parcial] ${nomeDoc}: ${camposPreenchidosNesteDoc} campos (${camposChaveNesteDoc} chave). Aproveitados.`);
+          docsFalharam.push({
+            url,
+            nome: nomeDoc,
+            aviso: `Sucesso parcial: ${camposPreenchidosNesteDoc} campo(s) extraído(s) — confira nome, CPF e empresa manualmente`,
+          });
         }
+        // else: sucesso normal — nenhum aviso necessário
       } catch (err) {
         docsFalharam.push({ url, nome: nomeDoc, erro: err.message });
         
