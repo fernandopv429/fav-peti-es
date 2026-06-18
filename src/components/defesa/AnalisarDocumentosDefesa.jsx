@@ -21,8 +21,11 @@ const SCHEMA = {
     reclamante_cpf:       { type: "string" },
     reclamada_name:       { type: "string" },
     reclamada_cnpj:       { type: "string" },
+    reclamada_endereco:   { type: "string", description: "endereço/sede da reclamada: logradouro, número, bairro, cidade/UF, CEP — extraído da qualificação na inicial" },
     reclamada_setor:      { type: "string" },
     posicao_processual:   { type: "string", enum: ["empregadora", "tomadora", ""] },
+    vara:                 { type: "string", description: "número/ordinal da Vara do Trabalho indicada no endereçamento da inicial (ex: 84ª)" },
+    comarca:              { type: "string", description: "cidade/comarca da Vara (ex: SÃO PAULO/SP)" },
     process_number:       { type: "string" },
     contract_start:       { type: "string", description: "formato AAAA-MM-DD" },
     contract_end:         { type: "string", description: "formato AAAA-MM-DD" },
@@ -137,8 +140,11 @@ Campos a extrair:
 - reclamante_cpf: CPF do reclamante
 - reclamada_name: razão social da RECLAMADA principal (nosso cliente / empregadora direta)
 - reclamada_cnpj: CNPJ da reclamada
+- reclamada_endereco: endereço/sede da reclamada extraído da qualificação (logradouro, número, bairro, cidade/UF, CEP) — deixe vazio se não encontrar
 - reclamada_setor: ramo de atividade (ex: vigilância, limpeza, telecomunicações, comércio)
 - posicao_processual: "empregadora" se contratante direta, "tomadora" se tomadora de serviços, "" se incerto
+- vara: número/ordinal da Vara do Trabalho no endereçamento (ex: "84ª") — apenas o número/ordinal, deixe vazio se não encontrar
+- comarca: cidade/comarca da Vara (ex: "SÃO PAULO/SP") — deixe vazio se não encontrar
 - process_number: número do processo (ex: 0001234-56.2024.5.02.0001)
 - contract_start: data de admissão (AAAA-MM-DD)
 - contract_end: data de demissão/rescisão (AAAA-MM-DD)
