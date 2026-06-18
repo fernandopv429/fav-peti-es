@@ -112,15 +112,46 @@ function extrairUF(str) {
   return null;
 }
 
+// Prefixos de logradouro — qualquer valor que comece com esses tokens é um endereço, não cidade
+const LOGRADOURO_PREFIXOS = [
+  "RUA ", "R. ", "R ", "AV ", "AV. ", "AVENIDA ", "ALAMEDA ", "AL. ",
+  "TRAVESSA ", "TV. ", "ESTRADA ", "ROD. ", "RODOVIA ", "LARGO ",
+  "PRAÇA ", "PRACA ", "PCA. ", "VIELA ", "BECO ", "CONJ ", "CONJUNTO ",
+];
+
+/**
+ * Retorna true se a string parece ser um logradouro (rua, avenida, etc.)
+ * e portanto NÃO deve ser usada como comarca.
+ */
+function ehLogradouro(str) {
+  if (!str) return false;
+  const s = str.toUpperCase().trim();
+  // Começa com prefixo de logradouro
+  if (LOGRADOURO_PREFIXOS.some(p => s.startsWith(p))) return true;
+  // Contém número de porta (padrão: texto seguido de espaço e dígitos, ex: "MARCHINI 32")
+  if (/\b\d{1,6}\b/.test(s) && !/^\d{5}-?\d{3}$/.test(s.replace(/\s/g, ""))) {
+    // Ignora se parece CEP puro; caso contrário, com número embutido é logradouro
+    if (!/^(SÃO|SAO|RIO|BELO|PORTO|CAMPO|SANTO|SANTA|MOGI|NOVA|VILA|GUARULHOS|CAMPINAS|SOROCABA|FRANCA|BAURU|MARILIA|JUNDIAI|OSASCO|DIADEMA|ARAÇATUBA|ARARAQUARA|TAUBATE|LIMEIRA|PIRACICABA|AMERICANA|PRESIDENTE|SÃO BERNARDO|SAO BERNARDO)/i.test(s)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Extrai a cidade (parte antes do separador) de uma string.
+ * Rejeita a string inteira se parecer logradouro.
  */
 function extrairCidade(str) {
   if (!str) return null;
   const s = str.toUpperCase().trim();
+  // Rejeita imediatamente se for logradouro
+  if (ehLogradouro(s)) return null;
   const m = s.match(/^([^/,\-–]+)/);
   if (m) {
     const cidade = m[1].trim();
+    // Rejeita se o pedaço extraído também parecer logradouro
+    if (ehLogradouro(cidade)) return null;
     if (cidade.length > 1) return cidade;
   }
   return null;
@@ -136,11 +167,14 @@ export function normalizarComarcaUF(comarcaUf, localPrestacao, foroCompetencia) 
   if (typeof raw !== "string") raw = "";
   raw = raw.toUpperCase().trim();
 
-  // Coleta todas as fontes para extração de UF e cidade
+  // Se o valor de COMARCA_UF parecer logradouro, descarta — nunca usar rua como comarca
+  if (ehLogradouro(raw)) raw = "";
+
+  // Coleta fontes; exclui qualquer fonte que seja logradouro
   const fontes = [raw, foroCompetencia, localPrestacao].map(f => {
     const s = sanitizar(f);
     return typeof s === "string" ? s.toUpperCase().trim() : "";
-  }).filter(Boolean);
+  }).filter(f => f && !ehLogradouro(f));
 
   // Extrai UF de qualquer fonte disponível
   let uf = null;
