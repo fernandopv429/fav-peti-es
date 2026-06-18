@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip } from "lucide-react";
+import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip, FileDown } from "lucide-react";
 import AnalisarDocumentosDefesa from "@/components/defesa/AnalisarDocumentosDefesa.jsx";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
+import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
 
 const AVISO_REVISAO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
@@ -45,6 +48,7 @@ export default function Defesa() {
   const [expandedId, setExpandedId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(null);
+  const [baixandoDocx, setBaixandoDocx] = useState(false);
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -167,6 +171,44 @@ Elabore a contestação completa. Ao final, apresente separadamente:
 
   const handleDocsChange = (urls, names) => {
     setForm(prev => ({ ...prev, document_urls: urls, document_names: names }));
+  };
+
+  const handleBaixarDocx = async (conteudo, reclamante, reclamada) => {
+    setBaixandoDocx(true);
+    try {
+      // Busca o template de contestação pelo ID fixo
+      const template = await base44.entities.PetitionTemplate.filter({ id: "6a346bc910fba561105aca82" });
+      const tmpl = Array.isArray(template) ? template[0] : template;
+      if (!tmpl?.modelo_docx_url) {
+        toast.error("Modelo CONTESTACAO_TIMBRADO.docx não encontrado. Verifique se está cadastrado em Modelos.");
+        return;
+      }
+
+      const arrayBuffer = await fetchDocxViaBackend(tmpl.modelo_docx_url);
+      const zip = new PizZip(arrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter: () => "",
+      });
+
+      doc.render({ CONTEUDO: conteudo });
+
+      const blob = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+
+      const nomeArquivo = `${reclamante || "Reclamante"} x ${reclamada || "Reclamada"}.docx`
+        .replace(/[/\\:*?"<>|]/g, " ").replace(/\s{2,}/g, " ").trim();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = nomeArquivo; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("DOCX baixado!");
+    } catch (e) {
+      toast.error("Erro ao gerar DOCX: " + e.message);
+    } finally {
+      setBaixandoDocx(false);
+    }
   };
 
   const handleOpen = (d) => {
@@ -341,6 +383,14 @@ Elabore a contestação completa. Ao final, apresente separadamente:
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(resultado); toast.success("Copiado!"); }}>
                 <Copy className="w-4 h-4" /> Copiar
+              </Button>
+              <Button
+                variant="outline" size="sm" className="gap-2"
+                disabled={baixandoDocx || !resultado}
+                onClick={() => handleBaixarDocx(resultado, form.reclamante_name, form.reclamada_name)}
+              >
+                {baixandoDocx ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                {baixandoDocx ? "Gerando..." : "Timbrado (.docx)"}
               </Button>
               <Button size="sm" className="gap-2" onClick={handleSalvar} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
