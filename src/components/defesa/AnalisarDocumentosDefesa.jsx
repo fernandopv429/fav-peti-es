@@ -95,48 +95,85 @@ export default function AnalisarDocumentosDefesa({ existingUrls = [], existingNa
     setConcluido(false);
 
     try {
-      const urls = arquivos.map(a => a.url);
+      // Processa cada arquivo individualmente com ExtractDataFromUploadedFile (melhor para OCR/DOCX)
+      // e depois agrega os resultados num merge por campo.
+      const merged = {};
 
-      const prompt = `Você é um assistente jurídico especializado em direito trabalhista.
-Analise os documentos anexados (petição inicial trabalhista e/ou pasta funcional do reclamante).
-
-Extraia APENAS os dados que estiverem explicitamente presentes nos documentos. NÃO invente nem infira dados ausentes — deixe o campo vazio se não encontrar.
-
-Extraia:
-- reclamante_name: nome completo do reclamante
-- reclamante_cpf: CPF do reclamante
-- reclamada_name: razão social da reclamada (empregadora ou tomadora principal)
-- reclamada_cnpj: CNPJ da reclamada
-- reclamada_setor: ramo de atividade da reclamada (ex: vigilância, limpeza, telecomunicações)
-- posicao_processual: "empregadora" se for a contratante direta, "tomadora" se for tomadora de serviços, "" se não identificado
-- process_number: número do processo judicial (formato TRT)
-- contract_start: data de admissão (AAAA-MM-DD)
-- contract_end: data de demissão/rescisão (AAAA-MM-DD)
-- funcao: função/cargo do reclamante
-- salario: salário mensal em número (ex: 2148.22)
-- jornada: descrição da jornada alegada na inicial
-- valor_causa: valor da causa em número (ex: 45000.00)
-- inicial_texto: texto integral da petição inicial (se disponível no documento)
-- pedidos_identificados: array com os pedidos da inicial (ex: ["horas extras", "FGTS + 40%", "aviso prévio", "danos morais"])
-- analise_documentos: laudo resumido com: dados extraídos confirmados, pedidos identificados, pontos de atenção para a defesa, riscos processuais evidentes`;
-
-      const resultado = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        file_urls: urls,
-        response_json_schema: SCHEMA,
-      });
-
-      // Filtra campos vazios / nulos para não sobrescrever com vazio
-      const limpo = {};
-      for (const [k, v] of Object.entries(resultado)) {
-        if (v === null || v === undefined || v === "") continue;
-        if (Array.isArray(v) && v.length === 0) continue;
-        limpo[k] = v;
+      for (const arq of arquivos) {
+        try {
+          const resp = await base44.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: arq.url,
+            json_schema: SCHEMA,
+          });
+          if (resp.status === "success" && resp.output) {
+            const dados = Array.isArray(resp.output) ? resp.output[0] : resp.output;
+            for (const [k, v] of Object.entries(dados || {})) {
+              // Primeiro valor não-vazio encontrado vence
+              if (merged[k] !== undefined && merged[k] !== null && merged[k] !== "" &&
+                  !(Array.isArray(merged[k]) && merged[k].length === 0)) continue;
+              if (v === null || v === undefined || v === "") continue;
+              if (Array.isArray(v) && v.length === 0) continue;
+              merged[k] = v;
+            }
+          }
+        } catch (_) {
+          // arquivo individual falhou — continua com os demais
+        }
       }
 
-      onExtracted(limpo);
+      // Se ExtractDataFromUploadedFile não retornou campos essenciais,
+      // tenta complementar com InvokeLLM (suporte a visão para imagens/PDFs escaneados)
+      const temEssencial = merged.reclamante_name || merged.reclamada_name || merged.process_number;
+      if (!temEssencial) {
+        const urls = arquivos.map(a => a.url);
+        const prompt = `Você é um assistente jurídico especializado em direito trabalhista.
+Analise os documentos anexados. São a petição inicial trabalhista e/ou pasta funcional do reclamante.
+Perspectiva: você está do lado da DEFESA (reclamada/empregador).
+
+Extraia SOMENTE dados EXPLICITAMENTE presentes. Se não encontrar, deixe vazio — NÃO invente.
+
+Campos a extrair:
+- reclamante_name: nome completo do RECLAMANTE (trabalhador/autor)
+- reclamante_cpf: CPF do reclamante
+- reclamada_name: razão social da RECLAMADA principal (nosso cliente / empregadora direta)
+- reclamada_cnpj: CNPJ da reclamada
+- reclamada_setor: ramo de atividade (ex: vigilância, limpeza, telecomunicações, comércio)
+- posicao_processual: "empregadora" se contratante direta, "tomadora" se tomadora de serviços, "" se incerto
+- process_number: número do processo (ex: 0001234-56.2024.5.02.0001)
+- contract_start: data de admissão (AAAA-MM-DD)
+- contract_end: data de demissão/rescisão (AAAA-MM-DD)
+- funcao: função ou cargo do reclamante
+- salario: último salário em número puro (ex: 2148.22)
+- jornada: jornada de trabalho alegada na inicial
+- valor_causa: valor da causa em número puro (ex: 45000.00)
+- inicial_texto: texto integral da petição inicial
+- pedidos_identificados: array com cada pedido da inicial (ex: ["horas extras", "FGTS + 40%", "dano moral"])
+- analise_documentos: laudo resumido — dados confirmados, pedidos identificados, pontos de atenção para a defesa`;
+
+        const resultado = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          file_urls: urls,
+          response_json_schema: SCHEMA,
+          model: "claude_opus_4_8",
+        });
+
+        for (const [k, v] of Object.entries(resultado || {})) {
+          if (merged[k] !== undefined && merged[k] !== null && merged[k] !== "") continue;
+          if (v === null || v === undefined || v === "") continue;
+          if (Array.isArray(v) && v.length === 0) continue;
+          merged[k] = v;
+        }
+      }
+
+      const totalCampos = Object.keys(merged).length;
+      if (totalCampos === 0) {
+        toast.error("Nenhum dado foi extraído. Verifique se o arquivo está legível.");
+        return;
+      }
+
+      onExtracted(merged);
       setConcluido(true);
-      toast.success(`Análise concluída — ${Object.keys(limpo).length} campos extraídos.`);
+      toast.success(`Análise concluída — ${totalCampos} campos extraídos.`);
     } catch (e) {
       toast.error("Erro na análise: " + e.message);
     } finally {
