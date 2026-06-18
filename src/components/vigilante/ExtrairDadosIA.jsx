@@ -218,11 +218,9 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       setFase("revisao");
 
       if (total === 0) {
-        toast.error("Nenhum dado foi extraído dos documentos. Verifique se: (1) os arquivos estão legíveis, (2) contêm CTPS/holerites/entrevista, (3) não estão corrompidos.");
-      } else if (total < 3) {
-        toast.warning(`Apenas ${total} campo(s) extraído(s). A IA pode não ter conseguido ler os documentos corretamente. Revise com atenção.`);
+        toast.error("Nenhum dado foi extraído. Verifique se os documentos estão legíveis.");
       } else {
-        toast.success(`${total} campos extraídos — revise antes de confirmar.`);
+        toast.success(`${total} campo(s) extraído(s) — revise antes de confirmar.`);
       }
     } catch (e) {
       // Falha na releitura — usa o merge local mesmo
@@ -360,27 +358,41 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
           {/* ── FASE: REVISÃO ── */}
           {fase === "revisao" && dadosExtraidos && (
             <>
-              {/* Alerta de documentos falhados */}
-              {docsFalharam.length > 0 && (
+              {/* Erros reais (documento ilegível/corrompido) */}
+              {docsFalharam.filter(d => d.erro).length > 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Falha na leitura:</strong> {docsFalharam.length} documento(s) não puderam ser processados.
+                    <strong>Falha na leitura:</strong> {docsFalharam.filter(d => d.erro).length} documento(s) não puderam ser processados.
                     <ul className="mt-1 text-xs list-disc list-inside opacity-80">
-                      {docsFalharam.slice(0, 3).map((doc, idx) => (
-                        <li key={idx}>{doc.nome || `Documento ${idx + 1}`}: {doc.erro}</li>
+                      {docsFalharam.filter(d => d.erro).slice(0, 3).map((doc, idx) => (
+                        <li key={idx}>{doc.nome}: {doc.erro}</li>
                       ))}
                     </ul>
-                    <p className="mt-1 text-xs">Verifique se os PDFs não estão protegidos por senha ou corrompidos.</p>
+                    <p className="mt-1 text-xs">Verifique se os PDFs não estão protegidos por senha.</p>
+                  </div>
+                </div>
+              )}
+              {/* Avisos de extração parcial (não são falhas) */}
+              {docsFalharam.filter(d => d.aviso).length > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Revisão recomendada:</strong>
+                    <ul className="mt-1 list-disc list-inside opacity-90">
+                      {docsFalharam.filter(d => d.aviso).map((doc, idx) => (
+                        <li key={idx}>{doc.nome}: {doc.aviso}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}
               
-              {camposPreenchidos < 3 && (
+              {camposPreenchidos === 0 && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Poucos dados extraídos.</strong> A IA pode não ter conseguido ler os documentos. Verifique se os arquivos estão legíveis e contêm CTPS, holerites ou entrevista.
+                    <strong>Nenhum dado extraído.</strong> Verifique se os arquivos estão legíveis e contêm CTPS, holerites ou entrevista.
                   </div>
                 </div>
               )}
