@@ -34,10 +34,11 @@ function isModeloVigilante(template) {
   return template.name?.toLowerCase().includes("vigilante") && template.case_type === "trabalhista";
 }
 
-// IDs dos templates PORTEIRO/CONTROLADOR (SINDEEPRES + SIEMACO) — modo PorteiroForm
+// IDs dos templates PORTEIRO/CONTROLADOR (SINDEEPRES + SIEMACO + Limpeza) — modo PorteiroForm
 const TEMPLATES_MODO_PORTEIRO = new Set([
   "6a23a89c901fce5e061a9099", // SINDEEPRES
   "6a23a23e1899bb8695af99c4", // SIEMACO
+  "6a3433edd50679b069e1986a", // Limpeza (CCT SIEMACO)
 ]);
 
 // Verifica se o template usa o modo PorteiroForm

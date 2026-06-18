@@ -25,6 +25,8 @@ const EMPTY_CASO = {
   JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
   LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "", ADIC_CONV: "",
   VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  // campos insalubridade (usados pelo modelo Limpeza)
+  GRAU_INSALUBRIDADE: "", INSALUBRIDADE_FATOS: "",
   // flags de fato (alimentam derivarFlags automaticamente)
   tipo_dispensa: "", acumulo_funcao: false, tem_adic_noturno: undefined,
   tem_insalubridade: false, tem_periculosidade: false, tem_pericia: false,
@@ -448,6 +450,10 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
         <Field label="Valor condução por dia" name="VAL_CONDUCAO" value={dados.VAL_CONDUCAO} onChange={handleChange} />
         <Field label="Valor alimentação por dia" name="VAL_ALIMENTACAO" value={dados.VAL_ALIMENTACAO} onChange={handleChange} />
         <Field label="Valor da causa" name="VALOR_CAUSA" value={dados.VALOR_CAUSA} onChange={handleChange} />
+        {templateId === "6a3433edd50679b069e1986a" && <>
+          <Field label="Grau de insalubridade (ex: médio — 20%)" name="GRAU_INSALUBRIDADE" value={dados.GRAU_INSALUBRIDADE} onChange={handleChange} />
+          <Field label="Fatos da insalubridade / exposição" name="INSALUBRIDADE_FATOS" value={dados.INSALUBRIDADE_FATOS} onChange={handleChange} full />
+        </>}
       </Section>
 
       <Section title="💰 Valores dos Pedidos (P01 a P87)" open={sections.pedidos} onToggle={() => toggleSection("pedidos")}>
