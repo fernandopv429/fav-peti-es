@@ -3,9 +3,11 @@ import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
+import { autoClassificar } from "@/lib/normalizarCampos.js";
+import { derivarFlags } from "@/lib/derivarFlags.js";
+import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
 import ConfirmarTeses from "./ConfirmarTeses.jsx";
-import { montarTituloPeticao } from "@/lib/normalizarCampos.js";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -165,7 +167,25 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
   const toggleSection = (s) => setSections(prev => ({ ...prev, [s]: !prev[s] }));
 
-  // Chamado após confirmação do modal (modo "docx")
+  // Modo automático: classifica deterministicamente e gera sem modal
+  const handleGerarAutomatico = (modo) => {
+    const flags = derivarFlags(dados, "vigilante");
+    const RESCISAO = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
+    const dadosEnriquecidos = { ...dados, ...flags };
+
+    if (!RESCISAO.some(f => flags[f])) {
+      dadosEnriquecidos.t_dispensa = true;
+      toast.info("Tipo de rescisão não identificado — usando 'Dispensa sem justa causa'. Revise a peça final.");
+    }
+
+    if (modo === "docx") {
+      handleGerarDocxIdêntico(dadosEnriquecidos);
+    } else {
+      onGerarComDados(dadosEnriquecidos);
+    }
+  };
+
+  // Chamado após confirmação do modal ou geração automática
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
     const dadosFinais = dadosConfirmados || dados;
     if (!templateDocxUrl) return;
@@ -173,7 +193,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dadosFinais);
 
-      const nomeArquivo = `${dadosFinais.RECL_NOME || "vigilante"}_peticao.docx`;
+      const nomeArquivo = nomeArquivoPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
 
       // 1. Download imediato para o advogado
       const url = URL.createObjectURL(blob);
@@ -190,7 +210,8 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-        const titulo = montarTituloPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
+        const titulo = dadosFinais.titulo ||
+          `${dadosFinais.RECL_NOME || "Vigilante"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
         const petitionPayload = {
           title: titulo,
@@ -428,7 +449,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         {templateDocxUrl && (
           <button
             type="button"
-            onClick={() => setConfirmandoTeses("docx")}
+            onClick={() => handleGerarAutomatico("docx")}
             disabled={gerandoDocx}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
           >
@@ -439,12 +460,19 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
 
         <button
           type="button"
-          onClick={() => setConfirmandoTeses("ia")}
+          onClick={() => handleGerarAutomatico("ia")}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors"
         >
           <Wand2 className="w-4 h-4" /> Gerar Petição com IA →
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => setConfirmandoTeses("docx")}
+        className="text-xs text-muted-foreground hover:text-foreground underline transition-colors mt-1"
+      >
+        Revisar classificação manualmente antes de gerar
+      </button>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { valorPorExtenso } from "./valorPorExtenso.js";
 import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
 import { derivarFlags } from "./derivarFlags.js";
-import { normalizarComarcaUF, normalizarRegiaoTRT, sanitizarCampos } from "./normalizarCampos.js";
+import { normalizarComarcaUF, normalizarRegiaoTRT, sanitizarCampos, limparSeparadoresOrfaos } from "./normalizarCampos.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo Porteiro.
@@ -133,6 +133,9 @@ export async function gerarDocxPorteiro(modeloDocxUrl, dados) {
 
   // 5. Injeta os dados
   doc.render(dadosTemplate);
+
+  // 5a. Limpa separadores órfãos (", ;") de complementos de endereço vazios
+  limparSeparadoresOrfaos(doc.getZip());
 
   // 6. Validação final — apenas artefatos estruturais lançam erro;
   // tokens essenciais vazios viram warnings em tokensFaltando (não abortam a geração).

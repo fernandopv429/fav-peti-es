@@ -117,23 +117,6 @@ export function normalizarComarcaUF(comarcaUf, localPrestacao, foroCompetencia) 
  * Aceita: número ("2"), "TRT-2", "TRT da 2ª Região", ou já por extenso.
  * Fallback: derivar da UF de COMARCA_UF.
  */
-/**
- * Monta o título padronizado da petição: "RECLAMANTE x 1ª RECLAMADA — DD/MM/AAAA".
- * Nunca usa nomes de modelos (Vigilante, Porteiro, etc.) como título.
- */
-export function montarTituloPeticao(nomeReclamante, nomeReclamada) {
-  const recl = (typeof nomeReclamante === "string" ? nomeReclamante.trim() : "") || "";
-  const recld = (typeof nomeReclamada === "string" ? nomeReclamada.trim() : "") || "";
-  // Limpa "null"/"undefined" textuais
-  const r = (recl === "null" || recl === "undefined" || recl === "—") ? "" : recl;
-  const d = (recld === "null" || recld === "undefined" || recld === "—") ? "" : recld;
-  const data = new Date().toLocaleDateString("pt-BR");
-  if (r && d) return `${r} x ${d} — ${data}`;
-  if (r) return `${r} — ${data}`;
-  if (d) return `${d} — ${data}`;
-  return `Petição — ${data}`;
-}
-
 export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
   let raw = sanitizar(regiaoTrt);
   if (typeof raw !== "string") raw = "";
@@ -159,4 +142,44 @@ export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
   }
 
   return raw;
+}
+
+/**
+ * Gera o nome do arquivo da petição: "RECLAMANTE x RECLAMADA.docx".
+ * Remove caracteres inválidos para nomes de arquivo.
+ */
+export function montarTituloPeticao(reclNome, recl1Nome) {
+  return nomeArquivoPeticao(reclNome, recl1Nome);
+}
+
+export function nomeArquivoPeticao(reclNome, recl1Nome) {
+  const parts = [reclNome, recl1Nome].map(p => sanitizar(p)).filter(Boolean);
+  let nome;
+  if (parts.length === 2) {
+    nome = `${parts[0]} x ${parts[1]}`;
+  } else if (parts.length === 1) {
+    nome = parts[0];
+  } else {
+    nome = "peticao";
+  }
+  return nome.replace(/[/\\:*?"<>|]/g, " ").replace(/\s{2,}/g, " ").trim() + ".docx";
+}
+
+/**
+ * Limpa separadores órfãos no XML do documento renderizado.
+ * Ex.: ", ;" → ";" quando um complemento de endereço está vazio.
+ */
+export function limparSeparadoresOrfaos(zip) {
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) return;
+  let xml = docFile.asText();
+  xml = xml.replace(/(<w:t[^>]*>)([^<]+)(<\/w:t>)/g, (m, open, text, close) => {
+    let cleaned = text;
+    cleaned = cleaned.replace(/,\s*;/g, ";");
+    cleaned = cleaned.replace(/;\s*;/g, ";");
+    cleaned = cleaned.replace(/,\s*,/g, ",");
+    cleaned = cleaned.replace(/,\s*$/, "");
+    return open + cleaned + close;
+  });
+  zip.file("word/document.xml", xml);
 }

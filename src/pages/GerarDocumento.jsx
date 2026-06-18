@@ -12,7 +12,7 @@ import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import VigilanteForm from "../components/vigilante/VigilanteForm";
 import GenericoForm from "../components/generico/GenericoForm";
 import PorteiroForm from "../components/porteiro/PorteiroForm";
-import { montarTituloPeticao } from "@/lib/normalizarCampos.js";
+import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -240,7 +240,7 @@ export default function GerarDocumento() {
     setGerandoStep("");
 
     try {
-      const titulo = montarTituloPeticao(dadosVigilante.RECL_NOME, dadosVigilante.RECL1_NOME);
+      const titulo = dadosVigilante.titulo || `${dadosVigilante.RECL_NOME || "Vigilante"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
       // PASSO 1: DOCX byte-idêntico ao modelo (prioridade) ─────────────────
       const modeloDocxUrl = templateSelecionado?.modelo_docx_url;
@@ -249,7 +249,7 @@ export default function GerarDocumento() {
         try {
           const { gerarDocxVigilante } = await import("@/lib/gerarDocxVigilante.js");
           const { blob, tokensFaltando } = await gerarDocxVigilante(modeloDocxUrl, dadosVigilante);
-          const nomeArquivo = `${dadosVigilante.RECL_NOME || "vigilante"}_peticao.docx`;
+          const nomeArquivo = nomeArquivoPeticao(dadosVigilante.RECL_NOME, dadosVigilante.RECL1_NOME);
 
           // Download imediato
           const url = URL.createObjectURL(blob);
@@ -267,7 +267,8 @@ export default function GerarDocumento() {
             });
             const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-            const tituloPet = montarTituloPeticao(dadosVigilante.RECL_NOME, dadosVigilante.RECL1_NOME);
+            const tituloPet = dadosVigilante.titulo ||
+              `${dadosVigilante.RECL_NOME || "Vigilante"} × ${dadosVigilante.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
             const petitionPayload = {
               title: tituloPet,
@@ -426,7 +427,8 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerandoStep("Salvando registro da petição...");
     setSavedPetitionId(null);
 
-    const titulo = montarTituloPeticao(dadosForm.RECL_NOME, dadosForm.RECL1_NOME);
+    const titulo = dadosForm.titulo ||
+      `${templateSelecionado.name} — ${dadosForm.RECL_NOME || "Caso"} × ${dadosForm.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
     let petitionId = null;
     try {

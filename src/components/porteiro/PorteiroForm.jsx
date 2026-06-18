@@ -7,9 +7,10 @@ import { base44 } from "@/api/base44Client";
 import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { gerarDocxPorteiro } from "@/lib/gerarDocxPorteiro.js";
+import { derivarFlags } from "@/lib/derivarFlags.js";
+import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
-import { montarTituloPeticao } from "@/lib/normalizarCampos.js";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -168,7 +169,21 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
     toast.success("dados.json baixado!");
   };
 
-  // Chamado após confirmação do modal — pipeline determinístico via gerarDocxPorteiro
+  // Modo automático: classifica deterministicamente e gera sem modal
+  const handleGerarAutomatico = () => {
+    const flags = derivarFlags(dados, "porteiro");
+    const RESCISAO = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
+    const dadosEnriquecidos = { ...dados, ...flags };
+
+    if (!RESCISAO.some(f => flags[f])) {
+      dadosEnriquecidos.t_dispensa = true;
+      toast.info("Tipo de rescisão não identificado — usando 'Dispensa sem justa causa'. Revise a peça final.");
+    }
+
+    handleGerarDocxIdêntico(dadosEnriquecidos);
+  };
+
+  // Chamado após confirmação do modal ou geração automática
   const handleGerarDocxIdêntico = async (dadosConfirmados) => {
     const dadosFinais = dadosConfirmados || dados;
     if (!templateDocxUrl) return;
@@ -198,7 +213,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
     try {
       const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, dadosFinais);
 
-      const nomeArquivo = `${dadosFinais.RECL_NOME || "porteiro"}_${(templateName || "peticao").replace(/\s+/g, "_")}.docx`;
+      const nomeArquivo = nomeArquivoPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
 
       // 1. Download imediato
       const url = URL.createObjectURL(blob);
@@ -214,7 +229,8 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-        const titulo = montarTituloPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
+        const titulo = dadosFinais.titulo ||
+          `${dadosFinais.RECL_NOME || "Porteiro"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
         const petitionPayload = {
           title: titulo,
@@ -470,7 +486,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
 
         <button
           type="button"
-          onClick={() => setConfirmandoTeses("docx")}
+          onClick={() => handleGerarAutomatico()}
           disabled={gerandoDocx || !templateDocxUrl}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors"
         >
@@ -478,6 +494,13 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           {gerandoDocx ? "Gerando DOCX..." : "Gerar DOCX Idêntico ao Modelo"}
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => setConfirmandoTeses("docx")}
+        className="text-xs text-muted-foreground hover:text-foreground underline transition-colors mt-1"
+      >
+        Revisar classificação manualmente antes de gerar
+      </button>
     </div>
   );
 }
