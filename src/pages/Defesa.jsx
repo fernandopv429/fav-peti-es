@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip } from "lucide-react";
+import AnalisarDocumentosDefesa from "@/components/defesa/AnalisarDocumentosDefesa.jsx";
 
 const AVISO_REVISAO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
@@ -15,13 +16,23 @@ const INITIAL_FORM = {
   title: "",
   process_number: "",
   reclamante_name: "",
+  reclamante_cpf: "",
   reclamada_name: "",
   reclamada_cnpj: "",
+  reclamada_setor: "",
+  posicao_processual: "",
   contract_start: "",
   contract_end: "",
   funcao: "",
   salario: "",
+  jornada: "",
+  valor_causa: "",
   inicial_texto: "",
+  pedidos_identificados: [],
+  analise_documentos: "",
+  analise_status: "pendente",
+  document_urls: [],
+  document_names: [],
 };
 
 export default function Defesa() {
@@ -111,6 +122,7 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       const data = {
         ...form,
         salario: form.salario ? parseFloat(form.salario) : undefined,
+        valor_causa: form.valor_causa ? parseFloat(form.valor_causa) : undefined,
         generated_content: resultado,
         status: "concluida",
       };
@@ -141,18 +153,44 @@ Elabore a contestação completa. Ao final, apresente separadamente:
     }
   };
 
+  const handleExtracted = (dados) => {
+    // Muda analise_status para "em_analise" enquanto processa, depois "concluida" ao confirmar
+    setForm(prev => ({
+      ...prev,
+      ...dados,
+      // salário e valor_causa chegam como number; mantém string no form para inputs
+      salario: dados.salario != null ? String(dados.salario) : prev.salario,
+      valor_causa: dados.valor_causa != null ? String(dados.valor_causa) : prev.valor_causa,
+      analise_status: "concluida",
+    }));
+  };
+
+  const handleDocsChange = (urls, names) => {
+    setForm(prev => ({ ...prev, document_urls: urls, document_names: names }));
+  };
+
   const handleOpen = (d) => {
     setForm({
       title: d.title || "",
       process_number: d.process_number || "",
       reclamante_name: d.reclamante_name || "",
+      reclamante_cpf: d.reclamante_cpf || "",
       reclamada_name: d.reclamada_name || "",
       reclamada_cnpj: d.reclamada_cnpj || "",
+      reclamada_setor: d.reclamada_setor || "",
+      posicao_processual: d.posicao_processual || "",
       contract_start: d.contract_start || "",
       contract_end: d.contract_end || "",
       funcao: d.funcao || "",
       salario: d.salario || "",
+      jornada: d.jornada || "",
+      valor_causa: d.valor_causa || "",
       inicial_texto: d.inicial_texto || "",
+      pedidos_identificados: d.pedidos_identificados || [],
+      analise_documentos: d.analise_documentos || "",
+      analise_status: d.analise_status || "pendente",
+      document_urls: d.document_urls || [],
+      document_names: d.document_names || [],
     });
     setSavedId(d.id);
     setResultado(d.generated_content || null);
@@ -172,6 +210,22 @@ Elabore a contestação completa. Ao final, apresente separadamente:
 
       <Card className="p-6 lg:p-8 space-y-5">
         <h2 className="font-semibold text-base text-foreground">Dados do caso</h2>
+
+        {/* Upload e análise de documentos */}
+        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Paperclip className="w-4 h-4 text-primary" />
+            Documentos (petição inicial / pasta funcional)
+          </p>
+          <p className="text-xs text-muted-foreground">Anexe os documentos para que a IA preencha os campos automaticamente.</p>
+          <AnalisarDocumentosDefesa
+            existingUrls={form.document_urls}
+            existingNames={form.document_names}
+            onExtracted={handleExtracted}
+            onDocsChange={handleDocsChange}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label>Título *</Label>
@@ -186,12 +240,32 @@ Elabore a contestação completa. Ao final, apresente separadamente:
             <Input className="mt-1.5" value={form.reclamante_name} onChange={e => upd("reclamante_name", e.target.value)} placeholder="Nome do reclamante" />
           </div>
           <div>
+            <Label>CPF do reclamante</Label>
+            <Input className="mt-1.5" value={form.reclamante_cpf} onChange={e => upd("reclamante_cpf", e.target.value)} placeholder="000.000.000-00" />
+          </div>
+          <div>
             <Label>Reclamada *</Label>
             <Input className="mt-1.5" value={form.reclamada_name} onChange={e => upd("reclamada_name", e.target.value)} placeholder="Razão social" />
           </div>
           <div>
             <Label>CNPJ da reclamada</Label>
             <Input className="mt-1.5" value={form.reclamada_cnpj} onChange={e => upd("reclamada_cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+          </div>
+          <div>
+            <Label>Setor/ramo da reclamada</Label>
+            <Input className="mt-1.5" value={form.reclamada_setor} onChange={e => upd("reclamada_setor", e.target.value)} placeholder="Ex: vigilância, limpeza, telecomunicações" />
+          </div>
+          <div>
+            <Label>Posição processual</Label>
+            <select
+              className="mt-1.5 w-full bg-input border border-border text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              value={form.posicao_processual}
+              onChange={e => upd("posicao_processual", e.target.value)}
+            >
+              <option value="">Não informado</option>
+              <option value="empregadora">Empregadora direta</option>
+              <option value="tomadora">Tomadora de serviços</option>
+            </select>
           </div>
           <div>
             <Label>Data de admissão</Label>
@@ -209,9 +283,37 @@ Elabore a contestação completa. Ao final, apresente separadamente:
             <Label>Salário (R$)</Label>
             <Input type="number" className="mt-1.5" value={form.salario} onChange={e => upd("salario", e.target.value)} placeholder="0,00" />
           </div>
+          <div>
+            <Label>Jornada alegada</Label>
+            <Input className="mt-1.5" value={form.jornada} onChange={e => upd("jornada", e.target.value)} placeholder="Ex: 08:00 às 18:00, de segunda a sábado" />
+          </div>
+          <div>
+            <Label>Valor da causa (R$)</Label>
+            <Input type="number" className="mt-1.5" value={form.valor_causa} onChange={e => upd("valor_causa", e.target.value)} placeholder="0,00" />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Pedidos identificados na inicial</Label>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">Um por linha — preenchido automaticamente pela IA ou manualmente</p>
+            <Textarea
+              className="min-h-[80px] text-sm"
+              value={Array.isArray(form.pedidos_identificados) ? form.pedidos_identificados.join("\n") : form.pedidos_identificados}
+              onChange={e => upd("pedidos_identificados", e.target.value.split("\n").filter(Boolean))}
+              placeholder="Horas extras&#10;FGTS + 40%&#10;Aviso prévio indenizado"
+            />
+          </div>
+          {form.analise_documentos && (
+            <div className="md:col-span-2">
+              <Label>Laudo da análise IA</Label>
+              <Textarea
+                className="min-h-[120px] text-xs mt-1.5"
+                value={form.analise_documentos}
+                onChange={e => upd("analise_documentos", e.target.value)}
+              />
+            </div>
+          )}
           <div className="md:col-span-2">
             <Label>Texto da reclamação inicial *</Label>
-            <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">Cole aqui o texto completo da reclamação inicial recebida</p>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">Cole aqui o texto completo ou edite o que foi extraído automaticamente</p>
             <Textarea
               className="min-h-[220px] font-mono text-xs"
               value={form.inicial_texto}
