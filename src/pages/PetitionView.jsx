@@ -11,6 +11,7 @@ import { getPetitionViewStyle } from "@/hooks/usePetitionFormat.js";
 import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
 import { toast } from "sonner";
 import PetitionRenderer from "@/components/petition/PetitionRenderer";
+import { formatarData } from "@/lib/formatarData.js";
 
 export default function PetitionView() {
   const { id } = useParams();
@@ -172,7 +173,7 @@ export default function PetitionView() {
           </button>
           <h1 className="text-2xl lg:text-3xl font-playfair font-bold">{petition.title}</h1>
           <p className="text-muted-foreground mt-1">
-            {petition.claimant_name} vs {petition.defendant_name} • {new Date(petition.created_date).toLocaleDateString("pt-BR")}
+            {petition.claimant_name} vs {petition.defendant_name} • {formatarData(petition.created_date)}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">

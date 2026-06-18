@@ -8,6 +8,7 @@ import { FileText, Search, FilePlus, ArrowRight, Trash2, AlertTriangle, FileDown
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { formatarDataHora } from "@/lib/formatarData.js";
 
 const STATUS_BADGE = {
   rascunho: "bg-muted text-muted-foreground",
@@ -157,7 +158,7 @@ export default function PetitionsList() {
                         </p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <p className="text-xs text-muted-foreground">
-                            {new Date(p.created_date).toLocaleDateString("pt-BR")} {new Date(p.created_date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {formatarDataHora(p.created_date)}
                           </p>
                           {p.document_urls?.some(u => u?.endsWith(".docx")) && (
                             <span className="inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
