@@ -176,14 +176,14 @@ Elabore a contestação completa. Ao final, apresente separadamente:
   const handleBaixarDocx = async (conteudo, reclamante, reclamada) => {
     setBaixandoDocx(true);
     try {
-      // Busca o template de contestação pelo ID fixo
-      const template = await base44.entities.PetitionTemplate.filter({ id: "6a346bc910fba561105aca82" });
-      const tmpl = Array.isArray(template) ? template[0] : template;
+      // 1. Busca template pelo ID fixo
+      const lista = await base44.entities.PetitionTemplate.list();
+      const tmpl = lista.find(t => t.id === "6a346bc910fba561105aca82");
       if (!tmpl?.modelo_docx_url) {
-        toast.error("Modelo CONTESTACAO_TIMBRADO.docx não encontrado. Verifique se está cadastrado em Modelos.");
-        return;
+        throw new Error("Modelo CONTESTACAO_TIMBRADO.docx não encontrado. Verifique se está cadastrado em Modelos.");
       }
 
+      // 2. Baixa o .docx via backend (evita CORS)
       const arrayBuffer = await fetchDocxViaBackend(tmpl.modelo_docx_url);
       const zip = new PizZip(arrayBuffer);
       const doc = new Docxtemplater(zip, {
@@ -192,9 +192,26 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         nullGetter: () => "",
       });
 
-      doc.render({ CONTEUDO: conteudo });
+      // 3. Converte o texto em array de blocos { t, h }
+      // h=true → título (negrito): linha em CAIXA ALTA (<80 chars) OU começa com numeral romano
+      const ROMANO = /^(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3}))\s*[–\-.]/i;
+      const blocos = conteudo
+        .split("\n")
+        .map(l => l.trimEnd())
+        .filter(l => l.trim().length > 0)
+        .map(l => {
+          const isCaixaAlta = l === l.toUpperCase() && l.trim().length < 80 && /[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/.test(l);
+          const isRomano = ROMANO.test(l.trim());
+          return { t: l, h: isCaixaAlta || isRomano };
+        });
 
-      const blob = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      doc.render({ blocos });
+
+      // 4. Gera o blob e faz download
+      const blob = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
 
       const nomeArquivo = `${reclamante || "Reclamante"} x ${reclamada || "Reclamada"}.docx`
         .replace(/[/\\:*?"<>|]/g, " ").replace(/\s{2,}/g, " ").trim();
@@ -205,7 +222,14 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       URL.revokeObjectURL(url);
       toast.success("DOCX baixado!");
     } catch (e) {
-      toast.error("Erro ao gerar DOCX: " + e.message);
+      const msg = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
+      toast.error("Erro ao gerar timbrado: " + msg, { duration: 10000 });
+      base44.entities.ErrorLog.create({
+        context: "gerar_timbrado_defesa",
+        error_type: "geracao",
+        message: msg,
+        occurred_at: new Date().toISOString(),
+      }).catch(() => {});
     } finally {
       setBaixandoDocx(false);
     }
