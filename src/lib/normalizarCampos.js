@@ -117,6 +117,23 @@ export function normalizarComarcaUF(comarcaUf, localPrestacao, foroCompetencia) 
  * Aceita: número ("2"), "TRT-2", "TRT da 2ª Região", ou já por extenso.
  * Fallback: derivar da UF de COMARCA_UF.
  */
+/**
+ * Monta o título padronizado da petição: "RECLAMANTE x 1ª RECLAMADA — DD/MM/AAAA".
+ * Nunca usa nomes de modelos (Vigilante, Porteiro, etc.) como título.
+ */
+export function montarTituloPeticao(nomeReclamante, nomeReclamada) {
+  const recl = (typeof nomeReclamante === "string" ? nomeReclamante.trim() : "") || "";
+  const recld = (typeof nomeReclamada === "string" ? nomeReclamada.trim() : "") || "";
+  // Limpa "null"/"undefined" textuais
+  const r = (recl === "null" || recl === "undefined" || recl === "—") ? "" : recl;
+  const d = (recld === "null" || recld === "undefined" || recld === "—") ? "" : recld;
+  const data = new Date().toLocaleDateString("pt-BR");
+  if (r && d) return `${r} x ${d} — ${data}`;
+  if (r) return `${r} — ${data}`;
+  if (d) return `${d} — ${data}`;
+  return `Petição — ${data}`;
+}
+
 export function normalizarRegiaoTRT(regiaoTrt, comarcaUf) {
   let raw = sanitizar(regiaoTrt);
   if (typeof raw !== "string") raw = "";

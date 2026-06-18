@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { gerarDocxPorteiro } from "@/lib/gerarDocxPorteiro.js";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
+import { montarTituloPeticao } from "@/lib/normalizarCampos.js";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -213,8 +214,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-        const titulo = dadosFinais.titulo ||
-          `${dadosFinais.RECL_NOME || "Porteiro"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+        const titulo = montarTituloPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
 
         const petitionPayload = {
           title: titulo,

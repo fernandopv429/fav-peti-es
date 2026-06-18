@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
 import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
 import ConfirmarTeses from "./ConfirmarTeses.jsx";
+import { montarTituloPeticao } from "@/lib/normalizarCampos.js";
 
 const EMPTY_CASO = {
   titulo: "",
@@ -189,8 +190,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         });
         const { file_url: docxUrl } = await base44.integrations.Core.UploadFile({ file });
 
-        const titulo = dadosFinais.titulo ||
-          `${dadosFinais.RECL_NOME || "Vigilante"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
+        const titulo = montarTituloPeticao(dadosFinais.RECL_NOME, dadosFinais.RECL1_NOME);
 
         const petitionPayload = {
           title: titulo,
