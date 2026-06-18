@@ -190,6 +190,7 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         paragraphLoop: true,
         linebreaks: true,
         nullGetter: () => "",
+        delimiters: { start: "{{", end: "}}" },
       });
 
       // 3. Renderiza com {{CONTEUDO}} — modelo tem um único marcador
