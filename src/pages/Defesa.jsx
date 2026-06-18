@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip, FileDown } from "lucide-react";
+import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip, FileDown, FileText } from "lucide-react";
 import AnalisarDocumentosDefesa from "@/components/defesa/AnalisarDocumentosDefesa.jsx";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
@@ -49,6 +49,7 @@ export default function Defesa() {
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(null);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
+  const [gerandoModelo, setGerandoModelo] = useState(false);
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -251,6 +252,131 @@ Elabore a contestação completa. Ao final, apresente separadamente:
     }
   };
 
+  const handleGerarModelo = async () => {
+    setGerandoModelo(true);
+    try {
+      // 1. Busca o template CONTESTACAO_MODELO.docx
+      const lista = await base44.entities.PetitionTemplate.list();
+      const tmpl = lista.find(t => t.modelo_docx_name === "CONTESTACAO_MODELO.docx");
+      if (!tmpl?.modelo_docx_url) {
+        throw new Error("Modelo CONTESTACAO_MODELO.docx não encontrado. Cadastre-o em Modelos com o nome exato.");
+      }
+
+      // 2. Busca PetitionConfig para advogado/OAB
+      const configs = await base44.entities.PetitionConfig.list();
+      const cfg = configs[0] || {};
+
+      // 3. LOCAL_DATA em PT-BR (America/Sao_Paulo)
+      const agora = new Date();
+      const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+      const partes = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "numeric", month: "numeric", year: "numeric",
+      }).formatToParts(agora);
+      const dia  = partes.find(p => p.type === "day").value;
+      const mes  = partes.find(p => p.type === "month").value;
+      const ano  = partes.find(p => p.type === "year").value;
+      const LOCAL_DATA = `São Paulo, ${dia} de ${MESES[parseInt(mes, 10) - 1]} de ${ano}`;
+
+      // 4. Prescrição: contrato > 5 anos antes de hoje
+      const prescricao = form.contract_start
+        ? (agora - new Date(form.contract_start)) / (1000 * 60 * 60 * 24 * 365) > 5
+        : false;
+
+      // 5. Flags a partir de pedidos_identificados
+      const pedidos = (Array.isArray(form.pedidos_identificados) ? form.pedidos_identificados : [])
+        .join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const flag = (r) => r.test(pedidos);
+      const tem_he             = flag(/hora extra/);
+      const tem_intervalo      = flag(/intervalo/);
+      const tem_adic_noturno   = flag(/noturno/);
+      const tem_insalubridade  = flag(/insalub/);
+      const tem_periculosidade = flag(/periculos/);
+      const tem_acumulo        = flag(/acumulo|desvio de func/);
+      const tem_equiparacao    = flag(/equiparac/);
+      const tem_doenca_ocup    = flag(/doenca|ocupacional|acidente|ler|dort/);
+      const tem_dano_moral     = flag(/dano moral|assedio/);
+      const tem_rescisao_indireta = flag(/rescisao indireta/);
+      const tem_reversao_jc    = flag(/reversao|justa causa/);
+      const tem_multas         = flag(/477|467|multa/);
+      const tem_verbas         = flag(/verbas rescis|saldo de salario|aviso previo|ferias|13/);
+      const tem_subsidiaria    = flag(/subsidiar|tomadora/);
+      const tem_solidaria      = flag(/solidar|grupo economico/);
+      const tem_vinculo        = flag(/vinculo|pejotiz/);
+
+      // 6. Camada 3 — tese setorial
+      const setor = (form.reclamada_setor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const CAMADAS = [
+        { re: /refeic|aliment/, tese: "Tratando-se de contrato de fornecimento de refeições, a relação é de consumo, o que afasta a Súmula 331 do C. TST (Tema 725 do STF)." },
+        { re: /limpeza|facilities|conservac/, tese: "Cuidando-se de terceirização de serviços de limpeza em atividade-meio, a contratação é de natureza civil, sem pessoalidade ou subordinação perante a tomadora, e a insalubridade de banheiros não se equipara a lixo urbano (Súmula 448, II, e Anexo 14 da NR-15)." },
+        { re: /telecom|fibra|internet/, tese: "O técnico instalador atua em linhas aéreas de telecomunicações, que não constituem Sistema Elétrico de Potência, sendo indevido o adicional de periculosidade (Decreto 93.412/86; Súmula 364 do C. TST); a verba de veículo tem natureza indenizatória (Súmula 367, I, do C. TST)." },
+        { re: /transporte|motorista|logistic/, tese: "O motorista profissional submete-se à Lei nº 13.103/2015, em que o tempo de espera não se confunde com tempo à disposição (art. 235-C, § 1º, da CLT), sendo válidos os controles e a compensação (Tema 1.046 do STF)." },
+        { re: /comercio|loja|varejo/, tese: "Tratando-se de estabelecimento com menos de vinte empregados, é dispensado o controle de jornada (art. 74, § 2º, da CLT)." },
+        { re: /academia/, tese: "A academia não constitui local de grande circulação para fins de insalubridade (afastamento da Súmula 448, II), e os produtos de limpeza são de uso diluído (Anexo 13 da NR-15; OJ 4 da SDI-1)." },
+        { re: /call center|teleatend|telemarketing/, tese: "Eventual doença psíquica exige nexo e responsabilidade subjetiva; o autor nunca foi afastado pelo INSS, e patologias dessa natureza são frequentemente degenerativas (art. 20, § 1º, da Lei 8.213/91)." },
+      ];
+      const camadaMatch = CAMADAS.find(c => c.re.test(setor));
+      const tem_camada3  = !!camadaMatch;
+      const TESE_EMPRESA = camadaMatch?.tese || "";
+
+      // 7. Monta objeto de dados
+      const dados = {
+        RECLAMANTE: form.reclamante_name || "[VERIFICAR]",
+        RECLAMADA:  form.reclamada_name  || "[VERIFICAR]",
+        RECLAMADA_CNPJ:     form.reclamada_cnpj || "[VERIFICAR]",
+        RECLAMADA_ENDERECO: "[VERIFICAR]",
+        PROCESSO: form.process_number || "[VERIFICAR]",
+        VARA:     "[VERIFICAR]",
+        COMARCA:  "[VERIFICAR]",
+        ADVOGADO: cfg.advogado_principal || "[VERIFICAR]",
+        OAB:      cfg.oab && cfg.uf_oab ? `${cfg.oab}/${cfg.uf_oab}` : (cfg.oab || "[VERIFICAR]"),
+        LOCAL_DATA,
+        TESE_EMPRESA,
+        // flags booleanas
+        tem_he, tem_intervalo, tem_adic_noturno, tem_insalubridade, tem_periculosidade,
+        tem_acumulo, tem_equiparacao, tem_doenca_ocup, tem_dano_moral,
+        tem_rescisao_indireta, tem_reversao_jc, tem_multas, tem_verbas,
+        tem_subsidiaria, tem_solidaria, tem_vinculo, tem_camada3, prescricao,
+      };
+
+      // 8. Processa o template
+      const arrayBuffer = await fetchDocxViaBackend(tmpl.modelo_docx_url);
+      const zip = new PizZip(arrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter: () => "",
+        delimiters: { start: "{{", end: "}}" },
+      });
+      doc.render(dados);
+
+      const blob = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
+      const nomeArquivo = `${form.reclamante_name || "Reclamante"} x ${form.reclamada_name || "Reclamada"}.docx`
+        .replace(/[/\\:*?"<>|]/g, " ").replace(/\s{2,}/g, " ").trim();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = nomeArquivo; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Modelo gerado e baixado!");
+    } catch (e) {
+      const msg = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
+      toast.error("Erro ao gerar modelo: " + msg, { duration: 10000 });
+      base44.entities.ErrorLog.create({
+        context: "gerar_modelo_defesa",
+        error_type: "geracao",
+        message: msg,
+        occurred_at: new Date().toISOString(),
+      }).catch(() => {});
+    } finally {
+      setGerandoModelo(false);
+    }
+  };
+
   const handleOpen = (d) => {
     setForm({
       title: d.title || "",
@@ -405,13 +531,23 @@ Elabore a contestação completa. Ao final, apresente separadamente:
           </div>
         </div>
 
-        <Button
-          onClick={handleGerar}
-          disabled={generating}
-          className="gap-2 w-full sm:w-auto"
-        >
-          {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando contestação...</> : <><Sparkles className="w-4 h-4" /> Gerar Defesa com IA</>}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={handleGerar}
+            disabled={generating}
+            className="gap-2"
+          >
+            {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando contestação...</> : <><Sparkles className="w-4 h-4" /> Gerar Defesa com IA</>}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleGerarModelo}
+            disabled={gerandoModelo || !form.reclamante_name || !form.reclamada_name}
+            className="gap-2"
+          >
+            {gerandoModelo ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando modelo...</> : <><FileText className="w-4 h-4" /> Gerar conforme o modelo (timbrado)</>}
+          </Button>
+        </div>
       </Card>
 
       {resultado && (
