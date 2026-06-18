@@ -192,20 +192,8 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         nullGetter: () => "",
       });
 
-      // 3. Converte o texto em array de blocos { t, h }
-      // h=true → título (negrito): linha em CAIXA ALTA (<80 chars) OU começa com numeral romano
-      const ROMANO = /^(M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3}))\s*[–\-.]/i;
-      const blocos = conteudo
-        .split("\n")
-        .map(l => l.trimEnd())
-        .filter(l => l.trim().length > 0)
-        .map(l => {
-          const isCaixaAlta = l === l.toUpperCase() && l.trim().length < 80 && /[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/.test(l);
-          const isRomano = ROMANO.test(l.trim());
-          return { t: l, h: isCaixaAlta || isRomano };
-        });
-
-      doc.render({ blocos });
+      // 3. Renderiza com {{CONTEUDO}} — modelo tem um único marcador
+      doc.render({ CONTEUDO: conteudo });
 
       // 4. Gera o blob e faz download
       const blob = doc.getZip().generate({
