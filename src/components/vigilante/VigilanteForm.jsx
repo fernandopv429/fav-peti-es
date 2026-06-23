@@ -21,6 +21,8 @@ const EMPTY_CASO = {
   JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
   LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "2024/2025", ADIC_CONV: "60%",
   VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  // dano moral (entrevista)
+  DANO_SUPERVISOR: "", DANO_FATOS: "", dano_sem_estrutura: false,
   // flags de fato (alimentam derivarFlags automaticamente)
   tipo_dispensa: "", acumulo_funcao: false, tem_adic_noturno: undefined,
   tem_insalubridade: false, tem_periculosidade: undefined, tem_pericia: false,
@@ -99,7 +101,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
-  const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, pedidos: false });
+  const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, dano: false, pedidos: false });
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
   const [mostrarExtrair, setMostrarExtrair] = useState(false);
@@ -409,6 +411,23 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         <Field label="Valor condução por dia" name="VAL_CONDUCAO" value={dados.VAL_CONDUCAO} onChange={handleChange} />
         <Field label="Valor alimentação por dia" name="VAL_ALIMENTACAO" value={dados.VAL_ALIMENTACAO} onChange={handleChange} />
         <Field label="Valor da causa" name="VALOR_CAUSA" value={dados.VALOR_CAUSA} onChange={handleChange} />
+      </Section>
+
+      <Section title="💔 Dano Moral" open={sections.dano} onToggle={() => toggleSection("dano")}>
+        <Field label="Nome do superior hierárquico" name="DANO_SUPERVISOR" value={dados.DANO_SUPERVISOR} onChange={handleChange} full />
+        <Field label="Fatos do dano moral / assédio (resumo)" name="DANO_FATOS" value={dados.DANO_FATOS} onChange={handleChange} full />
+        <div className="sm:col-span-2 flex items-center gap-3 py-1">
+          <input
+            type="checkbox"
+            id="chk_dano_estrutura"
+            checked={!!dados.dano_sem_estrutura}
+            onChange={e => handleChange("dano_sem_estrutura", e.target.checked)}
+            className="w-4 h-4 accent-primary"
+          />
+          <label htmlFor="chk_dano_estrutura" className="text-sm text-foreground cursor-pointer">
+            Posto sem banheiro / bebedouro (fundamenta dano moral)
+          </label>
+        </div>
       </Section>
 
       <Section title="💰 Valores dos Pedidos (P01 a P87)" open={sections.pedidos} onToggle={() => toggleSection("pedidos")}>

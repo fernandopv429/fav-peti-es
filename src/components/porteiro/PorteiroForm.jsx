@@ -27,6 +27,8 @@ const EMPTY_CASO = {
   VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
   // campos insalubridade (usados pelo modelo Limpeza)
   GRAU_INSALUBRIDADE: "", INSALUBRIDADE_FATOS: "",
+  // dano moral (entrevista)
+  DANO_SUPERVISOR: "", DANO_FATOS: "", dano_sem_estrutura: false,
   // flags de fato (alimentam derivarFlags automaticamente)
   tipo_dispensa: "", acumulo_funcao: false, tem_adic_noturno: undefined,
   tem_insalubridade: false, tem_periculosidade: false, tem_pericia: false,
@@ -105,7 +107,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
-  const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, pedidos: false });
+  const [sections, setSections] = useState({ reclamante: true, reclamadas: false, foro: false, contrato: false, cct: false, dano: false, pedidos: false });
   const [salvando, setSalvando] = useState(false);
   const [gerandoDocx, setGerandoDocx] = useState(false);
   const [mostrarExtrair, setMostrarExtrair] = useState(false);
@@ -454,6 +456,23 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           <Field label="Grau de insalubridade (ex: médio — 20%)" name="GRAU_INSALUBRIDADE" value={dados.GRAU_INSALUBRIDADE} onChange={handleChange} />
           <Field label="Fatos da insalubridade / exposição" name="INSALUBRIDADE_FATOS" value={dados.INSALUBRIDADE_FATOS} onChange={handleChange} full />
         </>}
+      </Section>
+
+      <Section title="💔 Dano Moral" open={sections.dano} onToggle={() => toggleSection("dano")}>
+        <Field label="Nome do superior hierárquico" name="DANO_SUPERVISOR" value={dados.DANO_SUPERVISOR} onChange={handleChange} full />
+        <Field label="Fatos do dano moral / assédio (resumo)" name="DANO_FATOS" value={dados.DANO_FATOS} onChange={handleChange} full />
+        <div className="sm:col-span-2 flex items-center gap-3 py-1">
+          <input
+            type="checkbox"
+            id="chk_dano_estrutura"
+            checked={!!dados.dano_sem_estrutura}
+            onChange={e => handleChange("dano_sem_estrutura", e.target.checked)}
+            className="w-4 h-4 accent-primary"
+          />
+          <label htmlFor="chk_dano_estrutura" className="text-sm text-foreground cursor-pointer">
+            Posto sem banheiro / bebedouro (fundamenta dano moral)
+          </label>
+        </div>
       </Section>
 
       <Section title="💰 Valores dos Pedidos (P01 a P87)" open={sections.pedidos} onToggle={() => toggleSection("pedidos")}>

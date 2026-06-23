@@ -121,17 +121,14 @@ export function derivarFlags(d, perfil) {
   // Subsidiária = mesma coisa que 2ª reclamada
   flags.tem_subsidiaria  = flags.tem_2a_reclamada;
 
-  // ── 3. FUNÇÃO ACESSÓRIA ──────────────────────────────────────────────────
+  // ── 3. FUNÇÃO ACESSÓRIA (acumulo/desvio) ────────────────────────────────
+  // tem_desvio e tem_acumulo ligam quando a entrevista/caso indicar DESVIO ou
+  // ACÚMULO de função (campo acumulo_funcao ou flags já confirmadas).
+  // Ambos são a mesma condição: vigilante = desvio (multa 50% CCT),
+  // demais perfis = acúmulo (20% CLT) — mas o token P02 é controlado por tem_desvio.
   const temAcumulo = !!(d.acumulo_funcao || d.tem_acumulo || d.tem_desvio);
-  if (perfil === "vigilante") {
-    // Vigilante: desvio de função (multa 50% CCT cláusula 64ª)
-    flags.tem_desvio  = d.tem_desvio !== undefined ? !!(d.tem_desvio)  : temAcumulo;
-    flags.tem_acumulo = flags.tem_desvio; // alias
-  } else {
-    // Porteiro / Controlador / Limpeza: acúmulo de função (20% CLT)
-    flags.tem_acumulo = d.tem_acumulo !== undefined ? !!(d.tem_acumulo) : temAcumulo;
-    flags.tem_desvio  = flags.tem_acumulo; // alias
-  }
+  flags.tem_desvio  = temAcumulo || !!(d.tem_desvio);
+  flags.tem_acumulo = temAcumulo || !!(d.tem_acumulo);
 
   // ── 4. ADICIONAL NOTURNO ─────────────────────────────────────────────────
   // Prioridade: campo explícito > derivação automática da jornada
@@ -181,7 +178,15 @@ export function derivarFlags(d, perfil) {
     ? !!(d.tem_he_folgas)
     : flags.tem_ft;
 
-  // ── 8. FLAGS ESPECÍFICAS PORTEIRO ────────────────────────────────────────
+  // ── 8. DANO MORAL (tokens da entrevista) ────────────────────────────────
+  flags.DANO_SUPERVISOR    = d.DANO_SUPERVISOR || "";
+  flags.DANO_FATOS         = d.DANO_FATOS || "";
+  flags.dano_sem_estrutura = !!(d.dano_sem_estrutura);
+  // tem_dano_moral = verdadeiro se há fatos de dano moral/assédio relatados
+  // ou se o posto não tinha estrutura (banheiro/bebedouro)
+  flags.tem_dano_moral = !!(flags.DANO_FATOS && flags.DANO_FATOS.trim()) || flags.dano_sem_estrutura;
+
+  // ── 9. FLAGS ESPECÍFICAS PORTEIRO ────────────────────────────────────────
   flags.ente_publico          = !!(d.ente_publico) && flags.tem_2a_reclamada;
   flags.comp_portaria         = !!(d.comp_portaria);
   flags.tem_descaracterizacao = !!(d.tem_descaracterizacao);

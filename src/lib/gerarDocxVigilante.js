@@ -10,6 +10,7 @@ import { fetchDocxViaBackend } from "./fetchDocxViaBackend.js";
 import { applyCleanToZip, validateFinalDocx } from "./cleanDocxXml.js";
 import { derivarFlags } from "./derivarFlags.js";
 import { normalizarEndereçamento, sanitizarCampos, limparSeparadoresOrfaos } from "./normalizarCampos.js";
+import { calcularPedidos } from "./calcularPedidos.js";
 
 /**
  * Monta o objeto de dados com todos os tokens esperados pelo modelo oficial.
@@ -72,11 +73,16 @@ function montarDadosTemplate(dados) {
     LOCAL_DATA_ASSINATURA:dados.LOCAL_DATA_ASSINATURA || "",
   };
 
-  // Adiciona P01 a P87
+  // Adiciona P01 a P87 — valores calculados deterministicamente,
+  // preservando valores preenchidos manualmente em valores_pedidos
+  const calculado = calcularPedidos(dados);
   for (let i = 1; i <= 87; i++) {
     const key = `P${String(i).padStart(2, "0")}`;
-    campos[key] = vp[key] || "";
+    campos[key] = vp[key] || calculado[key] || "";
   }
+  // VALOR_CAUSA e VALOR_CAUSA_EXT calculados se não preenchidos manualmente
+  campos.VALOR_CAUSA     = dados.VALOR_CAUSA     || calculado.VALOR_CAUSA     || "";
+  campos.VALOR_CAUSA_EXT = dados.VALOR_CAUSA_EXT || calculado.VALOR_CAUSA_EXT || valorPorExtenso(dados.VALOR_CAUSA || "");
 
   // ── Flags booleanas — 100% determinísticas via derivarFlags ──────────────
   const flags = derivarFlags(dados, "vigilante");

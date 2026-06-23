@@ -37,6 +37,19 @@
       "default": false,
       "description": "Ac\u00famulo/desvio de fun\u00e7\u00e3o detectado na entrevista (se\u00e7\u00e3o 8)"
     },
+    "DANO_SUPERVISOR": {
+      "type": "string",
+      "description": "Nome do superior hier\u00e1rquico informado na entrevista (para pedido de dano moral)"
+    },
+    "DANO_FATOS": {
+      "type": "string",
+      "description": "Resumo dos fatos de dano moral/ass\u00e9dio relatados pela reclamante (texto livre da entrevista)"
+    },
+    "dano_sem_estrutura": {
+      "type": "boolean",
+      "default": false,
+      "description": "Posto n\u00e3o tinha banheiro/bebedouro \u2014 fundamenta dano moral"
+    },
     "tem_insalubridade": {
       "type": "boolean",
       "default": false,
