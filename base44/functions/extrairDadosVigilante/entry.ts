@@ -16,21 +16,23 @@ REGRAS GERAIS:
 REGRAS ESPECIFICAS POR CAMPO:
 - RECL_NOME: nome completo do trabalhador/reclamante.
 - RECL_NASC: data de nascimento por extenso.
-- COMARCA_UF: formato CIDADE/UF em maiusculas, ex: "SAO PAULO/SP" ou "ARUJA/SP". Nao retorne so a UF.
+- COMARCA_UF: APENAS o MUNICIPIO (cidade) + "/UF" extraido do ENDERECAMENTO DA VARA DO TRABALHO (linha "Excelentissimo(a) Senhor(a) Doutor(a) Juiz(a)... Vara do Trabalho de ..."). NUNCA use rua, avenida, logradouro ou numero de porta. Formato: "SAO PAULO/SP" ou "ARUJA/SP". Se nao encontrar, retorne "".
+- FORO_COMPETENCIA: mesmo que COMARCA_UF — somente o MUNICIPIO + "/UF" do local da Vara do Trabalho. NUNCA rua, avenida, logradouro ou numero. Ex: "SAO PAULO/SP". Se nao encontrar, retorne "".
 - REGIAO_TRT: por extenso em maiusculas, ex: "SEGUNDA REGIAO" ou "TERCEIRA REGIAO". Nunca retorne so o numero.
+- LOCAL_PRESTACAO: APENAS o MUNICIPIO (cidade) + "/UF" onde o trabalhador prestava servicos (art. 651 CLT). NUNCA retorne logradouro/rua/avenida/numero. Ex: "SAO PAULO/SP". Se nao encontrar, retorne "".
 - DATA_ADMISSAO: data de admissao por extenso.
 - DATA_RESCISAO: data de rescisao por extenso.
 - SALARIO: salario base mensal, formato "R$ 2.148,22".
 - JORNADA_HORARIO: horario da escala de trabalho, ex: "18:30 as 07:30".
-- JORNADA_EXTRAPOLA: horario ate quando a jornada se estendia alem do previsto, ex: "09:00". Se a informacao nao existir, retorne "". NUNCA retorne "Sim" ou "Nao".
+- JORNADA_EXTRAPOLA: SOMENTE o horario (HH:MM ou HHhMM) ate quando a jornada se estendia alem do previsto, ex: "09:00" ou "21h00". NUNCA retorne frases, "Sim", "Nao" ou qualquer texto que nao seja um horario. Se nao houver horario de extrapolacao identificado, retorne "".
 - JORNADA_FREQ_EXTRA: procure na ENTREVISTA ou relato do trabalhador quantas vezes por mes fazia hora extra. Retorne no formato "X a Y vezes por mes" (ex: "7 a 8 vezes por mes"). NUNCA retorne palavras genericas como "Habitual", "Frequente", "Sim" ou "Nao".
 - INTERVALO_GOZADO: tempo de intervalo efetivamente gozado, ex: "10 (dez) a 15 (quinze) minutos".
-- VAL_FT: valor pago por folga trabalhada/FT, formato "R$ 230,00". Procure nos holerites ou relato. NUNCA retorne uma data. Se nao encontrar valor monetario em R$, retorne "".
+- VAL_FT: valor pago por folga trabalhada/FT, formato "R$ 230,00". Procure nos holerites ou relato do trabalhador. NUNCA retorne uma data nem texto sem valor monetario. Se nao encontrar valor monetario em R$, retorne "".
 - VAL_CONDUCAO: valor do beneficio de conducao/VT por dia em R$, ex: "R$ 10,00". Se a pessoa for optante por VT em cartao ou nao houver valor diario claro, retorne "".
 - VAL_ALIMENTACAO: valor do beneficio de alimentacao/VA por dia em R$, ex: "R$ 39,00". Se nao houver valor diario claro, retorne "".
 - RECL1_NOME: razao social da 1a reclamada (empregadora direta).
-- RECL2_NOME: razao social da 2a reclamada (tomadora de servicos), se houver.
-- RECL3_NOME: razao social da 3a reclamada, se houver.
+- RECL2_NOME: razao social da 2a reclamada (tomadora de servicos), se houver. Se nao houver 2a reclamada nos dados, retorne "".
+- RECL3_NOME: razao social da 3a reclamada, se houver. Se nao houver 3a reclamada nos dados, retorne "".
 
 Retorne JSON com: ${CAMPOS.join(",")}`;
 

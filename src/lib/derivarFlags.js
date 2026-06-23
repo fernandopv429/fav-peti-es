@@ -93,29 +93,31 @@ export function derivarFlags(d, perfil) {
   const flags = {};
 
   // ── 1. TIPO DE RESCISÃO ─────────────────────────────────────────────────
-  // Prioridade: flags booleanas já salvas > tipo_dispensa > TIPO_RESCISAO legado
+  // Prioridade: tipo_dispensa (campo estruturado) > flags booleanas já salvas > TIPO_RESCISAO legado
   const RESCISAO_FLAGS = ["t_dispensa", "t_coacao", "t_indireta", "t_reversao"];
 
-  // Lê flags já salvas
-  RESCISAO_FLAGS.forEach(f => { flags[f] = !!(d[f]); });
-
-  // Se nenhuma flag está marcada, derivar do campo estruturado
-  if (!RESCISAO_FLAGS.some(f => flags[f])) {
-    const src = d.tipo_dispensa || d.TIPO_RESCISAO || "";
-    const mapped = TIPO_DISPENSA_MAP[src];
+  // Se há campo estruturado tipo_dispensa, ele sempre prevalece (evita flags antigas incorretas)
+  const srcDispensa = d.tipo_dispensa || d.TIPO_RESCISAO || "";
+  if (srcDispensa) {
+    const mapped = TIPO_DISPENSA_MAP[srcDispensa];
     if (mapped) {
       RESCISAO_FLAGS.forEach(f => { flags[f] = f === mapped; });
+    } else {
+      // valor não reconhecido — zera todas, serão corrigidas no autoClassificar
+      RESCISAO_FLAGS.forEach(f => { flags[f] = false; });
     }
+  } else {
+    // Sem campo estruturado: usa flags booleanas já salvas (confirmadas manualmente)
+    RESCISAO_FLAGS.forEach(f => { flags[f] = !!(d[f]); });
   }
 
   // alias legado t_demissao = t_coacao (compatibilidade com template Vigilante)
   flags.t_demissao = flags.t_coacao;
 
   // ── 2. RECLAMADAS ────────────────────────────────────────────────────────
-  flags.tem_2a_reclamada = !!(d.tem_2a_reclamada ?? (d.RECL2_NOME ? true : undefined)) ||
-                            !!(d.RECL2_NOME);
-  flags.tem_3a_reclamada = !!(d.tem_3a_reclamada ?? (d.RECL3_NOME ? true : undefined)) ||
-                            !!(d.RECL3_NOME);
+  // Determinístico: verdadeiro SOMENTE se o nome da reclamada estiver preenchido
+  flags.tem_2a_reclamada = !!(d.RECL2_NOME && String(d.RECL2_NOME).trim());
+  flags.tem_3a_reclamada = !!(d.RECL3_NOME && String(d.RECL3_NOME).trim());
   // Subsidiária = mesma coisa que 2ª reclamada
   flags.tem_subsidiaria  = flags.tem_2a_reclamada;
 

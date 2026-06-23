@@ -53,13 +53,29 @@ export function sanitizar(val) {
 /**
  * Sanitiza TODOS os valores string de um objeto de campos.
  * Booleans e objetos reais (não null) são mantidos.
+ * Aplica sanitizações específicas por campo (ex: JORNADA_EXTRAPOLA deve ser só horário).
  */
 export function sanitizarCampos(campos) {
   for (const key of Object.keys(campos)) {
     const v = campos[key];
     if (typeof v === "boolean") continue;
     if (v !== null && v !== undefined && typeof v === "object") continue;
-    campos[key] = sanitizar(v);
+    let val = sanitizar(v);
+
+    // JORNADA_EXTRAPOLA: deve conter APENAS um horário (HH:MM ou HHhMM).
+    // Se o valor não for um horário isolado (ex: texto longo), limpa para "".
+    if (key === "JORNADA_EXTRAPOLA" && val) {
+      const soHorario = /^\s*\d{1,2}[h:]\d{2}\s*$/i.test(val) ||
+                        /^\s*\d{1,2}h\s*$/i.test(val);
+      if (!soHorario) val = "";
+    }
+
+    // COMARCA_UF e FORO_COMPETENCIA: nunca devem conter logradouro
+    if ((key === "COMARCA_UF" || key === "FORO_COMPETENCIA") && val) {
+      if (ehLogradouro(val.toUpperCase())) val = "";
+    }
+
+    campos[key] = val;
   }
   return campos;
 }
@@ -170,11 +186,23 @@ export function normalizarComarcaUF(comarcaUf, localPrestacao, foroCompetencia) 
   // Se o valor de COMARCA_UF parecer logradouro, descarta — nunca usar rua como comarca
   if (ehLogradouro(raw)) raw = "";
 
-  // Coleta fontes; exclui qualquer fonte que seja logradouro
-  const fontes = [raw, foroCompetencia, localPrestacao].map(f => {
+  // Extrai apenas a cidade de cada fonte (rejeita logradouros inteiros ou partes de logradouro)
+  const extrairCidadeSegura = (f) => {
     const s = sanitizar(f);
-    return typeof s === "string" ? s.toUpperCase().trim() : "";
-  }).filter(f => f && !ehLogradouro(f));
+    if (typeof s !== "string" || !s) return "";
+    const up = s.toUpperCase().trim();
+    if (ehLogradouro(up)) return ""; // descarta endereço completo
+    // Se contém "/", pega só a parte antes da "/" e verifica se não é logradouro
+    const antes = up.split("/")[0].trim();
+    if (ehLogradouro(antes)) return "";
+    // Rejeita se o primeiro token for prefixo de logradouro (mesmo sem número)
+    const primeiraPalavra = antes.split(" ")[0];
+    if (["RUA","AV","AVENIDA","ALAMEDA","TRAVESSA","ESTRADA","ROD","RODOVIA","LARGO","PRACA","PRAÇA","BECO","VIELA"].includes(primeiraPalavra)) return "";
+    return up;
+  };
+
+  // Coleta fontes; exclui qualquer fonte que seja logradouro
+  const fontes = [raw, foroCompetencia, localPrestacao].map(extrairCidadeSegura).filter(Boolean);
 
   // Extrai UF de qualquer fonte disponível
   let uf = null;
