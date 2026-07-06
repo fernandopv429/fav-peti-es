@@ -74,6 +74,7 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
       let laudoAnalise = "";
       let extraDefendants = [];
       let petitionData = null;
+      let casoData = null;
       // Lê config ativo do backend — NÃO depende do petitionConfig passado pelo frontend
       let cfgAtivo = petitionConfig || {};
       try {
@@ -99,6 +100,12 @@ ${parts.beneficios ? `VII – DA JUSTIÇA GRATUITA / JUÍZO DIGITAL\n\n${parts.b
             extraDefendants = pet.extra_defendants;
           }
         }
+      } catch (_) {}
+
+      // ── Lê CasoVigilante vinculado (correção 2: geração determinística consome dados estruturados)
+      try {
+        const casos = await base44.asServiceRole.entities.CasoVigilante.filter({ petition_id: petitionId });
+        casoData = casos?.[0] || null;
       } catch (_) {}
 
       // ── Processa documentos ─────────────────────────────────────────────
@@ -167,6 +174,35 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
         finalPrompt += `\n\nDOCUMENTOS NÃO LIDOS (adicione como PENDÊNCIA ao final da peça): ${docsNaoLidos.join(", ")}`;
       }
 
+      // ── Injeção dos dados estruturados do CasoVigilante (correção 2) ──────
+      if (casoData) {
+        const enderecoVara = casoData.COMARCA_UF && casoData.REGIAO_TRT
+          ? `VARA DO TRABALHO DE ${casoData.COMARCA_UF} — ${casoData.REGIAO_TRT}`
+          : (casoData.COMARCA_UF ? `VARA DO TRABALHO DE ${casoData.COMARCA_UF}` : "");
+        const MODALIDADE_MAP = {
+          sem_justa_causa: "dispensa sem justa causa",
+          rescisao_indireta: "rescisão indireta (art. 483 CLT)",
+          nulidade_pedido_demissao: "pedido de demissão eivado de coação — nulidade",
+          reversao_justa_causa: "reversão da justa causa",
+        };
+        const modalidade = MODALIDADE_MAP[casoData.tipo_dispensa] || "";
+        let casoBlock = `\n\n${"═".repeat(60)}\nDADOS ESTRUTURADOS DO CASO (CasoVigilante) — USE COM MÁXIMA PRIORIDADE:\n${"═".repeat(60)}\n`;
+        if (enderecoVara) casoBlock += `ENDEREÇAMENTO: ${enderecoVara}\n`;
+        if (modalidade) casoBlock += `MODALIDADE DE DISPENSA: ${modalidade}\n`;
+        if (casoData.RECL2_NOME) casoBlock += `2ª RECLAMADA (tomadora, confirmada na entrevista): ${casoData.RECL2_NOME} — CNPJ: ${casoData.RECL2_CNPJ || "[A PREENCHER]"}\n`;
+        if (casoData.RECL3_NOME) casoBlock += `3ª RECLAMADA (confirmada na entrevista): ${casoData.RECL3_NOME} — CNPJ: ${casoData.RECL3_CNPJ || "[A PREENCHER]"}\n`;
+        if (casoData.acumulo_funcao) casoBlock += "ACÚMULO/DESVIO DE FUNÇÃO: indicado na entrevista — inclua OBRIGATORIAMENTE o tópico e o pedido.\n";
+        if (casoData.DANO_SUPERVISOR) casoBlock += `DANO MORAL — Superior hierárquico: ${casoData.DANO_SUPERVISOR}\n`;
+        if (casoData.DANO_FATOS) casoBlock += `DANO MORAL — Fatos: ${casoData.DANO_FATOS}\n`;
+        if (casoData.dano_sem_estrutura) casoBlock += "DANO MORAL — Posto sem banheiro/bebedouro.\n";
+        if (casoData.JORNADA_FREQ_EXTRA) casoBlock += `Frequência de horas extras: ${casoData.JORNADA_FREQ_EXTRA}\n`;
+        if (casoData.INTERVALO_GOZADO) casoBlock += `Intervalo gozado: ${casoData.INTERVALO_GOZADO}\n`;
+        if (casoData.JORNADA_EXTRAPOLA) casoBlock += `Extrapolação de jornada: ${casoData.JORNADA_EXTRAPOLA}\n`;
+        if (casoData.VAL_FT) casoBlock += `Folgas trabalhadas: ${casoData.VAL_FT}\n`;
+        casoBlock += "\n⚠️ NÃO adicione reclamadas além das confirmadas acima. Períodos das tomadoras na Súmula 331 devem vir da entrevista.\n";
+        finalPrompt += casoBlock;
+      }
+
       if (templateContent && templateContent.trim().length >= 50) {
         finalPrompt += `\n\n${"═".repeat(60)}\nINSTRUÇÃO OBRIGATÓRIA — PRESERVAÇÃO DO MODELO:\nVocê DEVE preservar TODOS os tópicos, títulos, seções e subtítulos do modelo abaixo, sem exceção. Nenhum tópico pode ser omitido ou fundido com outro. Preencha cada seção com os dados reais do caso e dos documentos. Campos sem informação: [A PREENCHER: descrição].\n\nMODELO OBRIGATÓRIO:\n${templateContent}`;
       }
@@ -220,6 +256,21 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
         finalStatus = "revisao_necessaria";
       }
 
+      // ── Validação automática (correção 5): endereçamento, dispensa, tópicos ──
+      const pendenciasValidacao = [];
+      if (casoData) {
+        if (!casoData.COMARCA_UF) pendenciasValidacao.push("Vara do Trabalho (COMARCA_UF) não preenchida");
+        if (!casoData.REGIAO_TRT) pendenciasValidacao.push("Região do TRT não preenchida");
+        if (!casoData.tipo_dispensa) pendenciasValidacao.push("Modalidade de dispensa não enquadrada");
+      }
+      if (fullText && !/VARA DO TRABALHO/i.test(fullText)) pendenciasValidacao.push("Endereçamento à Vara do Trabalho ausente no texto");
+      if (casoData?.RECL2_NOME && fullText && !/RESPONSABILIDADE SUBSIDI|SÚMULA 331|SUMULA 331/i.test(fullText)) pendenciasValidacao.push("Tópico de responsabilidade subsidiária (Súmula 331) ausente");
+      if (casoData?.acumulo_funcao && fullText && !/DESVIO DE FUN|ACÚMULO DE FUN|ACUMULO DE FUN/i.test(fullText)) pendenciasValidacao.push("Tópico de desvio/acúmulo de função ausente");
+      if ((casoData?.DANO_FATOS || casoData?.DANO_SUPERVISOR) && fullText && !/DANO MORAL/i.test(fullText)) pendenciasValidacao.push("Tópico de dano moral ausente");
+      if (pendenciasValidacao.length > 0 && finalStatus !== "revisao_necessaria") {
+        finalStatus = "revisao_necessaria";
+      }
+
       // ── Aplica padrão obrigatório do escritório (PetitionConfig) ─────────
       // Usa cfgAtivo lido do banco (garante logo mesmo se petitionConfig do frontend vier null)
       const cfg = cfgAtivo;
@@ -264,6 +315,7 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
         generated_content: contentUrl,
         template_used: templateName || "",
         status: finalStatus,
+        ...(pendenciasValidacao.length > 0 ? { additional_facts: "Pendências de validação: " + pendenciasValidacao.join("; ") } : {}),
       });
 
       console.log(`Petição ${petitionId} salva — status: ${finalStatus}, IA: ${usedAI}`);

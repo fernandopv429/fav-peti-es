@@ -10,11 +10,11 @@ const CAMPOS = [
   "RECL_ENDERECO","RECL_CEP",
   "RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL",
   "RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL",
-  "RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL",
   "COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL",
   "DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO",
   "JORNADA_HORARIO","JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO",
   "CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO",
+  "DANO_SUPERVISOR","DANO_FATOS",
 ];
 
 // Tabela determinística UF → TRT
@@ -49,8 +49,8 @@ const MUNICIPIOS_TRT15 = new Set([
   "BOTUCATU","FRANCA","OURINHOS","INDAIATUBA","SUMARÉ","SUMARE","JUNDIAÍ","JUNDIAI",
 ]);
 
-const CAMPOS_ENTREVISTA = ["tipo_dispensa","acumulo_funcao","tem_insalubridade","tem_periculosidade","tem_adic_noturno","escala"];
-const CAMPOS_BOOL = new Set(["acumulo_funcao","tem_insalubridade","tem_periculosidade","tem_adic_noturno"]);
+const CAMPOS_ENTREVISTA = ["tipo_dispensa","acumulo_funcao","tem_insalubridade","tem_periculosidade","tem_adic_noturno","escala","dano_sem_estrutura"];
+const CAMPOS_BOOL = new Set(["acumulo_funcao","tem_insalubridade","tem_periculosidade","tem_adic_noturno","dano_sem_estrutura"]);
 const DEFAULTS = { RECL_NACIONALIDADE: "brasileiro" };
 const CAMPOS_COM_DEFAULT = new Set(["RECL_NACIONALIDADE"]);
 
@@ -75,13 +75,21 @@ const SCHEMA = {
     DATA_ADMISSAO: { type: "string", description: "Data de admissão por extenso, ex: '04 de junho de 2012'." },
     DATA_RESCISAO: { type: "string", description: "Data de rescisão por extenso, ex: '15 de julho de 2025'." },
     FUNCAO: { type: "string", description: "Cargo/função do empregado na 1ª reclamada." },
-    JORNADA_HORARIO: { type: "string", description: "Horário habitual de trabalho, ex: '18:30 às 07:30'." },
+    JORNADA_HORARIO: { type: "string", description: "Horário habitual de trabalho completo, ex: '18:30 às 07:30'. Descreva o horário de início e fim, NUNCA apenas 'Sim' ou 'Não'." },
+    JORNADA_EXTRAPOLA: { type: "string", description: "Horário até o qual a jornada se estendia além do previsto (APENAS HH:MM, ex: '09:00'). NUNCA retorne 'Sim', 'Não' ou texto descritivo — apenas o horário." },
+    JORNADA_FREQ_EXTRA: { type: "string", description: "Frequência de horas extras por mês no formato 'X a Y vezes por mês' (ex: '4 a 6 vezes por mês'). NUNCA retorne 'Sim', 'Não', 'Habitual' ou 'Frequente' — descreva a quantidade." },
+    INTERVALO_GOZADO: { type: "string", description: "Tempo de intervalo intrajornada efetivamente gozado, descritivo (ex: '10 a 15 minutos'). NUNCA retorne 'Sim' ou 'Não' — descreva o tempo." },
+    VAL_FT: { type: "string", description: "Valor pago por folga trabalhada/FT no formato 'R$ X,XX' (ex: 'R$ 180,00'). Se o trabalhador relatar folgas trabalhadas mas sem valor monetário, retorne 'folgas trabalhadas sem valor informado'." },
+    DANO_SUPERVISOR: { type: "string", description: "Nome do superior hierárquico mencionado na entrevista/relato em caso de dano moral ou assédio. Deixe vazio se não houver." },
+    DANO_FATOS: { type: "string", description: "Resumo objetivo dos fatos de dano moral/assédio relatados pelo trabalhador (texto descritivo). Deixe vazio se não houver relato de dano moral." },
     tipo_dispensa: { type: "string", enum: ["sem_justa_causa","rescisao_indireta","nulidade_pedido_demissao","reversao_justa_causa"], description: "Tipo de dispensa da entrevista: (X) Sem justa causa → sem_justa_causa | (X) Rescisão indireta → rescisao_indireta | (X) Pedido de demissão → nulidade_pedido_demissao | (X) Justa causa → reversao_justa_causa" },
     acumulo_funcao: { type: "boolean", description: "true se houver acúmulo ou desvio de função (seção 8 da entrevista)" },
     tem_insalubridade: { type: "boolean", description: "true se houver insalubridade (seção 13 da entrevista)" },
     tem_periculosidade: { type: "boolean", description: "true se houver periculosidade (seção 13 da entrevista)" },
     tem_adic_noturno: { type: "boolean", description: "true se JORNADA_HORARIO incluir horas entre 22h e 05h" },
     escala: { type: "string", description: "Regime de escala: '12x36', '5x2', '4x2', etc." },
+    dano_sem_estrutura: { type: "boolean", description: "true se o posto não tinha banheiro/bebedouro (fundamenta dano moral)" },
+    pendencias_sugeridas: { type: "array", items: { type: "string" }, description: "Pendências sugeridas para confirmação do advogado. Se detectar empresa adicional além da 1ª e 2ª reclamada nos documentos, liste aqui como 'Possível 3ª reclamada: [NOME] — confirmar com o cliente'. NUNCA preencha RECL3 automaticamente." },
   },
 };
 
@@ -230,6 +238,18 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // Array de pendências sugeridas (ex: possível 3ª reclamada) — não salvo na ficha
+          if (key === "pendencias_sugeridas" && Array.isArray(value)) {
+            if (!merged.pendencias_sugeridas) merged.pendencias_sugeridas = [];
+            for (const p of value) {
+              if (typeof p === "string" && p.trim() && !merged.pendencias_sugeridas.includes(p.trim())) {
+                merged.pendencias_sugeridas.push(p.trim());
+                camposNovos++;
+              }
+            }
+            continue;
+          }
+
           // Campos string — normaliza e valida antes de mesclar
           if (value && typeof value === "string") {
             const normalizado = normalizarCampo(key, value);
@@ -298,6 +318,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Separa pendências sugeridas (não salvas na ficha, apenas retornadas ao frontend)
+    const pendenciasSugeridas = Array.isArray(merged.pendencias_sugeridas) ? merged.pendencias_sugeridas : [];
+    delete merged.pendencias_sugeridas;
+
     // Filtra campos válidos
     const extraidos = Object.fromEntries(
       Object.entries(merged).filter(([, v]) =>
@@ -333,6 +357,7 @@ Deno.serve(async (req) => {
       totalExtraidos,
       alerta,
       docsFalharam: docsFalharam.length > 0 ? docsFalharam : undefined,
+      pendenciasSugeridas: pendenciasSugeridas.length > 0 ? pendenciasSugeridas : undefined,
     });
   } catch (error) {
     try {

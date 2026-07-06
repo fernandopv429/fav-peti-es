@@ -263,7 +263,7 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       }
 
       // 2. Busca PetitionConfig para advogado/OAB
-      const configs = await base44.entities.PetitionConfig.list();
+      const configs = await base44.entities.PetitionConfig.filter({ ativo: true });
       const cfg = configs[0] || {};
 
       // 3. LOCAL_DATA em PT-BR (America/Sao_Paulo)

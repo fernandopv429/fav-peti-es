@@ -13,6 +13,7 @@ import VigilanteForm from "../components/vigilante/VigilanteForm";
 import GenericoForm from "../components/generico/GenericoForm";
 import PorteiroForm from "../components/porteiro/PorteiroForm";
 import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
+import { validarDadosPeticao, validarTextoPeticao } from "@/lib/validarPeticao.js";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -271,16 +272,18 @@ export default function GerarDocumento() {
             const tituloPet = dadosVigilante.titulo ||
               `${dadosVigilante.RECL_NOME || "Vigilante"} × ${dadosVigilante.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
+            const { valido: docxValido, pendencias: docxPendencias } = validarDadosPeticao(dadosVigilante);
             const petitionPayload = {
               title: tituloPet,
               case_type: "trabalhista",
               claimant_name: dadosVigilante.RECL_NOME || "—",
               defendant_name: dadosVigilante.RECL1_NOME || "—",
               defendant_cnpj: dadosVigilante.RECL1_CNPJ || "",
-              status: "revisao_necessaria",
+              status: docxValido ? "concluida" : "revisao_necessaria",
               document_urls: [docxUrl],
               document_names: [nomeArquivo],
               template_used: templateSelecionado?.id || "vigilante_unificado",
+              ...(docxPendencias.length > 0 ? { additional_facts: "Pendências: " + docxPendencias.join("; ") } : {}),
             };
 
             // Evita duplicata: usa petition_id já vinculado ao CasoVigilante
@@ -356,9 +359,52 @@ export default function GerarDocumento() {
           urlsVisuais = extracted.urlsVisuais;
         }
         const contextoBlock = contexto.trim() ? `\n\nCONTEXTO ADICIONAL DO CASO:\n${contexto}` : "";
+
+        // Endereçamento determinístico (correção 2): Vara do Trabalho de COMARCA/UF — REGIÃO
+        const enderecoVara = dadosVigilante.COMARCA_UF && dadosVigilante.REGIAO_TRT
+          ? `VARA DO TRABALHO DE ${dadosVigilante.COMARCA_UF} — ${dadosVigilante.REGIAO_TRT}`
+          : (dadosVigilante.COMARCA_UF ? `VARA DO TRABALHO DE ${dadosVigilante.COMARCA_UF}` : "[VARA DO TRABALHO COMPETENTE]");
+
+        // Modalidade de dispensa (correção 2)
+        const MODALIDADE_MAP = {
+          sem_justa_causa: "dispensa sem justa causa",
+          rescisao_indireta: "rescisão indireta (art. 483 CLT)",
+          nulidade_pedido_demissao: "pedido de demissão eivado de coação — nulidade",
+          reversao_justa_causa: "reversão da justa causa",
+        };
+        const modalidade = MODALIDADE_MAP[dadosVigilante.tipo_dispensa] || dadosVigilante.TIPO_RESCISAO || "";
+
+        // Reclamadas confirmadas na entrevista (correção 3)
+        let reclamadasBlock = `1ª Reclamada (empregadora): ${dadosVigilante.RECL1_NOME || "[A PREENCHER]"} — CNPJ: ${dadosVigilante.RECL1_CNPJ || "[A PREENCHER]"}`;
+        if (dadosVigilante.RECL2_NOME) {
+          reclamadasBlock += `\n2ª Reclamada (tomadora): ${dadosVigilante.RECL2_NOME} — CNPJ: ${dadosVigilante.RECL2_CNPJ || "[A PREENCHER]"}`;
+        }
+        if (dadosVigilante.RECL3_NOME) {
+          reclamadasBlock += `\n3ª Reclamada (tomadora): ${dadosVigilante.RECL3_NOME} — CNPJ: ${dadosVigilante.RECL3_CNPJ || "[A PREENCHER]"}`;
+        }
+
+        // Dano moral (correção 2 + 4)
+        let danoBlock = "";
+        if (dadosVigilante.DANO_FATOS || dadosVigilante.DANO_SUPERVISOR || dadosVigilante.dano_sem_estrutura) {
+          danoBlock = "\nDANO MORAL: ";
+          if (dadosVigilante.DANO_SUPERVISOR) danoBlock += `Superior hierárquico: ${dadosVigilante.DANO_SUPERVISOR}. `;
+          if (dadosVigilante.DANO_FATOS) danoBlock += `Fatos: ${dadosVigilante.DANO_FATOS}. `;
+          if (dadosVigilante.dano_sem_estrutura) danoBlock += "Posto sem banheiro/bebedouro.";
+          danoBlock += "\nINSTRUÇÃO: Inclua o tópico de dano moral com os subtópicos padronizados do modelo, citando o nome do supervisor e os fatos relatados.";
+        }
+
+        // Acúmulo/desvio (correção 2)
+        const desvioBlock = dadosVigilante.acumulo_funcao
+          ? "\nACÚMULO/DESVIO DE FUNÇÃO: Indicado na entrevista. INSTRUÇÃO: Inclua obrigatoriamente o tópico e o pedido de desvio/acúmulo de função."
+          : "";
+
         const promptIA = `Você é um advogado trabalhista. Preencha os [colchetes] restantes e expanda a narrativa fática das seções descritivas. NÃO altere valores monetários (P01-P87, VALOR_CAUSA, SALARIO). Mantenha estrutura e títulos.
 ${contextoBlock}
-DADOS: Reclamante: ${dadosVigilante.RECL_NOME} | Reclamada: ${dadosVigilante.RECL1_NOME} | Admissão: ${dadosVigilante.DATA_ADMISSAO} | Rescisão: ${dadosVigilante.DATA_RESCISAO} | Salário: ${dadosVigilante.SALARIO} | Jornada: ${dadosVigilante.JORNADA_HORARIO} | Intervalo: ${dadosVigilante.INTERVALO_GOZADO}
+ENDEREÇAMENTO: ${enderecoVara}
+RECLAMADAS (confirmadas na entrevista — NÃO adicionar outras empresas além das listadas):
+${reclamadasBlock}
+${modalidade ? `MODALIDADE DE DISPENSA: ${modalidade}` : ""}
+DADOS: Reclamante: ${dadosVigilante.RECL_NOME} | Admissão: ${dadosVigilante.DATA_ADMISSAO} | Rescisão: ${dadosVigilante.DATA_RESCISAO} | Salário: ${dadosVigilante.SALARIO} | Jornada: ${dadosVigilante.JORNADA_HORARIO} | Extrapolação: ${dadosVigilante.JORNADA_EXTRAPOLA || "não informada"} | Frequência extras: ${dadosVigilante.JORNADA_FREQ_EXTRA || "não informada"} | Intervalo: ${dadosVigilante.INTERVALO_GOZADO}${dadosVigilante.VAL_FT ? ` | Folgas trabalhadas: ${dadosVigilante.VAL_FT}` : ""}${danoBlock}${desvioBlock}
 
 PETIÇÃO:
 ${textoBase}
@@ -370,6 +416,12 @@ Retorne a petição completa, sem comentários adicionais.`;
           file_urls: urlsVisuais.length > 0 ? urlsVisuais : undefined,
         });
         if (/\[A PREENCHER|\[PENDÊNCIA/i.test(textoFinal)) statusFinal = "revisao_necessaria";
+        // Validação automática (correção 5): tópicos obrigatórios e consistência
+        const { valido: textoValido, pendencias: textoPendencias } = validarTextoPeticao(textoFinal, dadosVigilante);
+        if (!textoValido) {
+          statusFinal = "revisao_necessaria";
+          dadosVigilante._pendenciasValidacao = textoPendencias;
+        }
       } catch (_) {
         textoFinal = textoBase;
         statusFinal = "revisao_necessaria";
@@ -386,6 +438,7 @@ Retorne a petição completa, sem comentários adicionais.`;
           generated_content: contentUrl, status: statusFinal,
           claimant_name: dadosVigilante.RECL_NOME || "—",
           defendant_name: dadosVigilante.RECL1_NOME || "—",
+          ...(dadosVigilante._pendenciasValidacao ? { additional_facts: "Pendências de validação: " + dadosVigilante._pendenciasValidacao.join("; ") } : {}),
         });
         if (dadosVigilante.id) {
           base44.entities.CasoVigilante.update(dadosVigilante.id, { petition_id: petitionId, status: "gerado" }).catch(() => {});

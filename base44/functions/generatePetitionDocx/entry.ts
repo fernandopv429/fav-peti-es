@@ -457,6 +457,7 @@ Deno.serve(async (req) => {
               "DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO",
               "JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","LOCAL_DATA_ASSINATURA",
               "CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","VALOR_CAUSA",
+              "DANO_SUPERVISOR","DANO_FATOS",
             ];
             for (const k of CAMPOS_CASO) {
               if (caso[k] !== undefined && caso[k] !== null && caso[k] !== "") {
@@ -487,9 +488,17 @@ Deno.serve(async (req) => {
             if (caso.jornada_12x36 !== undefined) casoTokens.jornada_12x36 = !!caso.jornada_12x36;
             if (caso.jornada_5x2 !== undefined)   casoTokens.jornada_5x2   = !!caso.jornada_5x2;
             // Flags opcionais
-            const FLAGS_OPT = ["tem_subsidiaria","tem_desvio","tem_adic_noturno","tem_acumulo","tem_insalubridade","tem_periculosidade"];
+            const FLAGS_OPT = ["tem_subsidiaria","tem_desvio","tem_acumulo","tem_insalubridade","tem_periculosidade","tem_dano_moral","dano_sem_estrutura","acumulo_funcao"];
             for (const f of FLAGS_OPT) {
               if (caso[f] !== undefined) casoTokens[f] = !!caso[f];
+            }
+            // Derivação determinística (correção 2): tem_dano_moral e tem_desvio a partir dos campos da entrevista
+            if (!casoTokens.tem_dano_moral) {
+              casoTokens.tem_dano_moral = !!(casoTokens.DANO_FATOS || casoTokens.DANO_SUPERVISOR || caso.dano_sem_estrutura);
+            }
+            if (caso.acumulo_funcao && !casoTokens.tem_desvio && !casoTokens.tem_acumulo) {
+              casoTokens.tem_desvio = true;
+              casoTokens.tem_acumulo = true;
             }
             // Derivação determinística REGIAO_TRT dentro do casoTokens
             if (casoTokens.COMARCA_UF && !casoTokens.REGIAO_TRT) {
@@ -713,7 +722,16 @@ REGRAS ABSOLUTAS:
 
       // ── 7. Determina status final ──────────────────────────────────────────
       const hasTokensFaltando = tokensFaltando.length > 0;
-      const finalStatus = hasTokensFaltando ? "revisao_necessaria" : "concluida";
+      // Validação automática (correção 5): endereçamento, modalidade de dispensa e tópicos
+      const pendenciasValidacao = [];
+      if (!finalTokens.COMARCA_UF) pendenciasValidacao.push("Vara do Trabalho (COMARCA_UF) não preenchida");
+      if (!finalTokens.REGIAO_TRT) pendenciasValidacao.push("Região do TRT não preenchida");
+      const hasDispensa = finalTokens.tipo_dispensa || finalTokens.t_dispensa || finalTokens.t_indireta || finalTokens.t_coacao || finalTokens.t_reversao;
+      if (!hasDispensa) pendenciasValidacao.push("Modalidade de dispensa não enquadrada");
+      if (finalTokens.acumulo_funcao && !finalTokens.tem_desvio && !finalTokens.tem_acumulo) {
+        pendenciasValidacao.push("Acúmulo/desvio de função indicado mas flag não ativada");
+      }
+      const finalStatus = (hasTokensFaltando || pendenciasValidacao.length > 0) ? "revisao_necessaria" : "concluida";
 
       // ── 8. Atualiza Petition ───────────────────────────────────────────────
       // generated_content aponta para o DOCX (para visualização no PetitionView)
@@ -727,6 +745,7 @@ REGRAS ABSOLUTAS:
         status: finalStatus,
         document_urls: [...existingDocUrls, docxUrl],
         document_names: [...existingDocNames, nomeArquivo],
+        ...(pendenciasValidacao.length > 0 ? { additional_facts: "Pendências de validação: " + pendenciasValidacao.join("; ") } : {}),
       });
 
       // ── 9. Incrementa use_count do template ───────────────────────────────

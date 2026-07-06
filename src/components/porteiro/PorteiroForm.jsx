@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } f
 import { toast } from "sonner";
 import { gerarDocxPorteiro } from "@/lib/gerarDocxPorteiro.js";
 import { autoClassificar, nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
+import { validarDadosPeticao } from "@/lib/validarPeticao.js";
 import ExtrairDadosIA from "../vigilante/ExtrairDadosIA.jsx";
 import ConfirmarTesesPorteiro from "./ConfirmarTesesPorteiro.jsx";
 
@@ -230,17 +231,22 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
         const titulo = dadosFinais.titulo ||
           `${dadosFinais.RECL_NOME || "Porteiro"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
+        const { valido: petValido, pendencias: petPendencias } = validarDadosPeticao(dadosFinais);
+        const petStatus = petValido ? "concluida" : "revisao_necessaria";
+        const petPendenciasTxt = petPendencias.length > 0 ? petPendencias.join("; ") : "";
         const petitionPayload = {
           title: titulo,
           case_type: "trabalhista",
           claimant_name: dadosFinais.RECL_NOME || "—",
           defendant_name: dadosFinais.RECL1_NOME || "—",
           defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
-          status: "revisao_necessaria",
+          status: petStatus,
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: templateId || "porteiro",
-          ...(dadosFinais._alertaClassificacao ? { additional_facts: dadosFinais._alertaClassificacao } : {}),
+          ...((petPendenciasTxt || dadosFinais._alertaClassificacao)
+            ? { additional_facts: [petPendenciasTxt, dadosFinais._alertaClassificacao].filter(Boolean).join(" | ") }
+            : {}),
         };
 
         const existingPetitionId = dadosFinais.petition_id || null;
@@ -257,7 +263,13 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
           setDados(prev => ({ ...prev, petition_id: petId }));
         }
 
-        if (petId) toast.success("DOCX salvo em Minhas Petições!");
+        if (petId) {
+          if (petStatus === "revisao_necessaria") {
+            toast.warning(`Petição marcada como "Revisão Necessária". Pendências: ${petPendencias.join("; ")}`, { duration: 10000 });
+          } else {
+            toast.success("DOCX gerado e salvo como concluído!");
+          }
+        }
       } catch (uploadErr) {
         toast.warning("Download OK, mas falha ao salvar: " + uploadErr.message);
       }

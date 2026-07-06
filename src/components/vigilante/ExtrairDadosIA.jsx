@@ -35,10 +35,6 @@ const CAMPOS_EXTRAIVEIS = [
   { key: "RECL2_CNPJ",            label: "2ª Reclamada — CNPJ" },
   { key: "RECL2_LOGRADOURO",      label: "2ª Reclamada — Logradouro" },
   { key: "RECL2_ENDCOMPL",        label: "2ª Reclamada — Complemento" },
-  { key: "RECL3_NOME",            label: "3ª Reclamada — Razão social" },
-  { key: "RECL3_CNPJ",            label: "3ª Reclamada — CNPJ" },
-  { key: "RECL3_LOGRADOURO",      label: "3ª Reclamada — Logradouro" },
-  { key: "RECL3_ENDCOMPL",        label: "3ª Reclamada — Complemento" },
   { key: "COMARCA_UF",            label: "Comarca/UF" },
   { key: "REGIAO_TRT",            label: "Região TRT" },
   { key: "FORO_COMPETENCIA",      label: "Foro de competência" },
@@ -57,6 +53,8 @@ const CAMPOS_EXTRAIVEIS = [
   { key: "VAL_FT",                label: "Valor FT/folga trabalhada" },
   { key: "VAL_CONDUCAO",          label: "Valor condução/dia" },
   { key: "VAL_ALIMENTACAO",       label: "Valor alimentação/dia" },
+  { key: "DANO_SUPERVISOR",       label: "Superior hierárquico (dano moral)" },
+  { key: "DANO_FATOS",            label: "Fatos de dano moral/assédio" },
 ];
 
 const LOTE_SIZE = 2;
@@ -76,6 +74,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
   const [dadosEditados, setDadosEditados] = useState({});
   const [alertasExtra, setAlertasExtra] = useState([]);
   const [docsFalharam, setDocsFalharam] = useState([]);
+  const [pendenciasSugeridas, setPendenciasSugeridas] = useState([]);
   // ID da ficha — nunca muda após o primeiro clique em "Extrair"
   const [fichaId, setFichaId] = useState(casoVigilanteId || null);
   const fileInputRef = useRef(null);
@@ -104,6 +103,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
     setFase("extraindo");
     setDadosExtraidos(null);
     setDadosEditados({});
+    setPendenciasSugeridas([]);
 
     // ── PASSO 1: Garantir UMA ficha única ──────────────────────────────────
     let idFicha = fichaId;
@@ -129,6 +129,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
     let camposMerged = {};
     let alertasAcumulados = [];
     let docsFalhadosAcumulados = [];
+    let pendenciasAcumuladas = [];
 
     for (let i = 0; i < totalDocs; i++) {
       const url = todasUrls[i];
@@ -182,6 +183,11 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
         if (payload?.docsFalharam && payload.docsFalharam.length > 0) {
           docsFalhadosAcumulados.push(...payload.docsFalharam);
         }
+        if (payload?.pendenciasSugeridas && payload.pendenciasSugeridas.length > 0) {
+          for (const p of payload.pendenciasSugeridas) {
+            if (!pendenciasAcumuladas.includes(p)) pendenciasAcumuladas.push(p);
+          }
+        }
       } catch (e) {
         console.error(`Documento ${i} falhou:`, e.message, e);
         docsFalhadosAcumulados.push({ 
@@ -214,6 +220,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       setDadosEditados({ ...camposFinais });
       setAlertasExtra(alertasAcumulados);
       setDocsFalharam(docsFalhadosAcumulados);
+      setPendenciasSugeridas(pendenciasAcumuladas);
       
       setFase("revisao");
 
@@ -227,6 +234,7 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
       const camposFinais = { ...camposMerged };
       setDadosExtraidos(camposFinais);
       setDadosEditados({ ...camposFinais });
+      setPendenciasSugeridas(pendenciasAcumuladas);
       setFase("revisao");
       toast.error("Erro ao ler dados extraídos. Verifique o ErrorLog.");
     }
@@ -403,6 +411,21 @@ export default function ExtrairDadosIA({ casoVigilanteId, petitionId, documentUr
                   <strong>{camposPreenchidos} campo(s) extraídos.</strong> Revise e edite abaixo antes de confirmar.
                 </span>
               </div>
+
+              {pendenciasSugeridas.length > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Pendências para confirmação:</strong>
+                    <ul className="mt-1 list-disc list-inside opacity-90">
+                      {pendenciasSugeridas.map((p, idx) => (
+                        <li key={idx}>{p}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1">Estas empresas não foram adicionadas automaticamente ao polo passivo. Confirme com o cliente antes de incluir.</p>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {CAMPOS_EXTRAIVEIS.map(c => (

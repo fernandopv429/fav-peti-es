@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Save, Download, Loader2, FileDown, Wand2 } f
 import { toast } from "sonner";
 import { gerarDocxVigilante } from "@/lib/gerarDocxVigilante.js";
 import { autoClassificar, nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
+import { validarDadosPeticao } from "@/lib/validarPeticao.js";
 import ExtrairDadosIA from "./ExtrairDadosIA.jsx";
 import ConfirmarTeses from "./ConfirmarTeses.jsx";
 
@@ -208,17 +209,22 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         const titulo = dadosFinais.titulo ||
           `${dadosFinais.RECL_NOME || "Vigilante"} × ${dadosFinais.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
 
+        const { valido: petValido, pendencias: petPendencias } = validarDadosPeticao(dadosFinais);
+        const petStatus = petValido ? "concluida" : "revisao_necessaria";
+        const petPendenciasTxt = petPendencias.length > 0 ? petPendencias.join("; ") : "";
         const petitionPayload = {
           title: titulo,
           case_type: "trabalhista",
           claimant_name: dadosFinais.RECL_NOME || "—",
           defendant_name: dadosFinais.RECL1_NOME || "—",
           defendant_cnpj: dadosFinais.RECL1_CNPJ || "",
-          status: "revisao_necessaria",
+          status: petStatus,
           document_urls: [docxUrl],
           document_names: [nomeArquivo],
           template_used: "vigilante_unificado",
-          ...(dadosFinais._alertaClassificacao ? { additional_facts: dadosFinais._alertaClassificacao } : {}),
+          ...((petPendenciasTxt || dadosFinais._alertaClassificacao)
+            ? { additional_facts: [petPendenciasTxt, dadosFinais._alertaClassificacao].filter(Boolean).join(" | ") }
+            : {}),
         };
 
         // Usa petition_id já vinculado ao caso (estado local tem o campo)
@@ -240,7 +246,11 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
         }
 
         if (petitionId) {
-          toast.success(`DOCX salvo em Minhas Petições como "Revisão Necessária"!`);
+          if (petStatus === "revisao_necessaria") {
+            toast.warning(`Petição marcada como "Revisão Necessária". Pendências: ${petPendencias.join("; ")}`, { duration: 10000 });
+          } else {
+            toast.success("DOCX gerado e salvo como concluído!");
+          }
         }
       } catch (uploadErr) {
         toast.warning("Download OK, mas falha ao salvar na petição: " + uploadErr.message);
