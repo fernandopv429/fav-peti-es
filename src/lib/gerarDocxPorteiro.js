@@ -50,9 +50,11 @@ function montarAliasesSindeepres(c, d, flags) {
     // ── Foro / assinatura ──
     comarca:        c.COMARCA_UF,
     cidade:         (c.COMARCA_UF || "").split("/")[0] || ass[0] || "",
-    ordinal_regiao: c.REGIAO_TRT,
-    ordinal_vara:   d.ordinal_vara || "",
-    rito:           d.rito || "",
+    // REGIAO_TRT já contém a palavra "REGIÃO" (ex: "DÉCIMA QUINTA REGIÃO");
+    // o modelo escreve "{{ordinal_regiao}} REGIÃO" — então removemos o sufixo.
+    ordinal_regiao: String(c.REGIAO_TRT || "").replace(/\s*REGI[ÃA]O\s*$/i, ""),
+    ...(d.ordinal_vara ? { ordinal_vara: String(d.ordinal_vara) } : {}),
+    ...((d.rito || d.rite) ? { rito: String(d.rito || d.rite) } : {}),
     data_peticao:   ass.length > 1 ? ass.slice(1).join(", ") : (c.LOCAL_DATA_ASSINATURA || ""),
     endereco_prestacao_servicos: junta(c.LOCAL_PRESTACAO, c.LOCAL_PRESTACAO_COMPL),
     // ── Contrato / jornada ──
@@ -84,8 +86,9 @@ function montarAliasesSindeepres(c, d, flags) {
     valor_total_causa:        c.VALOR_CAUSA,
     valor_total_extenso:      c.VALOR_CAUSA_EXT,
   };
-  // Tokens nominais sem fonte determinística: aceita valor homônimo vindo da
-  // extração/formulário (d.<token>); senão fica vazio e cai em tokensFaltando.
+  // Tokens nominais sem fonte determinística: só entram se vierem preenchidos
+  // da extração/formulário (d.<token>). Quando ausentes, NÃO criamos a chave —
+  // assim o nullGetter do docxtemplater os reporta em tokensFaltando.
   [
     "valor_horas_extras","valor_adicional_noturno","valor_intervalo","valor_dsr",
     "valor_minutos_residuais","valor_folgas_feriados","valor_vale_transporte",
@@ -97,7 +100,7 @@ function montarAliasesSindeepres(c, d, flags) {
     "motivo_alegado_justa_causa","orgao_publico_tomador","agentes_insalubres",
     "atividades_insalubres","periodo_prestacao_tomadora","frase_termino",
     "pedido_modalidade_rescisao","modalidade_rescisao","funcoes_acumuladas",
-  ].forEach(k => { if (a[k] === undefined) a[k] = d[k] != null ? String(d[k]) : ""; });
+  ].forEach(k => { if (a[k] === undefined && d[k] != null && String(d[k]).trim()) a[k] = String(d[k]); });
   return a;
 }
 
