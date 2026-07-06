@@ -45,6 +45,14 @@ export function validarDadosPeticao(dados) {
     pendencias.push("Fatos de dano moral informados na entrevista mas flag tem_dano_moral não ativada — tópico pode não ser gerado");
   }
 
+  // 5. Folgas trabalhadas (FT) — VAL_FT deve ser monetário, FT_QTD_MEDIA deve estar informada
+  if (d.VAL_FT && !/R\$|\d/.test(String(d.VAL_FT))) {
+    pendencias.push("VAL_FT não é valor monetário válido — preencher em R$ ou deixar vazio (nunca 'Sim'/'Não')");
+  }
+  if ((d.tem_ft || d.VAL_FT) && !d.FT_QTD_MEDIA) {
+    pendencias.push("FT_QTD_MEDIA (quantidade média de folgas trabalhadas) não informada — texto padrão do modelo pode ter sido mantido; preencher manualmente");
+  }
+
   return { valido: pendencias.length === 0, pendencias };
 }
 

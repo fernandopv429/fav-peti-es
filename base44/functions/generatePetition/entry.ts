@@ -198,7 +198,9 @@ D. RESPONSABILIDADE SUBSIDIÁRIA: se houver tomadora(s) de serviço (2ª reclama
         if (casoData.JORNADA_FREQ_EXTRA) casoBlock += `Frequência de horas extras: ${casoData.JORNADA_FREQ_EXTRA}\n`;
         if (casoData.INTERVALO_GOZADO) casoBlock += `Intervalo gozado: ${casoData.INTERVALO_GOZADO}\n`;
         if (casoData.JORNADA_EXTRAPOLA) casoBlock += `Extrapolação de jornada: ${casoData.JORNADA_EXTRAPOLA}\n`;
-        if (casoData.VAL_FT) casoBlock += `Folgas trabalhadas: ${casoData.VAL_FT}\n`;
+        if (casoData.VAL_FT && /R\$|\d/.test(casoData.VAL_FT)) casoBlock += `Valor por folga trabalhada (FT): ${casoData.VAL_FT}\n`;
+        if (casoData.FT_QTD_MEDIA) casoBlock += `Quantidade média de FTs por mês: ${casoData.FT_QTD_MEDIA}\n`;
+        if ((casoData.tem_ft || casoData.VAL_FT) && !casoData.FT_QTD_MEDIA) casoBlock += `⚠️ PENDÊNCIA: Quantidade média de folgas trabalhadas (FT) não informada na entrevista — NÃO usar número padrão do modelo; deixar como pendência para o advogado.\n`;
         casoBlock += "\n⚠️ NÃO adicione reclamadas além das confirmadas acima. Períodos das tomadoras na Súmula 331 devem vir da entrevista.\n";
         finalPrompt += casoBlock;
       }

@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const CAMPOS = ["RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","RECL_PIS","RECL_SERIE","RECL_CTPS","RECL_CPF","RECL_NASC","RECL_FILIACAO","RECL_ENDERECO","RECL_CEP","RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL","RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL","RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL","COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL","DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO","JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","DANO_SUPERVISOR","DANO_FATOS"];
+const CAMPOS = ["RECL_NOME","RECL_NACIONALIDADE","RECL_ESTADOCIVIL","RECL_RG","RECL_PIS","RECL_SERIE","RECL_CTPS","RECL_CPF","RECL_NASC","RECL_FILIACAO","RECL_ENDERECO","RECL_CEP","RECL1_NOME","RECL1_CNPJ","RECL1_LOGRADOURO","RECL1_ENDCOMPL","RECL2_NOME","RECL2_CNPJ","RECL2_LOGRADOURO","RECL2_ENDCOMPL","RECL3_NOME","RECL3_CNPJ","RECL3_LOGRADOURO","RECL3_ENDCOMPL","COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL","DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO","JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","FT_QTD_MEDIA","DANO_SUPERVISOR","DANO_FATOS"];
 
 const SCHEMA = { type: "object", properties: Object.fromEntries(CAMPOS.map(c => [c, { type: "string" }])) };
 
@@ -27,7 +27,8 @@ REGRAS ESPECIFICAS POR CAMPO:
 - JORNADA_EXTRAPOLA: SOMENTE o horario (HH:MM ou HHhMM) ate quando a jornada se estendia alem do previsto, ex: "09:00" ou "21h00". NUNCA retorne frases, "Sim", "Nao" ou qualquer texto que nao seja um horario. Se nao houver horario de extrapolacao identificado, retorne "".
 - JORNADA_FREQ_EXTRA: procure na ENTREVISTA ou relato do trabalhador quantas vezes por mes fazia hora extra. Retorne no formato "X a Y vezes por mes" (ex: "7 a 8 vezes por mes"). NUNCA retorne palavras genericas como "Habitual", "Frequente", "Sim" ou "Nao".
 - INTERVALO_GOZADO: tempo de intervalo efetivamente gozado, ex: "10 (dez) a 15 (quinze) minutos".
-- VAL_FT: valor pago por folga trabalhada/FT, formato "R$ 230,00". Procure nos holerites ou relato do trabalhador. NUNCA retorne uma data nem texto sem valor monetario. Se nao encontrar valor monetario em R$, retorne "".
+- VAL_FT: valor pago por folga trabalhada/FT, formato "R$ 230,00". Procure nos holerites ou relato do trabalhador. NUNCA retorne "Sim", "Nao", "N/A", uma data ou qualquer texto que nao seja um valor monetario em R$. Se nao encontrar valor monetario em R$, retorne "".
+- FT_QTD_MEDIA: quantidade MEDIA de folgas trabalhadas (FTs) por mes, conforme relato do trabalhador na entrevista. Formato: "07 a 09 por mes" ou "mais de 7 por mes". NUNCA retorne "Sim", "Nao", "Habitual", "Frequente" ou "N/A". Se o trabalhador mencionar um numero, use-o. Se nao houver informacao de quantidade, retorne "".
 - VAL_CONDUCAO: valor do beneficio de conducao/VT por dia em R$, ex: "R$ 10,00". Se a pessoa for optante por VT em cartao ou nao houver valor diario claro, retorne "".
 - VAL_ALIMENTACAO: valor do beneficio de alimentacao/VA por dia em R$, ex: "R$ 39,00". Se nao houver valor diario claro, retorne "".
 - RECL1_NOME: razao social da 1a reclamada (empregadora direta).

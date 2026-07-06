@@ -207,7 +207,11 @@
     },
     "VAL_FT": {
       "type": "string",
-      "description": "Valor da FT/folga trabalhada (ex: R$ 180,00)"
+      "description": "Valor da FT/folga trabalhada em R$ (ex: R$ 180,00). NUNCA 'Sim'/'N\u00e3o'."
+    },
+    "FT_QTD_MEDIA": {
+      "type": "string",
+      "description": "Quantidade m\u00e9dia de folgas trabalhadas (FTs) por m\u00eas (ex: '07 a 09 por m\u00eas'). Capturado da entrevista como n\u00famero/descri\u00e7\u00e3o, nunca como Sim/N\u00e3o."
     },
     "VAL_CONDUCAO": {
       "type": "string",

@@ -65,6 +65,7 @@ function montarDadosTemplate(dados) {
     CCT_VIGENCIA:          dados.CCT_VIGENCIA || "",
     ADIC_CONV:             dados.ADIC_CONV || "",
     VAL_FT:                dados.VAL_FT || "",
+    FT_QTD_MEDIA:          dados.FT_QTD_MEDIA || "",
     VAL_CONDUCAO:          dados.VAL_CONDUCAO || "",
     VAL_ALIMENTACAO:       dados.VAL_ALIMENTACAO || "",
     VALOR_CAUSA:           dados.VALOR_CAUSA || "",
@@ -143,6 +144,11 @@ export async function gerarDocxPorteiro(modeloDocxUrl, dados) {
 
   // 5a. Limpa separadores órfãos (", ;") de complementos de endereço vazios
   limparSeparadoresOrfaos(doc.getZip());
+
+  // 5b. Pendência de FT_QTD_MEDIA — se há FT mas quantidade não informada
+  if (!dadosTemplate.FT_QTD_MEDIA && (dadosTemplate.tem_ft || dadosTemplate.VAL_FT)) {
+    tokensFaltando.push("FT_QTD_MEDIA (quantidade média de folgas trabalhadas — preencher manualmente, NÃO usar número padrão do modelo)");
+  }
 
   // 6. Validação final — apenas artefatos estruturais lançam erro;
   // tokens essenciais vazios viram warnings em tokensFaltando (não abortam a geração).

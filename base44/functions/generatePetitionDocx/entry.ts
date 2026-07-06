@@ -456,12 +456,19 @@ Deno.serve(async (req) => {
               "COMARCA_UF","REGIAO_TRT","FORO_COMPETENCIA","LOCAL_PRESTACAO","LOCAL_PRESTACAO_COMPL",
               "DATA_ADMISSAO","FUNCAO","DATA_RESCISAO","SALARIO","JORNADA_HORARIO",
               "JORNADA_EXTRAPOLA","JORNADA_FREQ_EXTRA","INTERVALO_GOZADO","LOCAL_DATA_ASSINATURA",
-              "CCT_VIGENCIA","ADIC_CONV","VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","VALOR_CAUSA",
+              "CCT_VIGENCIA","ADIC_CONV","VAL_FT","FT_QTD_MEDIA","VAL_CONDUCAO","VAL_ALIMENTACAO","VALOR_CAUSA",
               "DANO_SUPERVISOR","DANO_FATOS",
             ];
+            const VALOR_TOKENS_CASO = new Set(["VAL_FT","VAL_CONDUCAO","VAL_ALIMENTACAO","SALARIO","VALOR_CAUSA"]);
+            const INVALIDOS_CASO = new Set(["SIM","NÃO","NAO","N/A","NÃO INFORMADO","NAO INFORMADO","NÃO SE APLICA","NAO SE APLICA","HABITUAL","FREQUENTE","NÃO TEM","NAO TEM"]);
             for (const k of CAMPOS_CASO) {
               if (caso[k] !== undefined && caso[k] !== null && caso[k] !== "") {
-                casoTokens[k] = String(caso[k]);
+                const v = String(caso[k]).trim();
+                // Regra geral (correção 3): "Sim"/"Não"/"N/A" nunca são injetados literalmente
+                if (INVALIDOS_CASO.has(v.toUpperCase())) continue;
+                // Tokens de valor (correção 4): exigem dígito, senão omitir
+                if (VALOR_TOKENS_CASO.has(k) && !/\d/.test(v)) continue;
+                casoTokens[k] = v;
               }
             }
             // Expande valores_pedidos (P01..P87)
@@ -730,6 +737,13 @@ REGRAS ABSOLUTAS:
       if (!hasDispensa) pendenciasValidacao.push("Modalidade de dispensa não enquadrada");
       if (finalTokens.acumulo_funcao && !finalTokens.tem_desvio && !finalTokens.tem_acumulo) {
         pendenciasValidacao.push("Acúmulo/desvio de função indicado mas flag não ativada");
+      }
+      // Folgas trabalhadas (FT) — VAL_FT deve ser monetário, FT_QTD_MEDIA deve estar informada
+      if (finalTokens.VAL_FT && !/R\$|\d/.test(String(finalTokens.VAL_FT))) {
+        pendenciasValidacao.push("VAL_FT não é valor monetário válido — preencher em R$ ou deixar vazio (nunca 'Sim'/'Não')");
+      }
+      if ((finalTokens.tem_ft || finalTokens.VAL_FT) && !finalTokens.FT_QTD_MEDIA) {
+        pendenciasValidacao.push("FT_QTD_MEDIA (quantidade média de folgas trabalhadas) não informada — texto padrão do modelo pode ter sido mantido; preencher manualmente");
       }
       const finalStatus = (hasTokensFaltando || pendenciasValidacao.length > 0) ? "revisao_necessaria" : "concluida";
 

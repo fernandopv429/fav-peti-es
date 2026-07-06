@@ -21,7 +21,7 @@ const EMPTY_CASO = {
   DATA_ADMISSAO: "", FUNCAO: "Vigilante", DATA_RESCISAO: "", SALARIO: "",
   JORNADA_HORARIO: "", JORNADA_EXTRAPOLA: "", JORNADA_FREQ_EXTRA: "", INTERVALO_GOZADO: "",
   LOCAL_DATA_ASSINATURA: "", CCT_VIGENCIA: "2024/2025", ADIC_CONV: "60%",
-  VAL_FT: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
+  VAL_FT: "", FT_QTD_MEDIA: "", VAL_CONDUCAO: "", VAL_ALIMENTACAO: "", VALOR_CAUSA: "",
   // dano moral (entrevista)
   DANO_SUPERVISOR: "", DANO_FATOS: "", dano_sem_estrutura: false,
   // flags de fato (alimentam derivarFlags automaticamente)
@@ -136,7 +136,13 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
   const handleSalvar = async () => {
     setSalvando(true);
     try {
-      const payload = { ...dados, status: "preenchido" };
+      // Sanitiza VAL_FT (correção 4): nunca "Sim"/"Não" — só valor monetário ou vazio
+      const dadosSanitizados = { ...dados };
+      if (dadosSanitizados.VAL_FT && !/R\$|\d/.test(dadosSanitizados.VAL_FT)) {
+        dadosSanitizados.VAL_FT = "";
+        toast.warning("VAL_FT continha valor inválido — foi limpo. Preencha em R$ ou deixe vazio.");
+      }
+      const payload = { ...dadosSanitizados, status: "preenchido" };
       let saved;
       if (casoId) {
         saved = await base44.entities.CasoVigilante.update(casoId, payload);
@@ -417,7 +423,8 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       <Section title="⚖️ CCT e Valores Unitários" open={sections.cct} onToggle={() => toggleSection("cct")}>
         <Field label="Vigência CCT (ex: 2024/2025)" name="CCT_VIGENCIA" value={dados.CCT_VIGENCIA} onChange={handleChange} />
         <Field label="Adicional convencional HE (ex: 60%)" name="ADIC_CONV" value={dados.ADIC_CONV} onChange={handleChange} />
-        <Field label="Valor FT/folga trabalhada" name="VAL_FT" value={dados.VAL_FT} onChange={handleChange} />
+        <Field label="Valor FT/folga trabalhada (R$)" name="VAL_FT" value={dados.VAL_FT} onChange={handleChange} />
+        <Field label="Qtd média de FTs por mês (ex: 07 a 09)" name="FT_QTD_MEDIA" value={dados.FT_QTD_MEDIA} onChange={handleChange} />
         <Field label="Valor condução por dia" name="VAL_CONDUCAO" value={dados.VAL_CONDUCAO} onChange={handleChange} />
         <Field label="Valor alimentação por dia" name="VAL_ALIMENTACAO" value={dados.VAL_ALIMENTACAO} onChange={handleChange} />
         <Field label="Valor da causa" name="VALOR_CAUSA" value={dados.VALOR_CAUSA} onChange={handleChange} />

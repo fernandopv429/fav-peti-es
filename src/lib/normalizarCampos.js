@@ -40,6 +40,18 @@ const NUM_TRT = {
   "27": "VIGÉSIMA SÉTIMA REGIÃO",
 };
 
+// Valores que NUNCA podem ser injetados literalmente no texto da petição
+const VALORES_INVALIDOS = new Set([
+  "SIM", "NÃO", "NAO", "N/A", "N.A", "NÃO INFORMADO", "NAO INFORMADO",
+  "NÃO SE APLICA", "NAO SE APLICA", "NÃO TEM", "NAO TEM", "NULL", "UNDEFINED",
+  "NONE", "SEM DADOS", "HABITUAL", "FREQUENTE",
+]);
+
+// Tokens de valor monetário: devem conter dígitos ou ser vazios
+const VALOR_TOKENS = new Set([
+  "VAL_FT", "VAL_CONDUCAO", "VAL_ALIMENTACAO", "SALARIO", "VALOR_CAUSA",
+]);
+
 /**
  * Sanitiza um valor: null / undefined / "null" / "undefined" → ""
  */
@@ -51,9 +63,30 @@ export function sanitizar(val) {
 }
 
 /**
+ * Retorna true se o valor é inválido para injeção literal ("Sim", "Não", "N/A", etc.)
+ */
+export function ehValorInvalido(val) {
+  if (!val) return false;
+  return VALORES_INVALIDOS.has(String(val).trim().toUpperCase());
+}
+
+/**
+ * Sanitiza um token de valor monetário: só mantém se contiver dígitos.
+ * "Sim", "Não", "N/A" → ""
+ */
+export function sanitizarValorMonetario(val) {
+  let v = sanitizar(val);
+  if (!v) return "";
+  if (ehValorInvalido(v)) return "";
+  if (!/\d/.test(v)) return "";
+  return v;
+}
+
+/**
  * Sanitiza TODOS os valores string de um objeto de campos.
  * Booleans e objetos reais (não null) são mantidos.
- * Aplica sanitizações específicas por campo (ex: JORNADA_EXTRAPOLA deve ser só horário).
+ * Regra geral (correção 3): "Sim", "Não", "N/A", "não informado" NUNCA são injetados.
+ * Tokens de valor (correção 4): exigem dígito, senão "".
  */
 export function sanitizarCampos(campos) {
   for (const key of Object.keys(campos)) {
@@ -62,8 +95,15 @@ export function sanitizarCampos(campos) {
     if (v !== null && v !== undefined && typeof v === "object") continue;
     let val = sanitizar(v);
 
+    // Regra geral: "Sim", "Não", "N/A", "não informado" → ""
+    if (ehValorInvalido(val)) val = "";
+
+    // Tokens de valor monetário: exigem dígito, senão ""
+    if (VALOR_TOKENS.has(key)) {
+      val = sanitizarValorMonetario(val);
+    }
+
     // JORNADA_EXTRAPOLA: deve conter APENAS um horário (HH:MM ou HHhMM).
-    // Se o valor não for um horário isolado (ex: texto longo), limpa para "".
     if (key === "JORNADA_EXTRAPOLA" && val) {
       const soHorario = /^\s*\d{1,2}[h:]\d{2}\s*$/i.test(val) ||
                         /^\s*\d{1,2}h\s*$/i.test(val);
