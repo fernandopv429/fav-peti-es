@@ -412,16 +412,70 @@ export function limparSeparadoresOrfaos(zip) {
   const docFile = zip.file("word/document.xml");
   if (!docFile) return;
   let xml = docFile.asText();
+
+  // 1. Regras de pontuação dupla — seguras por run (não dependem de contexto)
   xml = xml.replace(/(<w:t[^>]*>)([^<]+)(<\/w:t>)/g, (m, open, text, close) => {
     let cleaned = text;
     cleaned = cleaned.replace(/,\s*;/g, ";");
     cleaned = cleaned.replace(/;\s*;/g, ";");
     cleaned = cleaned.replace(/,\s*,/g, ",");
-    // Remove traço/hífen solto no final (ex.: "SÃO PAULO –" ou "SÃO PAULO -")
-    cleaned = cleaned.replace(/\s*[–\-]\s*$/, "");
-    // Remove traço/hífen no início (ex.: "– SEGUNDA REGIÃO" quando comarca ficou vazia)
-    cleaned = cleaned.replace(/^\s*[–\-]\s*/, "");
     return open + cleaned + close;
   });
+
+  // 2. Traços órfãos — avaliados no CONTEXTO DO PARÁGRAFO inteiro.
+  // Um traço só é órfão se não houver texto útil de um dos lados dele dentro
+  // do mesmo parágrafo (ex.: "SÃO PAULO – " com região vazia). Um traço com
+  // conteúdo dos dois lados (ex.: "CAMPINAS/SP – DÉCIMA QUINTA") É SEPARADOR
+  // LEGÍTIMO e deve ser preservado — mesmo que o run termine nele, porque o
+  // texto continua no run seguinte.
+  xml = xml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (par) => {
+    const nodeRe = /(<w:t[^>]*>)([^<]*)(<\/w:t>)/g;
+    const nodes = [];
+    let mm;
+    while ((mm = nodeRe.exec(par)) !== null) nodes.push({ open: mm[1], text: mm[2], close: mm[3] });
+    if (nodes.length === 0) return par;
+
+    const full = nodes.map(n => n.text).join("");
+    if (!/[–—\-]/.test(full)) return par;
+
+    // Marca posições (no texto concatenado) de traços órfãos a remover
+    const remover = new Set();
+    for (let i = 0; i < full.length; i++) {
+      const ch = full[i];
+      if (ch !== "\u2013" && ch !== "\u2014" && ch !== "-") continue;
+      // hífen interno de palavra/número (ex.: 078.500-48, VILA-NOVA) — preserva
+      const prev = full[i - 1] || "";
+      const next = full[i + 1] || "";
+      if (ch === "-" && /\S/.test(prev) && /\S/.test(next)) continue;
+      const esq = full.slice(0, i).replace(/[\s\u2013\u2014\-]+$/g, "");
+      const dir = full.slice(i + 1).replace(/^[\s\u2013\u2014\-]+/g, "");
+      const temEsq = /\S/.test(esq);
+      const temDir = /\S/.test(dir);
+      if (!temEsq || !temDir) {
+        // órfão: remove o traço e os espaços colados a ele
+        remover.add(i);
+        for (let k = i - 1; k >= 0 && full[k] === " "; k--) remover.add(k);
+        for (let k = i + 1; k < full.length && full[k] === " "; k++) remover.add(k);
+      }
+    }
+    if (remover.size === 0) return par;
+
+    // Reconstrói cada run removendo apenas os caracteres marcados
+    let pos = 0;
+    const novos = nodes.map(n => {
+      let out = "";
+      for (const ch of n.text) {
+        if (!remover.has(pos)) out += ch;
+        pos++;
+      }
+      return { ...n, text: out };
+    });
+    let idx = 0;
+    return par.replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/g, () => {
+      const n = novos[idx++];
+      return n.open + n.text + n.close;
+    });
+  });
+
   zip.file("word/document.xml", xml);
 }
