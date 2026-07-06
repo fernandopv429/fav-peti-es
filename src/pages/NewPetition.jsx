@@ -17,6 +17,7 @@ import LaborCalculator from "../components/petition/LaborCalculator";
 import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
 import SelecaoModeloIA from "../components/petition/SelecaoModeloIA";
 import AnalisarDocumentosPanel from "../components/petition/AnalisarDocumentosPanel";
+import AuditoriaDocumentos from "../components/petition/AuditoriaDocumentos";
 
 const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Análise de Documentos", "Modelo Obrigatório", "Revisão e Geração"];
 const FORM_STORAGE_KEY = "juris_new_petition_form_v2";
@@ -77,6 +78,7 @@ export default function NewPetition() {
   const [generateError, setGenerateError] = useState(null);
   const [pendencias, setPendencias] = useState([]);
   const [laudoRevisado, setLaudoRevisado] = useState(false);
+  const [auditState, setAuditState] = useState({ bloqueado: false, forcado: false, template_sugerido: "", confianca: 0, autoSelect: false });
   const [form, setForm] = useState(getInitialForm);
   const [loadingDraft, setLoadingDraft] = useState(!!draftId);
   const generatingRef = useRef(false);
@@ -129,6 +131,14 @@ export default function NewPetition() {
     try { localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
     return next;
   });
+
+  // Pré-seleciona template quando a auditoria retorna confiança >= threshold
+  useEffect(() => {
+    if (auditState.autoSelect && auditState.template_sugerido && !form.selected_template_id) {
+      updateForm("selected_template_id", auditState.template_sugerido);
+      toast.info(`Template pré-selecionado pela auditoria (confiança ${(auditState.confianca * 100).toFixed(0)}%).`);
+    }
+  }, [auditState]);
 
   // Retorna o template selecionado (obrigatório)
   const selectedTemplate = templates.find((t) => t.id === form.selected_template_id) || null;
@@ -434,12 +444,25 @@ export default function NewPetition() {
         {step === 2 && <LaborCalculator form={form} updateForm={updateForm} />}
         {step === 3 && <DocumentUploader form={form} updateForm={updateForm} />}
         {step === 4 && (
-          <AnalisarDocumentosPanel
-            petitionId={savedPetitionId}
-            documentUrls={form.document_urls}
-            documentNames={form.document_names}
-            onRevisado={() => setLaudoRevisado(true)}
-          />
+          <div className="space-y-6">
+            {form.case_type === "trabalhista" && (
+              <AuditoriaDocumentos
+                petitionId={savedPetitionId}
+                documentUrls={form.document_urls}
+                documentNames={form.document_names}
+                caseType={form.case_type}
+                threshold={petitionConfig?.threshold_confianca ?? 0.6}
+                templates={templates}
+                onAuditComplete={setAuditState}
+              />
+            )}
+            <AnalisarDocumentosPanel
+              petitionId={savedPetitionId}
+              documentUrls={form.document_urls}
+              documentNames={form.document_names}
+              onRevisado={() => setLaudoRevisado(true)}
+            />
+          </div>
         )}
         {step === 5 && (
           <StepModeloObrigatorio
@@ -502,17 +525,25 @@ export default function NewPetition() {
             Próximo <ArrowRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button
-            onClick={handleGenerate}
-            disabled={generating || !selectedTemplate || step !== STEPS.length - 1}
-            className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-          >
-            {generating ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
-            ) : (
-              <><Sparkles className="w-4 h-4" /> Gerar Petição</>
+          <div className="flex flex-col items-end gap-2">
+            {auditState.bloqueado && (
+              <p className="text-xs text-red-600 font-medium flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Geração bloqueada pela auditoria — resolva as inconsistências ou force com justificativa.
+              </p>
             )}
-          </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !selectedTemplate || step !== STEPS.length - 1 || auditState.bloqueado}
+              className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              {generating ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Gerar Petição</>
+              )}
+            </Button>
+          </div>
         )}
       </div>
     </div>
