@@ -98,7 +98,7 @@ function Field({ label, name, value, onChange, full }) {
   );
 }
 
-export default function VigilanteForm({ onGerarComDados, templateDocxUrl, documentUrls = [], petitionId }) {
+export default function VigilanteForm({ onGerarComDados, templateDocxUrl, documentUrls = [], petitionId, onCasoConcluido }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
@@ -192,6 +192,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
     const dadosFinais = dadosConfirmados || dados;
     if (!templateDocxUrl) return;
     setGerandoDocx(true);
+    let docxGerado = false;
     try {
       const { blob, tokensFaltando } = await gerarDocxVigilante(templateDocxUrl, dadosFinais);
 
@@ -204,6 +205,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       a.download = nomeArquivo;
       a.click();
       URL.revokeObjectURL(url);
+      docxGerado = true;
 
       // 2. Upload e persistência na entidade Petition (sempre)
       try {
@@ -275,6 +277,7 @@ export default function VigilanteForm({ onGerarComDados, templateDocxUrl, docume
       }).catch(() => {});
     } finally {
       setGerandoDocx(false);
+      if (docxGerado) onCasoConcluido?.();
     }
   };
 

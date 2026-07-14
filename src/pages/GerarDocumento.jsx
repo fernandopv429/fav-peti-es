@@ -151,6 +151,15 @@ export default function GerarDocumento() {
   const [arquivos, setArquivos] = useState([]);
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
+  const [resetKey, setResetKey] = useState(0);
+
+  // Limpa estado de trabalho/entrada após cada geração bem-sucedida
+  // para que o próximo caso comece do zero (sem contaminar dados).
+  const resetEstadoTrabalho = () => {
+    setArquivos([]);
+    setContexto("");
+    setResetKey(k => k + 1);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -240,6 +249,7 @@ export default function GerarDocumento() {
     setResultado("");
     setSavedPetitionId(null);
     setGerandoStep("");
+    let sucessoVigilante = false;
 
     try {
       const titulo = dadosVigilante.titulo || `${dadosVigilante.RECL_NOME || "Vigilante"} — ${new Date().toLocaleDateString("pt-BR")}`;
@@ -310,6 +320,7 @@ export default function GerarDocumento() {
           } catch (uploadErr) {
             toast.warning("DOCX baixado, mas falha ao salvar em Petições: " + uploadErr.message);
           }
+          sucessoVigilante = true;
           return;
         } catch (docxErr) {
           const detalhe = docxErr?.properties?.errors?.map(er => er.message).join("; ") || docxErr.message || String(docxErr);
@@ -456,6 +467,7 @@ Retorne a petição completa, sem comentários adicionais.`;
       } else {
         toast.success("Petição gerada e salva com sucesso!");
       }
+      sucessoVigilante = true;
 
     } catch (fatalErr) {
       const msg = fatalErr?.message || String(fatalErr);
@@ -468,6 +480,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     } finally {
       setGerando(false);
       setGerandoStep("");
+      if (sucessoVigilante) resetEstadoTrabalho();
     }
   };
 
@@ -543,6 +556,7 @@ Retorne a petição completa, sem comentários adicionais.`;
           ? "DOCX gerado com pendências — revise antes de protocolar."
           : "DOCX gerado com sucesso!";
         p.status === "revisao_necessaria" ? toast.warning(msg) : toast.success(msg);
+        resetEstadoTrabalho();
       } catch (_) {}
     }, 4000);
 
@@ -656,6 +670,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerandoStep("");
     if (statusFinal === "revisao_necessaria") toast.warning("Documento gerado com pendências.");
     else toast.success("Documento gerado e salvo com sucesso!");
+    resetEstadoTrabalho();
   };
 
   const handleCopiar = () => { navigator.clipboard.writeText(resultado); toast.success("Copiado!"); };
@@ -782,7 +797,7 @@ Retorne a petição completa, sem comentários adicionais.`;
               <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-3 text-xs text-amber-800 font-medium">
                 ⚙️ <strong>Modo Vigilante ativo:</strong> Preencha o formulário abaixo. Os valores monetários e dados das partes serão inseridos deterministicamente — a IA só redige a narrativa fática.
               </div>
-              <VigilanteForm onGerarComDados={handleGerarVigilante} templateDocxUrl={templateSelecionado?.modelo_docx_url || ""} documentUrls={arquivos.map(a => a.url)} />
+              <VigilanteForm key={resetKey} onGerarComDados={handleGerarVigilante} onCasoConcluido={resetEstadoTrabalho} templateDocxUrl={templateSelecionado?.modelo_docx_url || ""} documentUrls={arquivos.map(a => a.url)} />
             </>
           ) : modoPorteiro ? (
             <>
@@ -790,11 +805,13 @@ Retorne a petição completa, sem comentários adicionais.`;
                 ⚙️ <strong>Modo Porteiro/Controlador ativo ({templateSelecionado.name}):</strong> Formulário determinístico com tokens do .docx. A IA classifica teses antes de gerar. Revisão humana obrigatória.
               </div>
               <PorteiroForm
+                key={resetKey}
                 templateDocxUrl={templateSelecionado.modelo_docx_url}
                 templateId={templateSelecionado.id}
                 templateName={templateSelecionado.name}
                 documentUrls={arquivos.map(a => a.url)}
                 onGerarComDados={handleGerarGenerico}
+                onCasoConcluido={resetEstadoTrabalho}
               />
             </>
           ) : modoGenerico ? (
@@ -817,6 +834,7 @@ Retorne a petição completa, sem comentários adicionais.`;
                 </div>
               ) : (
                 <GenericoForm
+                  key={resetKey}
                   templateDocxUrl={templateSelecionado.modelo_docx_url}
                   templateId={templateSelecionado.id}
                   templateName={templateSelecionado.name}

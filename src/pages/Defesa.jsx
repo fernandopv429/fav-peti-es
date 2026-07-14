@@ -238,6 +238,10 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       a.href = url; a.download = nomeArquivo; a.click();
       URL.revokeObjectURL(url);
       toast.success("DOCX baixado!");
+      // Limpa estado de trabalho para o próximo caso
+      setForm(INITIAL_FORM);
+      setSavedId(null);
+      setResultado(null);
     } catch (e) {
       const msg = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
       toast.error("Erro ao gerar timbrado: " + msg, { duration: 10000 });
@@ -363,6 +367,10 @@ Elabore a contestação completa. Ao final, apresente separadamente:
       a.href = url; a.download = nomeArquivo; a.click();
       URL.revokeObjectURL(url);
       toast.success("Modelo gerado e baixado!");
+      // Limpa estado de trabalho para o próximo caso
+      setForm(INITIAL_FORM);
+      setSavedId(null);
+      setResultado(null);
     } catch (e) {
       const msg = e?.properties?.errors?.map(er => er.message).join("; ") || e.message || String(e);
       toast.error("Erro ao gerar modelo: " + msg, { duration: 10000 });

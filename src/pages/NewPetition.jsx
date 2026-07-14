@@ -79,6 +79,7 @@ export default function NewPetition() {
   const [pendencias, setPendencias] = useState([]);
   const [laudoRevisado, setLaudoRevisado] = useState(false);
   const [auditState, setAuditState] = useState({ bloqueado: false, forcado: false, template_sugerido: "", confianca: 0, autoSelect: false });
+  const [lastCompletedPetitionId, setLastCompletedPetitionId] = useState(null);
   const [form, setForm] = useState(getInitialForm);
   const [loadingDraft, setLoadingDraft] = useState(!!draftId);
   const generatingRef = useRef(false);
@@ -192,6 +193,14 @@ export default function NewPetition() {
         }
 
         try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (_) {}
+        // Reset completo do estado de trabalho para o próximo caso começar do zero
+        setLastCompletedPetitionId(petitionId);
+        setForm(getInitialForm());
+        setSavedPetitionId(null);
+        setAuditState({ bloqueado: false, forcado: false, template_sugerido: "", confianca: 0, autoSelect: false });
+        setLaudoRevisado(false);
+        setPendencias([]);
+        setStep(0);
 
         // Pipeline DOCX: generated_content aponta para .docx binário — não fazer fetch de texto.
         // Redireciona direto para a tela da petição.
@@ -395,7 +404,7 @@ export default function NewPetition() {
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(generatedContent); toast.success("Copiado!"); }}>
                 <Copy className="w-4 h-4" /> Copiar
               </Button>
-              <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate(`/peticoes/${savedPetitionId}`)}>
+              <Button size="sm" className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate(`/peticoes/${lastCompletedPetitionId}`)}>
                 Ver Petição Completa <ArrowRight className="w-4 h-4" />
               </Button>
             </div>

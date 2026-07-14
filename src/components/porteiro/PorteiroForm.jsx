@@ -104,7 +104,7 @@ function Field({ label, name, value, onChange, full }) {
   );
 }
 
-export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templateId, templateName, documentUrls = [] }) {
+export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templateId, templateName, documentUrls = [], onCasoConcluido }) {
   const [casos, setCasos] = useState([]);
   const [casoId, setCasoId] = useState("");
   const [dados, setDados] = useState(EMPTY_CASO);
@@ -215,6 +215,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       toast.warning("Aviso: não foi possível auto-salvar o caso: " + saveErr.message);
     }
 
+    let docxGerado = false;
     try {
       const { blob, tokensFaltando } = await gerarDocxPorteiro(templateDocxUrl, dadosFinais);
 
@@ -225,6 +226,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       const a = document.createElement("a");
       a.href = url; a.download = nomeArquivo; a.click();
       URL.revokeObjectURL(url);
+      docxGerado = true;
 
       // 2. Upload e persistência na Petition
       let petId = null;
@@ -319,6 +321,7 @@ export default function PorteiroForm({ onGerarComDados, templateDocxUrl, templat
       }).catch(() => {});
     } finally {
       setGerandoDocx(false);
+      if (docxGerado) onCasoConcluido?.();
     }
   };
 
