@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
 
     // ── Campos do payload ──────────────────────────────────────────────
     // Obrigatórios: templateId OU template_docx_url + tokens (com RECL_NOME, RECL1_NOME, RECL1_CNPJ)
-    // Opcionais: petitionId, casoVigilanteId, salvar_petition, salvar_caso, titulo_peticao
+    // Opcionais: petitionId, casoVigilanteId, salvar_petition, salvar_caso, titulo_peticao, user_id
     const {
       templateId,
       template_docx_url,
@@ -311,7 +311,27 @@ Deno.serve(async (req) => {
       salvar_petition = true,
       salvar_caso = false,
       titulo_peticao,
+      user_id,
     } = body;
+
+    // ── Vinculação de usuário (apenas para API key externa) ────────────
+    // Quando autenticado por x-api-key, cria os registros vinculados ao
+    // user_id informado para que apareçam na UI desse usuário.
+    let vincularUserId = null;
+    const isApiKeyAuth = !!(apiKey && expectedKey && apiKey === expectedKey);
+    if (isApiKeyAuth && user_id) {
+      // Valida que o usuário existe
+      try {
+        const users = await base44.asServiceRole.entities.User.filter({ id: user_id });
+        if (users && users.length > 0) {
+          vincularUserId = user_id;
+        } else {
+          return Response.json({ error: `user_id "${user_id}" não encontrado` }, { status: 400 });
+        }
+      } catch (e) {
+        return Response.json({ error: "Erro ao validar user_id: " + e.message }, { status: 400 });
+      }
+    }
 
     // ── Validações de entrada ──────────────────────────────────────────
     if (!templateId && !template_docx_url) {
@@ -484,6 +504,11 @@ Deno.serve(async (req) => {
       }
       if (extras.length > 0) petitionPayload.extra_defendants = extras;
 
+      // Vincula created_by_id ao usuário informado (API externa)
+      if (vincularUserId) {
+        petitionPayload.created_by_id = vincularUserId;
+      }
+
       if (resolvedPetitionId) {
         // Atualiza petição existente — anexa o novo DOCX
         const existing = await base44.asServiceRole.entities.Petition.filter({ id: resolvedPetitionId });
@@ -509,10 +534,12 @@ Deno.serve(async (req) => {
     // ── 10. Vincula no CasoVigilante (se solicitado) ───────────────────
     if (salvar_caso && casoVigilanteId && resolvedPetitionId) {
       try {
-        await base44.asServiceRole.entities.CasoVigilante.update(casoVigilanteId, {
+        const casoPayload = {
           petition_id: resolvedPetitionId,
           status: "gerado",
-        });
+        };
+        if (vincularUserId) casoPayload.created_by_id = vincularUserId;
+        await base44.asServiceRole.entities.CasoVigilante.update(casoVigilanteId, casoPayload);
       } catch (_) {}
     }
 
@@ -530,7 +557,7 @@ Deno.serve(async (req) => {
 
     // ── 12. GenerationLog ──────────────────────────────────────────────
     try {
-      await base44.asServiceRole.entities.GenerationLog.create({
+      const genLogPayload = {
         petition_id: resolvedPetitionId || "",
         petition_title: titulo_peticao || finalTokens.RECL_NOME || "direto",
         status: "concluido",
@@ -538,7 +565,10 @@ Deno.serve(async (req) => {
         template_id: resolvedTemplateId || "",
         duration_seconds: Math.round((Date.now() - startTime) / 1000),
         generated_at: new Date().toISOString(),
-      });
+        generated_by: vincularUserId || "api_externa",
+      };
+      if (vincularUserId) genLogPayload.created_by_id = vincularUserId;
+      await base44.asServiceRole.entities.GenerationLog.create(genLogPayload);
     } catch (_) {}
 
     return Response.json({
@@ -551,6 +581,7 @@ Deno.serve(async (req) => {
       tokens_usados: Object.keys(finalTokens).length,
       tokens_faltando: tokensFaltando,
       pendencias: pendencias,
+      vinculado_user_id: vincularUserId || null,
       duration_seconds: Math.round((Date.now() - startTime) / 1000),
     });
 
