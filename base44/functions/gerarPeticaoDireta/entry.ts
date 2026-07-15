@@ -277,7 +277,24 @@ function normalizePostedTokens(rawTokens) {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    // ── Autenticação dupla ─────────────────────────────────────────────
+    // 1) API key externa (header x-api-key) → usa service role
+    // 2) Token do usuário logado (createClientFromRequest) → app interno
+    const apiKey = req.headers.get("x-api-key");
+    const expectedKey = Deno.env.get("API_KEY_EXTERNA");
+    let base44;
+
+    if (apiKey && expectedKey && apiKey === expectedKey) {
+      // Chamada externa autenticada por API key — service role
+      base44 = createClientFromRequest(req);
+    } else if (apiKey && (!expectedKey || apiKey !== expectedKey)) {
+      return Response.json({ error: "API key inválida" }, { status: 401 });
+    } else {
+      // Sem API key — exige token do usuário (app interno)
+      base44 = createClientFromRequest(req);
+      const user = await base44.auth.me();
+      if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await req.json();
 
