@@ -39,10 +39,12 @@
       "description": "Rito processual"
     },
     "claimant_name": {
-      "type": "string"
+      "type": "string",
+      "description": "Nome completo do reclamante"
     },
     "claimant_cpf": {
-      "type": "string"
+      "type": "string",
+      "description": "CPF do reclamante (ex: 123.456.789-00)"
     },
     "claimant_rg": {
       "type": "string",
@@ -61,19 +63,24 @@
       "description": "PIS/PASEP"
     },
     "claimant_address": {
-      "type": "string"
+      "type": "string",
+      "description": "Endere\u00e7o completo do reclamante"
     },
     "claimant_role": {
-      "type": "string"
+      "type": "string",
+      "description": "Fun\u00e7\u00e3o/cargo do reclamante (ex: Vigilante)"
     },
     "defendant_name": {
-      "type": "string"
+      "type": "string",
+      "description": "Raz\u00e3o social da reclamada principal (empregadora)"
     },
     "defendant_cnpj": {
-      "type": "string"
+      "type": "string",
+      "description": "CNPJ da reclamada principal (ex: 12.345.678/0001-90)"
     },
     "defendant_address": {
-      "type": "string"
+      "type": "string",
+      "description": "Endere\u00e7o completo da reclamada principal"
     },
     "extra_defendants": {
       "type": "array",
@@ -95,61 +102,76 @@
     },
     "contract_start": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "description": "Data de admiss\u00e3o"
     },
     "contract_end": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "description": "Data de demiss\u00e3o/rescis\u00e3o"
     },
     "salary": {
-      "type": "number"
+      "type": "number",
+      "description": "Sal\u00e1rio base mensal em R$ (ex: 2148.22)"
     },
     "work_schedule": {
-      "type": "string"
+      "type": "string",
+      "description": "Jornada de trabalho alegada (ex: 18:30 \u00e0s 07:30)"
     },
     "irregularities": {
-      "type": "string"
+      "type": "string",
+      "description": "Irregularidades alegadas pelo reclamante \u2014 texto livre descritivo"
     },
     "additional_facts": {
-      "type": "string"
+      "type": "string",
+      "description": "Contexto adicional do caso, fatos relevantes ou pend\u00eancias de valida\u00e7\u00e3o identificadas pela IA"
     },
     "claims": {
       "type": "array",
+      "description": "Lista de pedidos/teses da peti\u00e7\u00e3o",
       "items": {
         "type": "string"
       }
     },
     "estimated_value": {
-      "type": "number"
+      "type": "number",
+      "description": "Valor estimado da causa em R$"
     },
     "generated_content": {
-      "type": "string"
+      "type": "string",
+      "description": "Conte\u00fado da peti\u00e7\u00e3o gerado pela IA \u2014 texto completo ou URL do arquivo .txt/.docx gerado"
     },
     "template_used": {
-      "type": "string"
+      "type": "string",
+      "description": "ID ou nome do template utilizado na gera\u00e7\u00e3o"
     },
     "document_urls": {
       "type": "array",
+      "description": "URLs dos documentos anexados \u00e0 peti\u00e7\u00e3o (provas, holerites, CTPS, etc.)",
       "items": {
         "type": "string"
       }
     },
     "document_names": {
       "type": "array",
+      "description": "Nomes dos arquivos anexados (espelha document_urls)",
       "items": {
         "type": "string"
       }
     },
     "jurisdiction": {
-      "type": "string"
+      "type": "string",
+      "description": "Comarca/Vara de compet\u00eancia (ex: ARUJ\u00c1/SP \u2014 2\u00aa Regi\u00e3o)"
     },
     "free_justice": {
       "type": "boolean",
-      "default": true
+      "default": true,
+      "description": "Benefici\u00e1rio da justi\u00e7a gratuita"
     },
     "digital_court": {
       "type": "boolean",
-      "default": true
+      "default": true,
+      "description": "Protocolo em vara digital (PJe)"
     },
     "analise_documentos": {
       "type": "string",

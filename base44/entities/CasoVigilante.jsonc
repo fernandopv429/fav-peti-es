@@ -79,87 +79,108 @@
     },
     "RECL_NACIONALIDADE": {
       "type": "string",
-      "default": "brasileiro"
+      "default": "brasileiro",
+      "description": "Nacionalidade do reclamante (ex: brasileiro)"
     },
     "RECL_ESTADOCIVIL": {
-      "type": "string"
+      "type": "string",
+      "description": "Estado civil do reclamante (ex: solteiro, casado, divorciado)"
     },
     "RECL_RG": {
-      "type": "string"
+      "type": "string",
+      "description": "RG do reclamante (ex: 12.345.678-9)"
     },
     "RECL_PIS": {
-      "type": "string"
+      "type": "string",
+      "description": "PIS/PASEP do reclamante (ex: 123.45678.91-0)"
     },
     "RECL_SERIE": {
       "type": "string",
       "description": "S\u00e9rie da CTPS"
     },
     "RECL_CTPS": {
-      "type": "string"
+      "type": "string",
+      "description": "N\u00famero da CTPS do reclamante (ex: 12345)"
     },
     "RECL_CPF": {
-      "type": "string"
+      "type": "string",
+      "description": "CPF do reclamante (ex: 123.456.789-00)"
     },
     "RECL_NASC": {
       "type": "string",
       "description": "Data de nascimento (ex: 29/03/1988)"
     },
     "RECL_FILIACAO": {
-      "type": "string"
+      "type": "string",
+      "description": "Filia\u00e7\u00e3o do reclamante \u2014 nome do pai e/ou m\u00e3e"
     },
     "RECL_ENDERECO": {
-      "type": "string"
+      "type": "string",
+      "description": "Endere\u00e7o completo do reclamante"
     },
     "RECL_CEP": {
-      "type": "string"
+      "type": "string",
+      "description": "CEP do reclamante (ex: 12345-678)"
     },
     "RECL1_NOME": {
       "type": "string",
       "description": "1\u00aa Reclamada (empregadora) - raz\u00e3o social"
     },
     "RECL1_CNPJ": {
-      "type": "string"
+      "type": "string",
+      "description": "CNPJ da 1\u00aa Reclamada (ex: 12.345.678/0001-90)"
     },
     "RECL1_LOGRADOURO": {
-      "type": "string"
+      "type": "string",
+      "description": "Logradouro da 1\u00aa Reclamada (rua, n\u00famero, bairro)"
     },
     "RECL1_ENDCOMPL": {
-      "type": "string"
+      "type": "string",
+      "description": "Complemento de endere\u00e7o da 1\u00aa Reclamada (cidade, UF, CEP)"
     },
     "RECL2_NOME": {
       "type": "string",
       "description": "2\u00aa Reclamada (tomadora) - raz\u00e3o social"
     },
     "RECL2_CNPJ": {
-      "type": "string"
+      "type": "string",
+      "description": "CNPJ da 2\u00aa Reclamada (ex: 12.345.678/0001-90)"
     },
     "RECL2_LOGRADOURO": {
-      "type": "string"
+      "type": "string",
+      "description": "Logradouro da 2\u00aa Reclamada (rua, n\u00famero, bairro)"
     },
     "RECL2_ENDCOMPL": {
-      "type": "string"
+      "type": "string",
+      "description": "Complemento de endere\u00e7o da 2\u00aa Reclamada (cidade, UF, CEP)"
     },
     "RECL3_NOME": {
       "type": "string",
       "description": "3\u00aa Reclamada (tomadora) - raz\u00e3o social"
     },
     "RECL3_CNPJ": {
-      "type": "string"
+      "type": "string",
+      "description": "CNPJ da 3\u00aa Reclamada (ex: 12.345.678/0001-90)"
     },
     "RECL3_LOGRADOURO": {
-      "type": "string"
+      "type": "string",
+      "description": "Logradouro da 3\u00aa Reclamada (rua, n\u00famero, bairro)"
     },
     "RECL3_ENDCOMPL": {
-      "type": "string"
+      "type": "string",
+      "description": "Complemento de endere\u00e7o da 3\u00aa Reclamada (cidade, UF, CEP)"
     },
     "FORO_COMPETENCIA": {
-      "type": "string"
+      "type": "string",
+      "description": "Foro de compet\u00eancia (ex: ARUJ\u00c1/SP)"
     },
     "LOCAL_PRESTACAO": {
-      "type": "string"
+      "type": "string",
+      "description": "Local de presta\u00e7\u00e3o de servi\u00e7os (nome do posto/cliente)"
     },
     "LOCAL_PRESTACAO_COMPL": {
-      "type": "string"
+      "type": "string",
+      "description": "Complemento do local de presta\u00e7\u00e3o (endere\u00e7o completo do posto)"
     },
     "DATA_ADMISSAO": {
       "type": "string",
@@ -167,7 +188,8 @@
     },
     "FUNCAO": {
       "type": "string",
-      "default": "Vigilante"
+      "default": "Vigilante",
+      "description": "Fun\u00e7\u00e3o do reclamante (ex: Vigilante)"
     },
     "DATA_RESCISAO": {
       "type": "string",
@@ -199,11 +221,13 @@
     },
     "CCT_VIGENCIA": {
       "type": "string",
-      "default": "2024/2025"
+      "default": "2024/2025",
+      "description": "Vig\u00eancia da CCT (ex: 2024/2025)"
     },
     "ADIC_CONV": {
       "type": "string",
-      "default": "60%"
+      "default": "60%",
+      "description": "Adicional convencional de horas extras (ex: 60%)"
     },
     "VAL_FT": {
       "type": "string",
