@@ -150,7 +150,7 @@ export default function GerarDocumento() {
   const [gerandoStep, setGerandoStep] = useState("");
   const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [iaMode, setIaMode] = useState(false);
-  const [revisaoAberta, setRevisaoAberta] = useState(false);
+  const [telaCheia, setTelaCheia] = useState(false);
   const [arquivos, setArquivos] = useState([]);
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
@@ -187,7 +187,7 @@ export default function GerarDocumento() {
   const modoVigilante = isModeloVigilante(templateSelecionado);
   const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
-  const mostrarRevisao = iaMode && revisaoAberta && !!espSelecionado && (gerando || (!!resultado && !!savedPetitionId));
+  const mostrarRevisaoIA = telaCheia && !gerando && iaMode && !!resultado && !!espSelecionado;
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 
@@ -254,6 +254,7 @@ export default function GerarDocumento() {
     setSavedPetitionId(null);
     setGerandoStep("");
     setIaMode(false);
+    setTelaCheia(true);
     let sucessoVigilante = false;
 
     try {
@@ -486,6 +487,7 @@ Retorne a petição completa, sem comentários adicionais.`;
       setGerando(false);
       setGerandoStep("");
       if (sucessoVigilante) resetEstadoTrabalho();
+      else setTelaCheia(false);
     }
   };
 
@@ -499,6 +501,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerandoStep("Salvando registro da petição...");
     setSavedPetitionId(null);
     setIaMode(false);
+    setTelaCheia(true);
 
     const titulo = dadosForm.titulo ||
       `${templateSelecionado.name} — ${dadosForm.RECL_NOME || "Caso"} × ${dadosForm.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
@@ -526,6 +529,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     } catch (e) {
       toast.error("Erro ao criar registro: " + e.message);
       setGerando(false);
+      setTelaCheia(false);
       return;
     }
 
@@ -545,6 +549,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     } catch (err) {
       toast.error("Erro ao iniciar geração: " + err.message);
       setGerando(false);
+      setTelaCheia(false);
       base44.entities.Petition.update(petitionId, { status: "rascunho" }).catch(() => {});
       return;
     }
@@ -585,7 +590,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setResultado("");
     setSavedPetitionId(null);
     setIaMode(true);
-    setRevisaoAberta(true);
+    setTelaCheia(true);
 
     const titulo = `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`;
     const caseType = CASE_TYPE_MAP[area] || "outro";
@@ -605,7 +610,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     } catch (e) {
       toast.error("Erro ao criar registro: " + e.message);
       setGerando(false);
-      setRevisaoAberta(false);
+      setTelaCheia(false);
       return;
     }
 
@@ -679,7 +684,6 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerandoStep("");
     if (statusFinal === "revisao_necessaria") toast.warning("Documento gerado com pendências.");
     else toast.success("Documento gerado e salvo com sucesso!");
-    setRevisaoAberta(true);
     resetEstadoTrabalho();
   };
 
@@ -693,8 +697,8 @@ Retorne a petição completa, sem comentários adicionais.`;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header — oculto no modo revisão em tela cheia */}
-      {!mostrarRevisao && (
+      {/* Header — oculto no modo tela cheia */}
+      {!telaCheia && (
       <div className="px-6 lg:px-10 pt-8 pb-6 border-b border-border">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
@@ -706,7 +710,7 @@ Retorne a petição completa, sem comentários adicionais.`;
       </div>
       )}
 
-      {!mostrarRevisao && (
+      {!telaCheia && (
       <div className="px-6 lg:px-10 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl">
         {/* Left — Form */}
         <div className="space-y-5">
@@ -937,7 +941,7 @@ Retorne a petição completa, sem comentários adicionais.`;
 
               {iaMode && (
                 <button
-                  onClick={() => setRevisaoAberta(true)}
+                  onClick={() => setTelaCheia(true)}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors shadow-sm"
                 >
                   <Wand2 className="w-4 h-4" /> Revisar e Corrigir com IA
@@ -966,7 +970,7 @@ Retorne a petição completa, sem comentários adicionais.`;
       </div>
       )}
 
-      {mostrarRevisao && gerando && (
+      {telaCheia && gerando && (
         <div className="flex flex-col items-center justify-center gap-4" style={{ height: "calc(100vh - 60px)" }}>
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -976,11 +980,32 @@ Retorne a petição completa, sem comentários adicionais.`;
         </div>
       )}
 
-      {mostrarRevisao && !gerando && (
+      {telaCheia && !gerando && !mostrarRevisaoIA && (
+        <div className="flex flex-col items-center justify-center gap-4" style={{ height: "calc(100vh - 60px)" }}>
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <p className="text-foreground font-semibold text-lg">Documento gerado!</p>
+          <div className="flex gap-3">
+            {savedPetitionId && (
+              <button onClick={() => navigate(`/peticoes/${savedPetitionId}`)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm transition-colors">
+                <ExternalLink className="w-4 h-4" /> Ver em Minhas Petições
+              </button>
+            )}
+            <button onClick={() => setTelaCheia(false)}
+              className="px-5 py-2.5 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold text-sm transition-colors">
+              Voltar ao formulário
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mostrarRevisaoIA && (
         <RevisaoDocumentoModal
           texto={resultado}
           onTextoChange={setResultado}
-          onFechar={() => setRevisaoAberta(false)}
+          onFechar={() => setTelaCheia(false)}
           petition={{
             id: savedPetitionId,
             title: `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`,
