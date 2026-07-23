@@ -1,0 +1,41 @@
+{
+  "name": "PetitionChatMessage",
+  "type": "object",
+  "description": "Hist\u00f3rico de mensagens do chat de corre\u00e7\u00e3o de peti\u00e7\u00f5es \u2014 preserva a conversa entre sess\u00f5es e armazena corre\u00e7\u00f5es aplicadas e regras sugeridas pela IA.",
+  "properties": {
+    "petition_id": {
+      "type": "string",
+      "description": "ID da peti\u00e7\u00e3o vinculada"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "user",
+        "assistant"
+      ],
+      "description": "Autor da mensagem: usu\u00e1rio (advogado) ou assistente (IA)"
+    },
+    "text": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem \u2014 instru\u00e7\u00e3o de corre\u00e7\u00e3o (user) ou resposta estruturada (assistant)"
+    },
+    "corrected_fields": {
+      "type": "object",
+      "description": "Campos da Petition que devem mudar e seus novos valores (apenas mensagens do assistant)"
+    },
+    "rule_suggestion": {
+      "type": "string",
+      "description": "Regra curta e gen\u00e9rica sugerida pela IA para evitar o mesmo erro em gera\u00e7\u00f5es futuras"
+    },
+    "rule_saved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se a regra sugerida j\u00e1 foi salva no prompt_sistema do PetitionConfig"
+    }
+  },
+  "required": [
+    "petition_id",
+    "role",
+    "text"
+  ]
+}
