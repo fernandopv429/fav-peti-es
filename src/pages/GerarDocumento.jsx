@@ -187,7 +187,7 @@ export default function GerarDocumento() {
   const modoVigilante = isModeloVigilante(templateSelecionado);
   const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
-  const mostrarRevisao = iaMode && revisaoAberta && !!resultado && !!savedPetitionId && !!espSelecionado;
+  const mostrarRevisao = iaMode && revisaoAberta && !!espSelecionado && (gerando || (!!resultado && !!savedPetitionId));
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 
@@ -585,6 +585,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setResultado("");
     setSavedPetitionId(null);
     setIaMode(true);
+    setRevisaoAberta(true);
 
     const titulo = `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`;
     const caseType = CASE_TYPE_MAP[area] || "outro";
@@ -604,6 +605,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     } catch (e) {
       toast.error("Erro ao criar registro: " + e.message);
       setGerando(false);
+      setRevisaoAberta(false);
       return;
     }
 
@@ -964,7 +966,17 @@ Retorne a petição completa, sem comentários adicionais.`;
       </div>
       )}
 
-      {mostrarRevisao && (
+      {mostrarRevisao && gerando && (
+        <div className="flex flex-col items-center justify-center gap-4" style={{ height: "calc(100vh - 60px)" }}>
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+          <p className="text-foreground font-semibold">Gerando documento com IA...</p>
+          <p className="text-muted-foreground text-sm text-center max-w-xs">{gerandoStep || "Processando..."}</p>
+        </div>
+      )}
+
+      {mostrarRevisao && !gerando && (
         <RevisaoDocumentoModal
           texto={resultado}
           onTextoChange={setResultado}
