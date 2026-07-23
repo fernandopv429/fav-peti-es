@@ -14,7 +14,7 @@ import GenericoForm from "../components/generico/GenericoForm";
 import PorteiroForm from "../components/porteiro/PorteiroForm";
 import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import { validarDadosPeticao, validarTextoPeticao } from "@/lib/validarPeticao.js";
-import PetitionCorrectionChat from "@/components/petition/PetitionCorrectionChat.jsx";
+import RevisaoDocumentoModal from "@/components/petition/RevisaoDocumentoModal.jsx";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -150,7 +150,7 @@ export default function GerarDocumento() {
   const [gerandoStep, setGerandoStep] = useState("");
   const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [iaMode, setIaMode] = useState(false);
-  const [chatAberto, setChatAberto] = useState(false);
+  const [revisaoAberta, setRevisaoAberta] = useState(false);
   const [arquivos, setArquivos] = useState([]);
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
@@ -676,6 +676,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerandoStep("");
     if (statusFinal === "revisao_necessaria") toast.warning("Documento gerado com pendências.");
     else toast.success("Documento gerado e salvo com sucesso!");
+    setRevisaoAberta(true);
     resetEstadoTrabalho();
   };
 
@@ -930,10 +931,10 @@ Retorne a petição completa, sem comentários adicionais.`;
 
               {iaMode && (
                 <button
-                  onClick={() => setChatAberto(true)}
+                  onClick={() => setRevisaoAberta(true)}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors shadow-sm"
                 >
-                  <Wand2 className="w-4 h-4" /> Corrigir com IA
+                  <Wand2 className="w-4 h-4" /> Revisar e Corrigir com IA
                 </button>
               )}
 
@@ -959,7 +960,11 @@ Retorne a petição completa, sem comentários adicionais.`;
       </div>
 
       {iaMode && savedPetitionId && resultado && espSelecionado && (
-        <PetitionCorrectionChat
+        <RevisaoDocumentoModal
+          open={revisaoAberta}
+          onOpenChange={setRevisaoAberta}
+          texto={resultado}
+          onTextoChange={setResultado}
           petition={{
             id: savedPetitionId,
             title: `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`,
@@ -972,11 +977,7 @@ Retorne a petição completa, sem comentários adicionais.`;
             id: espSelecionado.id,
             prompt: espSelecionado.prompt_sistema,
           }}
-          open={chatAberto}
-          onOpenChange={setChatAberto}
-          onFieldsUpdated={(fields) => {
-            if (fields.generated_content) setResultado(fields.generated_content);
-          }}
+          petitionConfig={petitionConfig}
         />
       )}
     </div>

@@ -4,14 +4,6 @@ import { toast } from "sonner";
 import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-react";
 import { appendRuleToPrompt, salvarRegraAprendida } from "@/lib/regraAprendida.js";
 
-/**
- * Chat flutuante de correção de petições por comando em linguagem natural.
- * O advogado digita uma instrução (ex: "a data de admissão está errada"),
- * a IA analisa os dados atuais da petição e devolve campos corrigidos +
- * uma regra genérica para evitar o erro em gerações futuras.
- *
- * Histórico é persistido em PetitionChatMessage vinculado ao petition_id.
- */
 const PETITION_FIELDS = new Set([
   "title", "status", "case_type", "rite", "claimant_name", "claimant_cpf", "claimant_rg",
   "claimant_birth_date", "claimant_ctps", "claimant_pis", "claimant_address", "claimant_role",
@@ -29,10 +21,19 @@ function filtrarCamposPeticao(fields) {
   return out;
 }
 
-export default function PetitionCorrectionChat({ petition, petitionConfig, learningTarget, onFieldsUpdated, open: controlledOpen, onOpenChange }) {
+/**
+ * Chat de correção de petições por comando em linguagem natural.
+ *
+ * Modos:
+ *  - floating (padrão): botão fixo + painel flutuante, com abertura controlável.
+ *  - embedded: renderizado embutido num container (ex.: lateral de um modal),
+ *    sem botão flutuante e sempre aberto.
+ *
+ * Regras aprendidas são salvas no `learningTarget` (ex.: Especialista que gerou)
+ * quando informado; caso contrário, no PetitionConfig.
+ */
+export default function PetitionCorrectionChat({ petition, petitionConfig, learningTarget, onFieldsUpdated, open: controlledOpen, onOpenChange, embedded = false }) {
   const [open, setOpen] = useState(false);
-  const isOpen = controlledOpen !== undefined ? controlledOpen : open;
-  const setOpenState = (v) => { setOpen(v); onOpenChange?.(v); };
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,14 +42,14 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, learn
   const errorLogIds = useRef(new Map());
 
   const petitionId = petition?.id;
+  const isOpen = embedded ? true : (controlledOpen !== undefined ? controlledOpen : open);
+  const setOpenState = (v) => { setOpen(v); onOpenChange?.(v); };
 
-  // Carrega histórico salvo ao abrir
   useEffect(() => {
     if (!isOpen || !petitionId) return;
     loadHistory();
   }, [isOpen, petitionId]);
 
-  // Auto-scroll para o final
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -100,13 +101,13 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, learn
   };
 
   const buildPrompt = (instrucao) => {
-    const configPrompt = petitionConfig?.prompt_sistema || "(config não disponível)";
+    const configPrompt = petitionConfig?.prompt_sistema || (learningTarget ? "(prompt do especialista)" : "(config não disponível)");
     return `Você é um assistente jurídico que corrige petições trabalhistas com base em instruções do advogado.
 
 DADOS ATUAIS DA PETIÇÃO:
 ${buildContexto()}
 
-PROMPT DE SISTEMA ATUAL DO ESCRITÓRIO (PetitionConfig.prompt_sistema):
+${learningTarget ? "PROMPT DE SISTEMA DO ESPECIALISTA QUE GEROU A PEÇA:" : "PROMPT DE SISTEMA ATUAL DO ESCRITÓRIO (PetitionConfig.prompt_sistema):"}
 ${configPrompt}
 
 INSTRUÇÃO DE CORREÇÃO DO ADVOGADO:
@@ -122,7 +123,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
     const instrucao = input.trim();
     if (!instrucao || loading) return;
 
-    // Mensagem do usuário (otimista)
     const userMsg = { petition_id: petitionId, role: "user", text: instrucao, created_date: new Date().toISOString() };
     const optimistic = [...messages, userMsg];
     setMessages(optimistic);
@@ -130,16 +130,13 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
     setLoading(true);
 
     try {
-      // Persiste a mensagem do usuário
       const savedUser = await base44.entities.PetitionChatMessage.create({
         petition_id: petitionId,
         role: "user",
         text: instrucao,
       });
-      // Substitui a otimista pela persistida
       setMessages(prev => prev.map(m => (m === userMsg ? savedUser : m)));
 
-      // Chama a IA
       const result = await base44.integrations.Core.InvokeLLM({
         prompt: buildPrompt(instrucao),
         response_json_schema: {
@@ -157,7 +154,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       const ruleSuggestion = result?.rule_suggestion || "";
       const reply = result?.reply || "Correção processada.";
 
-      // Registra no ErrorLog para auditoria de erros comuns
       let errorLogId = null;
       try {
         const log = await base44.entities.ErrorLog.create({
@@ -171,15 +167,12 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         errorLogId = log?.id || null;
       } catch (_) {}
 
-      // Aplica as correções na Petition (se houver campos) — apenas campos válidos do schema
       const camposValidos = filtrarCamposPeticao(correctedFields);
       if (Object.keys(camposValidos).length > 0) {
         await base44.entities.Petition.update(petitionId, camposValidos);
-        // Atualiza a tela
         onFieldsUpdated?.(camposValidos);
       }
 
-      // Persiste a mensagem do assistente
       const savedAssistant = await base44.entities.PetitionChatMessage.create({
         petition_id: petitionId,
         role: "assistant",
@@ -190,12 +183,11 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       if (errorLogId) errorLogIds.current.set(savedAssistant.id, errorLogId);
       setMessages(prev => [...prev, savedAssistant]);
 
-      if (Object.keys(correctedFields).length > 0) {
+      if (Object.keys(camposValidos).length > 0) {
         toast.success("Correção aplicada na petição!");
       }
     } catch (e) {
       toast.error("Erro ao processar correção: " + e.message);
-      // Remove a mensagem otimista do usuário se falhou
       setMessages(prev => prev.filter(m => m !== userMsg));
     } finally {
       setLoading(false);
@@ -204,7 +196,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
 
   const handleSaveRule = async (message) => {
     if (!message.rule_suggestion) return;
-    // learningTarget (ex.: Especialista que gerou) tem prioridade; senão usa PetitionConfig
     if (learningTarget) {
       try {
         const { alreadyExists } = await salvarRegraAprendida(learningTarget, message.rule_suggestion);
@@ -250,6 +241,113 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
     }
   };
 
+  const panelInner = (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground shrink-0">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4" />
+          <span className="font-semibold text-sm">Corrigir com IA</span>
+        </div>
+        {!embedded && (
+          <button onClick={() => setOpenState(false)} className="hover:bg-primary-foreground/20 rounded p-1 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Mensagens */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-muted/30 min-h-0">
+        {loadingHistory ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-muted-foreground text-sm py-8 px-4">
+            <Wand2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            Digite uma instrução de correção em linguagem natural.
+            <br />
+            Ex: "a data de admissão está errada" ou "o valor da causa deve somar as horas extras".
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-card border border-border rounded-bl-sm"
+                }`}
+              >
+                <p className="whitespace-pre-wrap break-words">{m.text}</p>
+
+                {m.role === "assistant" && m.rule_suggestion && !m.rule_saved && (
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      <strong>Regra sugerida:</strong> {m.rule_suggestion}
+                    </p>
+                    <button
+                      onClick={() => handleSaveRule(m)}
+                      className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors font-medium"
+                    >
+                      <BookmarkCheck className="w-3 h-3" /> Salvar regra no prompt
+                    </button>
+                  </div>
+                )}
+                {m.role === "assistant" && m.rule_saved && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs text-green-600 font-medium">
+                    <BookmarkCheck className="w-3 h-3" /> Regra salva no prompt
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-card border border-border rounded-2xl rounded-bl-sm px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t border-border bg-card shrink-0">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Digite a correção..."
+            rows={1}
+            disabled={loading}
+            className="flex-1 resize-none bg-input border border-border text-foreground rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring max-h-24"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || loading}
+            className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors shrink-0"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="flex flex-col h-full bg-card border border-border overflow-hidden">
+        {panelInner}
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Botão flutuante */}
@@ -263,102 +361,10 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         </button>
       )}
 
-      {/* Painel de chat */}
+      {/* Painel de chat flutuante */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-3rem)] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              <span className="font-semibold text-sm">Corrigir Petição com IA</span>
-            </div>
-            <button onClick={() => setOpenState(false)} className="hover:bg-primary-foreground/20 rounded p-1 transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Mensagens */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-muted/30">
-            {loadingHistory ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="text-center text-muted-foreground text-sm py-8 px-4">
-                <Wand2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                Digite uma instrução de correção em linguagem natural.
-                <br />
-                Ex: "a data de admissão está errada" ou "o valor da causa deve somar as horas extras".
-              </div>
-            ) : (
-              messages.map((m) => (
-                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                      m.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-card border border-border rounded-bl-sm"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap break-words">{m.text}</p>
-
-                    {/* Botão salvar regra — apenas assistant com rule_suggestion não salva */}
-                    {m.role === "assistant" && m.rule_suggestion && !m.rule_saved && (
-                      <div className="mt-2 pt-2 border-t border-border/50">
-                        <p className="text-xs text-muted-foreground mb-1.5">
-                          <strong>Regra sugerida:</strong> {m.rule_suggestion}
-                        </p>
-                        <button
-                          onClick={() => handleSaveRule(m)}
-                          className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors font-medium"
-                        >
-                          <BookmarkCheck className="w-3 h-3" /> Salvar regra no prompt
-                        </button>
-                      </div>
-                    )}
-                    {m.role === "assistant" && m.rule_saved && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-green-600 font-medium">
-                        <BookmarkCheck className="w-3 h-3" /> Regra salva no prompt
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-card border border-border rounded-2xl rounded-bl-sm px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="p-3 border-t border-border bg-card">
-            <div className="flex items-end gap-2">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Digite a correção..."
-                rows={1}
-                disabled={loading}
-                className="flex-1 resize-none bg-input border border-border text-foreground rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring max-h-24"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || loading}
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors shrink-0"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+          {panelInner}
         </div>
       )}
     </>
