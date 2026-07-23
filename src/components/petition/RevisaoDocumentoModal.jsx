@@ -45,12 +45,12 @@ function extrairPlaceholders(texto) {
  *  - onFechar: volta ao formulário de geração
  */
 export default function RevisaoDocumentoModal({ texto, onTextoChange, petition, learningTarget, petitionConfig, onFechar }) {
-  const [modo, setModo] = useState("editar");
+  const [modo, setModo] = useState("visualizar");
   const [novoPlaceholder, setNovoPlaceholder] = useState("");
   const [contextoCaso, setContextoCaso] = useState("");
   const [valoresIA, setValoresIA] = useState({});
   const [analisando, setAnalisando] = useState(false);
-  const [placeholdersVisivel, setPlaceholdersVisivel] = useState(true);
+  const [placeholdersVisivel, setPlaceholdersVisivel] = useState(false);
   const textareaRef = useRef(null);
 
   const placeholders = useMemo(() => extrairPlaceholders(texto), [texto]);
