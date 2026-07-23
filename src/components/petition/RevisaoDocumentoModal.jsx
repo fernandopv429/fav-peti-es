@@ -156,7 +156,7 @@ Inclua uma entrada para cada placeholder listado.`;
   };
 
   return (
-    <div className="px-6 lg:px-10 pb-6 flex flex-col gap-3" style={{ height: "calc(100vh - 150px)" }}>
+    <div className="px-6 lg:px-10 pt-4 pb-6 flex flex-col gap-3" style={{ height: "calc(100vh - 16px)" }}>
       {/* Barra superior */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">

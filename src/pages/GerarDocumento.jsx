@@ -691,7 +691,8 @@ Retorne a petição completa, sem comentários adicionais.`;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header — oculto no modo revisão em tela cheia */}
+      {!mostrarRevisao && (
       <div className="px-6 lg:px-10 pt-8 pb-6 border-b border-border">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
@@ -701,6 +702,7 @@ Retorne a petição completa, sem comentários adicionais.`;
         </div>
         <p className="text-muted-foreground text-sm ml-12">Selecione o especialista ideal para o seu caso e forneça o contexto</p>
       </div>
+      )}
 
       {!mostrarRevisao && (
       <div className="px-6 lg:px-10 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl">
