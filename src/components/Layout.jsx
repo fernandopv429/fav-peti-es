@@ -4,7 +4,9 @@ import Sidebar from "./Sidebar";
 import { Menu, Scale } from "lucide-react";
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1024 : true
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -18,7 +20,7 @@ export default function Layout() {
 
       {/* Sidebar */}
       <div
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -26,7 +28,7 @@ export default function Layout() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden transition-[margin] duration-300 ${sidebarOpen ? "lg:ml-64" : "ml-0"}`}>
         {/* Mobile header */}
         <div className="lg:hidden flex items-center h-14 px-4 bg-sidebar border-b border-sidebar-border">
           <button
@@ -42,6 +44,17 @@ export default function Layout() {
             <span className="font-bold text-sm text-sidebar-foreground">FAV Petições</span>
           </div>
         </div>
+
+        {/* Desktop reopen button (when sidebar closed) */}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="hidden lg:flex fixed top-4 left-4 z-30 items-center justify-center w-10 h-10 rounded-xl bg-sidebar text-sidebar-foreground shadow-lg hover:bg-sidebar/90 transition-colors"
+            title="Abrir menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
 
         <main className="flex-1 overflow-y-auto">
           <Outlet />

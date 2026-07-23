@@ -55,7 +55,7 @@ export default function Sidebar({ onClose }) {
             <p className="text-[10px] text-sidebar-foreground/40">Fernando Vieira Advogados</p>
           </div>
         </div>
-        <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
