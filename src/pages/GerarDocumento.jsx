@@ -187,7 +187,7 @@ export default function GerarDocumento() {
   const modoVigilante = isModeloVigilante(templateSelecionado);
   const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
-  const mostrarRevisaoIA = telaCheia && !gerando && !!resultado;
+  const mostrarRevisaoIA = telaCheia && !gerando && iaMode && !!resultado;
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 

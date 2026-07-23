@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { base44 } from "@/api/base44Client";
-import { Pencil, Eye, ListChecks, Variable, Loader2, Sparkles, Check, Plus, ArrowLeft } from "lucide-react";
+import { Pencil, Eye, ListChecks, Variable, Loader2, Sparkles, Check, Plus, ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import { LetterheadHeader, LetterheadFooter } from "@/components/petition/PetitionLetterhead";
@@ -51,7 +51,24 @@ export default function RevisaoDocumentoModal({ texto, onTextoChange, petition, 
   const [valoresIA, setValoresIA] = useState({});
   const [analisando, setAnalisando] = useState(false);
   const [placeholdersVisivel, setPlaceholdersVisivel] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const textareaRef = useRef(null);
+
+  const handleSalvarRevisao = async () => {
+    if (!petition?.id) return;
+    setSalvando(true);
+    try {
+      const blob = new Blob([texto], { type: "text/plain" });
+      const fileObj = new File([blob], "documento.txt", { type: "text/plain" });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: fileObj });
+      await base44.entities.Petition.update(petition.id, { generated_content: file_url });
+      toast.success("Revisão salva!");
+    } catch (e) {
+      toast.error("Erro ao salvar revisão: " + e.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
 
   const placeholders = useMemo(() => extrairPlaceholders(texto), [texto]);
 
@@ -168,6 +185,15 @@ Inclua uma entrada para cada placeholder listado.`;
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={handleSalvarRevisao}
+            disabled={salvando || !petition?.id}
+            className="gap-1.5"
+          >
+            {salvando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {salvando ? "Salvando..." : "Salvar revisão"}
+          </Button>
           <Button
             size="sm"
             variant="outline"
