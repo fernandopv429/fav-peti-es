@@ -48,6 +48,7 @@ export default function RevisaoDocumentoModal({ open, onOpenChange, texto, onTex
   const [contextoCaso, setContextoCaso] = useState("");
   const [valoresIA, setValoresIA] = useState({});
   const [analisando, setAnalisando] = useState(false);
+  const [mostrarPainel, setMostrarPainel] = useState(true);
   const textareaRef = useRef(null);
 
   const placeholders = useMemo(() => extrairPlaceholders(texto), [texto]);
@@ -143,6 +144,7 @@ Inclua uma entrada para cada placeholder listado.`;
         map[p.token] = (p.valor || "").trim();
       });
       setValoresIA(map);
+      setMostrarPainel(false);
       const identificados = Object.values(map).filter((v) => v).length;
       toast.success(`IA analisou ${placeholders.length} placeholder(s) — ${identificados} com valor identificado.`);
     } catch (e) {
@@ -160,6 +162,9 @@ Inclua uma entrada para cada placeholder listado.`;
             <ListChecks className="w-4 h-4 text-primary" /> Revisão do Documento — Correção e Placeholders
           </DialogTitle>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant={mostrarPainel ? "outline" : "secondary"} onClick={() => setMostrarPainel(v => !v)} title="Mostrar/ocultar painel de correção">
+              <Variable className="w-3.5 h-3.5" /> Painel
+            </Button>
             <Button size="sm" variant={modo === "editar" ? "default" : "outline"} onClick={() => setModo("editar")}>
               <Pencil className="w-3.5 h-3.5" /> Editar
             </Button>
@@ -169,7 +174,7 @@ Inclua uma entrada para cada placeholder listado.`;
           </div>
         </DialogHeader>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_380px] overflow-hidden">
+        <div className={`flex-1 grid overflow-hidden ${mostrarPainel ? "grid-cols-1 lg:grid-cols-[1fr_380px]" : "grid-cols-1"}`}>
           {/* Documento */}
           <div className="border-r border-border overflow-hidden flex flex-col min-h-0">
             {modo === "editar" ? (
@@ -190,6 +195,7 @@ Inclua uma entrada para cada placeholder listado.`;
           </div>
 
           {/* Lateral: chat + placeholders */}
+          {mostrarPainel && (
           <div className="flex flex-col overflow-hidden bg-background min-h-0">
             {/* Chat embutido */}
             <div className="h-[55%] border-b border-border overflow-hidden min-h-0">
@@ -298,6 +304,7 @@ Inclua uma entrada para cada placeholder listado.`;
               </div>
             </div>
           </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
