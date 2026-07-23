@@ -29,8 +29,10 @@ function filtrarCamposPeticao(fields) {
   return out;
 }
 
-export default function PetitionCorrectionChat({ petition, petitionConfig, learningTarget, onFieldsUpdated }) {
+export default function PetitionCorrectionChat({ petition, petitionConfig, learningTarget, onFieldsUpdated, open: controlledOpen, onOpenChange }) {
   const [open, setOpen] = useState(false);
+  const isOpen = controlledOpen !== undefined ? controlledOpen : open;
+  const setOpenState = (v) => { setOpen(v); onOpenChange?.(v); };
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,9 +44,9 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, learn
 
   // Carrega histórico salvo ao abrir
   useEffect(() => {
-    if (!open || !petitionId) return;
+    if (!isOpen || !petitionId) return;
     loadHistory();
-  }, [open, petitionId]);
+  }, [isOpen, petitionId]);
 
   // Auto-scroll para o final
   useEffect(() => {
@@ -251,9 +253,9 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
   return (
     <>
       {/* Botão flutuante */}
-      {!open && (
+      {!isOpen && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setOpenState(true)}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 font-semibold text-sm"
         >
           <Wand2 className="w-5 h-5" />
@@ -262,7 +264,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       )}
 
       {/* Painel de chat */}
-      {open && (
+      {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-3rem)] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
@@ -270,7 +272,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
               <MessageSquare className="w-4 h-4" />
               <span className="font-semibold text-sm">Corrigir Petição com IA</span>
             </div>
-            <button onClick={() => setOpen(false)} className="hover:bg-primary-foreground/20 rounded p-1 transition-colors">
+            <button onClick={() => setOpenState(false)} className="hover:bg-primary-foreground/20 rounded p-1 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>

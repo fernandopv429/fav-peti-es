@@ -150,6 +150,7 @@ export default function GerarDocumento() {
   const [gerandoStep, setGerandoStep] = useState("");
   const [savedPetitionId, setSavedPetitionId] = useState(null);
   const [iaMode, setIaMode] = useState(false);
+  const [chatAberto, setChatAberto] = useState(false);
   const [arquivos, setArquivos] = useState([]);
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
@@ -927,6 +928,15 @@ Retorne a petição completa, sem comentários adicionais.`;
                 </div>
               </div>
 
+              {iaMode && (
+                <button
+                  onClick={() => setChatAberto(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors shadow-sm"
+                >
+                  <Wand2 className="w-4 h-4" /> Corrigir com IA
+                </button>
+              )}
+
               <div className="bg-card border border-border rounded-2xl p-6 max-h-[600px] overflow-y-auto" id="gerar-doc-print-area">
                 <LetterheadHeader config={petitionConfig} />
                 <PetitionRenderer content={resultado} />
@@ -962,6 +972,8 @@ Retorne a petição completa, sem comentários adicionais.`;
             id: espSelecionado.id,
             prompt: espSelecionado.prompt_sistema,
           }}
+          open={chatAberto}
+          onOpenChange={setChatAberto}
           onFieldsUpdated={(fields) => {
             if (fields.generated_content) setResultado(fields.generated_content);
           }}
