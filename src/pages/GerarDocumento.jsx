@@ -187,7 +187,7 @@ export default function GerarDocumento() {
   const modoVigilante = isModeloVigilante(templateSelecionado);
   const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
-  const mostrarRevisaoIA = telaCheia && !gerando && iaMode && !!resultado && !!espSelecionado;
+  const mostrarRevisaoIA = telaCheia && !gerando && !!resultado;
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 
@@ -268,6 +268,13 @@ export default function GerarDocumento() {
           const { gerarDocxVigilante } = await import("@/lib/gerarDocxVigilante.js");
           const { blob, tokensFaltando } = await gerarDocxVigilante(modeloDocxUrl, dadosVigilante);
           const nomeArquivo = nomeArquivoPeticao(dadosVigilante.RECL_NOME, dadosVigilante.RECL1_NOME);
+
+          // Extrai o texto do DOCX para exibir na tela de revisão/correção
+          try {
+            const { extrairTextoDocxBlob } = await import("@/lib/extrairTextoDocx.js");
+            const textoDocx = await extrairTextoDocxBlob(blob);
+            if (textoDocx.trim()) setResultado(textoDocx);
+          } catch (_) {}
 
           // Download imediato
           const url = URL.createObjectURL(blob);
@@ -562,6 +569,14 @@ Retorne a petição completa, sem comentários adicionais.`;
         const p = results[0];
         if (!p || p.status === "em_geracao") return;
         clearInterval(interval);
+        // Extrai o texto do DOCX gerado para exibir na tela de revisão/correção
+        if (p.generated_content) {
+          try {
+            const { extrairTextoDocxUrl } = await import("@/lib/extrairTextoDocx.js");
+            const textoDocx = await extrairTextoDocxUrl(p.generated_content);
+            if (textoDocx.trim()) setResultado(textoDocx);
+          } catch (_) {}
+        }
         setGerando(false);
         const msg = p.status === "revisao_necessaria"
           ? "DOCX gerado com pendências — revise antes de protocolar."
@@ -1008,16 +1023,16 @@ Retorne a petição completa, sem comentários adicionais.`;
           onFechar={() => setTelaCheia(false)}
           petition={{
             id: savedPetitionId,
-            title: `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`,
-            case_type: CASE_TYPE_MAP[area] || "outro",
+            title: `${espSelecionado?.titulo || espSelecionado?.name || templateSelecionado?.name || "Documento"} — ${new Date().toLocaleDateString("pt-BR")}`,
+            case_type: CASE_TYPE_MAP[area] || "trabalhista",
             generated_content: resultado,
             template_used: templateSelecionado?.id || "",
           }}
-          learningTarget={{
+          learningTarget={espSelecionado ? {
             entityName: "Especialista",
             id: espSelecionado.id,
             prompt: espSelecionado.prompt_sistema,
-          }}
+          } : undefined}
           petitionConfig={petitionConfig}
         />
       )}
