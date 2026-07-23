@@ -348,8 +348,11 @@ export default function BackupRestauracao() {
 
       {/* Regras Aprendidas com Correções */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-        <RegrasAprendidas configEntityName="PetitionConfig" title="Regras — Petições" />
-        <RegrasAprendidas configEntityName="DefesaConfig" title="Regras — Defesas" />
+        <RegrasAprendidas configEntityName="PetitionConfig" title="Regras — Petições (PetitionConfig)" />
+        <RegrasAprendidas configEntityName="DefesaConfig" title="Regras — Defesas (DefesaConfig)" />
+      </div>
+      <div className="mt-6">
+        <RegrasAprendidas todosEspecialistas title="Regras — Especialistas (Defesa #32 e Gerar Documento por IA)" />
       </div>
 
       {/* Modal de confirmação de restauração */}

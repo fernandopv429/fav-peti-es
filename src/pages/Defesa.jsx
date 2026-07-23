@@ -597,10 +597,15 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         </Card>
       )}
 
-      {resultado && savedId && (
+      {resultado && savedId && esp32 && (
         <DefesaCorrectionChat
           defesa={{ ...form, id: savedId, generated_content: resultado }}
           defesaConfig={defesaConfig}
+          learningTarget={{
+            entityName: "Especialista",
+            id: esp32.id,
+            prompt: esp32.prompt_sistema,
+          }}
           onFieldsUpdated={(correctedFields) => {
             setForm(prev => ({ ...prev, ...correctedFields }));
             if (correctedFields.generated_content) setResultado(correctedFields.generated_content);

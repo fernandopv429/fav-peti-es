@@ -14,6 +14,7 @@ import GenericoForm from "../components/generico/GenericoForm";
 import PorteiroForm from "../components/porteiro/PorteiroForm";
 import { nomeArquivoPeticao } from "@/lib/normalizarCampos.js";
 import { validarDadosPeticao, validarTextoPeticao } from "@/lib/validarPeticao.js";
+import PetitionCorrectionChat from "@/components/petition/PetitionCorrectionChat.jsx";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -148,6 +149,7 @@ export default function GerarDocumento() {
   const [gerando, setGerando] = useState(false);
   const [gerandoStep, setGerandoStep] = useState("");
   const [savedPetitionId, setSavedPetitionId] = useState(null);
+  const [iaMode, setIaMode] = useState(false);
   const [arquivos, setArquivos] = useState([]);
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const fileInputRef = useRef(null);
@@ -249,6 +251,7 @@ export default function GerarDocumento() {
     setResultado("");
     setSavedPetitionId(null);
     setGerandoStep("");
+    setIaMode(false);
     let sucessoVigilante = false;
 
     try {
@@ -493,6 +496,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerando(true);
     setGerandoStep("Salvando registro da petição...");
     setSavedPetitionId(null);
+    setIaMode(false);
 
     const titulo = dadosForm.titulo ||
       `${templateSelecionado.name} — ${dadosForm.RECL_NOME || "Caso"} × ${dadosForm.RECL1_NOME || "Reclamada"} — ${new Date().toLocaleDateString("pt-BR")}`;
@@ -578,6 +582,7 @@ Retorne a petição completa, sem comentários adicionais.`;
     setGerando(true);
     setResultado("");
     setSavedPetitionId(null);
+    setIaMode(true);
 
     const titulo = `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`;
     const caseType = CASE_TYPE_MAP[area] || "outro";
@@ -942,6 +947,26 @@ Retorne a petição completa, sem comentários adicionais.`;
           )}
         </div>
       </div>
+
+      {iaMode && savedPetitionId && resultado && espSelecionado && (
+        <PetitionCorrectionChat
+          petition={{
+            id: savedPetitionId,
+            title: `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`,
+            case_type: CASE_TYPE_MAP[area] || "outro",
+            generated_content: resultado,
+            template_used: templateSelecionado?.id || "",
+          }}
+          learningTarget={{
+            entityName: "Especialista",
+            id: espSelecionado.id,
+            prompt: espSelecionado.prompt_sistema,
+          }}
+          onFieldsUpdated={(fields) => {
+            if (fields.generated_content) setResultado(fields.generated_content);
+          }}
+        />
+      )}
     </div>
   );
 }

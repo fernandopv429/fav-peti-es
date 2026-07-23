@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-react";
+import { appendRuleToPrompt, salvarRegraAprendida } from "@/lib/regraAprendida.js";
 
 /**
  * Chat flutuante de correção de petições por comando em linguagem natural.
@@ -11,7 +12,24 @@ import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-re
  *
  * Histórico é persistido em PetitionChatMessage vinculado ao petition_id.
  */
-export default function PetitionCorrectionChat({ petition, petitionConfig, onFieldsUpdated }) {
+const PETITION_FIELDS = new Set([
+  "title", "status", "case_type", "rite", "claimant_name", "claimant_cpf", "claimant_rg",
+  "claimant_birth_date", "claimant_ctps", "claimant_pis", "claimant_address", "claimant_role",
+  "defendant_name", "defendant_cnpj", "defendant_address", "extra_defendants", "contract_start",
+  "contract_end", "salary", "work_schedule", "irregularities", "additional_facts", "claims",
+  "estimated_value", "generated_content", "template_used", "document_urls", "document_names",
+  "jurisdiction", "free_justice", "digital_court", "analise_documentos", "analise_status",
+]);
+
+function filtrarCamposPeticao(fields) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    if (PETITION_FIELDS.has(k)) out[k] = v;
+  }
+  return out;
+}
+
+export default function PetitionCorrectionChat({ petition, petitionConfig, learningTarget, onFieldsUpdated }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -151,11 +169,12 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         errorLogId = log?.id || null;
       } catch (_) {}
 
-      // Aplica as correções na Petition (se houver campos)
-      if (Object.keys(correctedFields).length > 0) {
-        await base44.entities.Petition.update(petitionId, correctedFields);
+      // Aplica as correções na Petition (se houver campos) — apenas campos válidos do schema
+      const camposValidos = filtrarCamposPeticao(correctedFields);
+      if (Object.keys(camposValidos).length > 0) {
+        await base44.entities.Petition.update(petitionId, camposValidos);
         // Atualiza a tela
-        onFieldsUpdated?.(correctedFields);
+        onFieldsUpdated?.(camposValidos);
       }
 
       // Persiste a mensagem do assistente
@@ -182,48 +201,41 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
   };
 
   const handleSaveRule = async (message) => {
-    if (!petitionConfig || !message.rule_suggestion) return;
+    if (!message.rule_suggestion) return;
+    // learningTarget (ex.: Especialista que gerou) tem prioridade; senão usa PetitionConfig
+    if (learningTarget) {
+      try {
+        const { alreadyExists } = await salvarRegraAprendida(learningTarget, message.rule_suggestion);
+        const logId = errorLogIds.current.get(message.id);
+        if (logId) {
+          try {
+            await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
+          } catch (_) {}
+        }
+        await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
+        setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
+        toast.success(alreadyExists ? "Regra já estava salva no prompt." : "Regra salva no prompt do especialista!");
+      } catch (e) {
+        toast.error("Erro ao salvar regra: " + e.message);
+      }
+      return;
+    }
+    if (!petitionConfig) return;
     try {
       const currentPrompt = petitionConfig.prompt_sistema || "";
-      const SECTION_HEADER = "## Regras aprendidas com correções";
-      const rule = message.rule_suggestion.trim();
-
-      let newPrompt;
-      // Garante a seção existe
-      if (currentPrompt.includes(SECTION_HEADER)) {
-        const parts = currentPrompt.split(SECTION_HEADER);
-        const before = parts[0];
-        let rulesSection = parts.slice(1).join(SECTION_HEADER) || "";
-        // Verifica se a regra já existe (comparação simples, ignorando espaços extras)
-        const normalizedRules = rulesSection.replace(/\s+/g, " ").toLowerCase();
-        const normalizedRule = rule.replace(/\s+/g, " ").toLowerCase();
-        if (normalizedRules.includes(normalizedRule)) {
-          toast.info("Essa regra já está salva no prompt.");
-          await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
-          setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
-          return;
-        }
-        // Adiciona a regra como bullet
-        rulesSection = rulesSection.trimEnd();
-        rulesSection = rulesSection + (rulesSection ? "\n" : "") + `- ${rule}`;
-        newPrompt = before.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + rulesSection;
-      } else {
-        newPrompt = currentPrompt.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + `- ${rule}`;
+      const { newPrompt, alreadyExists } = appendRuleToPrompt(currentPrompt, message.rule_suggestion.trim());
+      if (!alreadyExists) {
+        await base44.entities.PetitionConfig.update(petitionConfig.id, { prompt_sistema: newPrompt });
       }
-
-      await base44.entities.PetitionConfig.update(petitionConfig.id, { prompt_sistema: newPrompt });
-      // Marca a mensagem como regra salva
-      // Marca o ErrorLog como resolvido com a regra salva
       const logId = errorLogIds.current.get(message.id);
       if (logId) {
         try {
           await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
         } catch (_) {}
       }
-
       await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
-      toast.success("Regra salva no prompt do escritório!");
+      toast.success(alreadyExists ? "Regra já estava salva no prompt." : "Regra salva no prompt do escritório!");
     } catch (e) {
       toast.error("Erro ao salvar regra: " + e.message);
     }

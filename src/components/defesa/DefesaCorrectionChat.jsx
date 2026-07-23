@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-react";
+import { appendRuleToPrompt, salvarRegraAprendida } from "@/lib/regraAprendida.js";
 
 /**
  * Chat flutuante de correção de defesas/contestações por comando em linguagem natural.
@@ -10,7 +11,21 @@ import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-re
  * Histórico é persistido em DefesaChatMessage vinculado ao defesa_id.
  * Correções são registradas em ErrorLog (context: "chat_correcao_defesa") para auditoria.
  */
-export default function DefesaCorrectionChat({ defesa, defesaConfig, onFieldsUpdated }) {
+const DEFESA_FIELDS = new Set([
+  "title", "process_number", "reclamante_name", "reclamada_name", "reclamada_cnpj",
+  "contract_start", "contract_end", "funcao", "salario", "inicial_texto",
+  "generated_content", "status",
+]);
+
+function filtrarCamposDefesa(fields) {
+  const out = {};
+  for (const [k, v] of Object.entries(fields || {})) {
+    if (DEFESA_FIELDS.has(k)) out[k] = v;
+  }
+  return out;
+}
+
+export default function DefesaCorrectionChat({ defesa, defesaConfig, learningTarget, onFieldsUpdated }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -87,7 +102,7 @@ ${instrucao}
 
 Analise a instrução e determine quais campos da Defesa devem ser corrigidos. Devolva:
 - "reply": explicação curta e direta do que foi alterado e por quê.
-- "corrected_fields": objeto com APENAS os campos que devem mudar e seus novos valores. Use os nomes exatos dos campos da entidade Defesa (title, process_number, reclamante_name, reclamante_cpf, reclamada_name, reclamada_cnpj, reclamada_setor, posicao_processual, contract_start, contract_end, funcao, salario [number], jornada, valor_causa [number], inicial_texto, generated_content, pedidos_identificados [array de strings], status). Se a correção envolver o texto gerado (generated_content), inclua o novo texto completo. Se nenhum campo estruturado mudar (ex: só um esclarecimento), devolva {}.
+- "corrected_fields": objeto com APENAS os campos que devem mudar e seus novos valores. Use SOMENTE os nomes exatos dos campos da entidade Defesa que existem no schema: title, process_number, reclamante_name, reclamada_name, reclamada_cnpj, contract_start, contract_end, funcao, salario [number], inicial_texto, generated_content, status. Se a correção envolver o texto gerado (generated_content), inclua o novo texto completo. Se nenhum campo estruturado mudar (ex: só um esclarecimento), devolva {}.
 - "rule_suggestion": uma regra curta, genérica e reutilizável que evitaria esse erro em gerações futuras (ex: "Sempre verificar se a prescrição quinquenal foi corretamente calculada na contestação"). Se a instrução for um caso único sem regra aplicável, devolva string vazia.`;
   };
 
@@ -139,9 +154,10 @@ Analise a instrução e determine quais campos da Defesa devem ser corrigidos. D
         errorLogId = log?.id || null;
       } catch (_) {}
 
-      if (Object.keys(correctedFields).length > 0) {
-        await base44.entities.Defesa.update(defesaId, correctedFields);
-        onFieldsUpdated?.(correctedFields);
+      const camposValidos = filtrarCamposDefesa(correctedFields);
+      if (Object.keys(camposValidos).length > 0) {
+        await base44.entities.Defesa.update(defesaId, camposValidos);
+        onFieldsUpdated?.(camposValidos);
       }
 
       const savedAssistant = await base44.entities.DefesaChatMessage.create({
@@ -166,45 +182,41 @@ Analise a instrução e determine quais campos da Defesa devem ser corrigidos. D
   };
 
   const handleSaveRule = async (message) => {
-    if (!defesaConfig || !message.rule_suggestion) return;
+    if (!message.rule_suggestion) return;
+    // learningTarget (Especialista #32) tem prioridade; senão usa DefesaConfig
+    if (learningTarget) {
+      try {
+        const { alreadyExists } = await salvarRegraAprendida(learningTarget, message.rule_suggestion);
+        const logId = errorLogIds.current.get(message.id);
+        if (logId) {
+          try {
+            await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
+          } catch (_) {}
+        }
+        await base44.entities.DefesaChatMessage.update(message.id, { rule_saved: true });
+        setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
+        toast.success(alreadyExists ? "Regra já estava salva no prompt." : "Regra salva no prompt do especialista!");
+      } catch (e) {
+        toast.error("Erro ao salvar regra: " + e.message);
+      }
+      return;
+    }
+    if (!defesaConfig) return;
     try {
       const currentPrompt = defesaConfig.prompt_sistema || "";
-      const SECTION_HEADER = "## Regras aprendidas com correções";
-      const rule = message.rule_suggestion.trim();
-
-      let newPrompt;
-      if (currentPrompt.includes(SECTION_HEADER)) {
-        const parts = currentPrompt.split(SECTION_HEADER);
-        const before = parts[0];
-        let rulesSection = parts.slice(1).join(SECTION_HEADER) || "";
-        const normalizedRules = rulesSection.replace(/\s+/g, " ").toLowerCase();
-        const normalizedRule = rule.replace(/\s+/g, " ").toLowerCase();
-        if (normalizedRules.includes(normalizedRule)) {
-          toast.info("Essa regra já está salva no prompt.");
-          await base44.entities.DefesaChatMessage.update(message.id, { rule_saved: true });
-          setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
-          return;
-        }
-        rulesSection = rulesSection.trimEnd();
-        rulesSection = rulesSection + (rulesSection ? "\n" : "") + `- ${rule}`;
-        newPrompt = before.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + rulesSection;
-      } else {
-        newPrompt = currentPrompt.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + `- ${rule}`;
+      const { newPrompt, alreadyExists } = appendRuleToPrompt(currentPrompt, message.rule_suggestion.trim());
+      if (!alreadyExists) {
+        await base44.entities.DefesaConfig.update(defesaConfig.id, { prompt_sistema: newPrompt });
       }
-
-      await base44.entities.DefesaConfig.update(defesaConfig.id, { prompt_sistema: newPrompt });
-
-      // Marca o ErrorLog como resolvido com a regra salva
       const logId = errorLogIds.current.get(message.id);
       if (logId) {
         try {
           await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
         } catch (_) {}
       }
-
       await base44.entities.DefesaChatMessage.update(message.id, { rule_saved: true });
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
-      toast.success("Regra salva no prompt do escritório!");
+      toast.success(alreadyExists ? "Regra já estava salva no prompt." : "Regra salva no prompt do escritório!");
     } catch (e) {
       toast.error("Erro ao salvar regra: " + e.message);
     }
