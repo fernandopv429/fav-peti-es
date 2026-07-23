@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { base44 } from "@/api/base44Client";
-import { Plus, Eye, Pencil, ListChecks, Variable, Loader2, Sparkles, Check } from "lucide-react";
+import { Pencil, Eye, ListChecks, Variable, Loader2, Sparkles, Check, Plus, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import PetitionRenderer from "@/components/petition/PetitionRenderer";
 import { LetterheadHeader, LetterheadFooter } from "@/components/petition/PetitionLetterhead";
@@ -35,31 +34,33 @@ function extrairPlaceholders(texto) {
 }
 
 /**
- * Modal de revisão pós-geração por IA:
+ * Tela de revisão inline (substitui o formulário da página):
  *  - Documento editável (correção local) ou visualização com timbre
- *  - Chat lateral com IA (embutido, reaproveita aprendizado de regras)
- *  - Lista de placeholders com descrição + preenchimento local
- *  - Análise por IA: revela o que a IA capturou para cada placeholder
- *  - Inserção de novos placeholders direto no texto do documento
+ *  - Chat de IA para correção (sempre visível à direita)
+ *  - Painel de placeholders (colapsável) com análise por IA
+ *
+ * Props:
+ *  - texto / onTextoChange: conteúdo do documento (controlado pelo pai)
+ *  - petition / learningTarget / petitionConfig: contexto para o chat
+ *  - onFechar: volta ao formulário de geração
  */
-export default function RevisaoDocumentoModal({ open, onOpenChange, texto, onTextoChange, petition, learningTarget, petitionConfig }) {
+export default function RevisaoDocumentoModal({ texto, onTextoChange, petition, learningTarget, petitionConfig, onFechar }) {
   const [modo, setModo] = useState("editar");
   const [novoPlaceholder, setNovoPlaceholder] = useState("");
   const [contextoCaso, setContextoCaso] = useState("");
   const [valoresIA, setValoresIA] = useState({});
   const [analisando, setAnalisando] = useState(false);
-  const [mostrarPainel, setMostrarPainel] = useState(true);
+  const [placeholdersVisivel, setPlaceholdersVisivel] = useState(true);
   const textareaRef = useRef(null);
 
   const placeholders = useMemo(() => extrairPlaceholders(texto), [texto]);
 
-  // Carrega o contexto do caso (additional_facts) da petição salva
   useEffect(() => {
-    if (!open || !petition?.id) return;
+    if (!petition?.id) return;
     base44.entities.Petition.filter({ id: petition.id })
       .then((r) => setContextoCaso(r?.[0]?.additional_facts || ""))
       .catch(() => {});
-  }, [open, petition?.id]);
+  }, [petition?.id]);
 
   const atualizarTexto = (novo) => onTextoChange?.(novo);
 
@@ -92,7 +93,6 @@ export default function RevisaoDocumentoModal({ open, onOpenChange, texto, onTex
     toast.success("Placeholder adicionado ao documento.");
   };
 
-  // Pede à IA o valor que ela capturou para cada placeholder, com base no contexto do caso
   const handleAnalisarPlaceholders = async () => {
     if (placeholders.length === 0) {
       toast.info("Nenhum placeholder encontrado no documento.");
@@ -144,7 +144,8 @@ Inclua uma entrada para cada placeholder listado.`;
         map[p.token] = (p.valor || "").trim();
       });
       setValoresIA(map);
-      setMostrarPainel(false);
+      // Ao finalizar a análise, oculta o painel de placeholders — fica só documento + chat
+      setPlaceholdersVisivel(false);
       const identificados = Object.values(map).filter((v) => v).length;
       toast.success(`IA analisou ${placeholders.length} placeholder(s) — ${identificados} com valor identificado.`);
     } catch (e) {
@@ -155,63 +156,83 @@ Inclua uma entrada para cada placeholder listado.`;
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1400px] w-[95vw] h-[92vh] p-0 gap-0 flex flex-col overflow-hidden">
-        <DialogHeader className="px-5 py-3 border-b border-border flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-sm flex items-center gap-2">
-            <ListChecks className="w-4 h-4 text-primary" /> Revisão do Documento — Correção e Placeholders
-          </DialogTitle>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant={mostrarPainel ? "outline" : "secondary"} onClick={() => setMostrarPainel(v => !v)} title="Mostrar/ocultar painel de correção">
-              <Variable className="w-3.5 h-3.5" /> Painel
-            </Button>
-            <Button size="sm" variant={modo === "editar" ? "default" : "outline"} onClick={() => setModo("editar")}>
-              <Pencil className="w-3.5 h-3.5" /> Editar
-            </Button>
-            <Button size="sm" variant={modo === "visualizar" ? "default" : "outline"} onClick={() => setModo("visualizar")}>
-              <Eye className="w-3.5 h-3.5" /> Visualizar
-            </Button>
-          </div>
-        </DialogHeader>
+    <div className="px-6 lg:px-10 pb-6 flex flex-col gap-3" style={{ height: "calc(100vh - 150px)" }}>
+      {/* Barra superior */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={onFechar} className="gap-1.5">
+            <ArrowLeft className="w-4 h-4" /> Voltar
+          </Button>
+          <p className="text-sm font-semibold flex items-center gap-2 text-foreground">
+            <ListChecks className="w-4 h-4 text-primary" /> Revisão do Documento
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAnalisarPlaceholders}
+            disabled={analisando || placeholders.length === 0}
+            className="gap-1.5"
+          >
+            {analisando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {analisando ? "Analisando..." : "Analisar com IA"}
+          </Button>
+          <Button
+            size="sm"
+            variant={placeholdersVisivel ? "secondary" : "outline"}
+            onClick={() => setPlaceholdersVisivel((v) => !v)}
+            className="gap-1.5"
+          >
+            <Variable className="w-3.5 h-3.5" /> Placeholders
+          </Button>
+          <Button size="sm" variant={modo === "editar" ? "default" : "outline"} onClick={() => setModo("editar")} className="px-2.5">
+            <Pencil className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="sm" variant={modo === "visualizar" ? "default" : "outline"} onClick={() => setModo("visualizar")} className="px-2.5">
+            <Eye className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
 
-        <div className={`flex-1 grid overflow-hidden ${mostrarPainel ? "grid-cols-1 lg:grid-cols-[1fr_380px]" : "grid-cols-1"}`}>
-          {/* Documento */}
-          <div className="border-r border-border overflow-hidden flex flex-col min-h-0">
-            {modo === "editar" ? (
-              <textarea
-                ref={textareaRef}
-                value={texto}
-                onChange={(e) => atualizarTexto(e.target.value)}
-                className="flex-1 w-full resize-none bg-background text-foreground p-6 text-sm font-mono leading-relaxed overflow-y-auto focus:outline-none min-h-0"
-                placeholder="Documento gerado..."
-              />
-            ) : (
-              <div className="flex-1 overflow-y-auto p-6 bg-card min-h-0">
-                <LetterheadHeader config={petitionConfig} />
-                <PetitionRenderer content={texto} />
-                <LetterheadFooter config={petitionConfig} />
-              </div>
-            )}
-          </div>
-
-          {/* Lateral: chat + placeholders */}
-          {mostrarPainel && (
-          <div className="flex flex-col overflow-hidden bg-background min-h-0">
-            {/* Chat embutido */}
-            <div className="h-[55%] border-b border-border overflow-hidden min-h-0">
-              <PetitionCorrectionChat
-                petition={petition}
-                learningTarget={learningTarget}
-                petitionConfig={petitionConfig}
-                embedded
-                onFieldsUpdated={(fields) => {
-                  if (fields.generated_content) atualizarTexto(fields.generated_content);
-                }}
-              />
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-3 min-h-0">
+        {/* Documento */}
+        <div className="border border-border rounded-xl overflow-hidden flex flex-col min-h-0 bg-card">
+          {modo === "editar" ? (
+            <textarea
+              ref={textareaRef}
+              value={texto}
+              onChange={(e) => atualizarTexto(e.target.value)}
+              className="flex-1 w-full resize-none bg-background text-foreground p-6 text-sm font-mono leading-relaxed overflow-y-auto focus:outline-none min-h-0"
+              placeholder="Documento gerado..."
+            />
+          ) : (
+            <div className="flex-1 overflow-y-auto p-6 bg-card min-h-0">
+              <LetterheadHeader config={petitionConfig} />
+              <PetitionRenderer content={texto} />
+              <LetterheadFooter config={petitionConfig} />
             </div>
+          )}
+        </div>
 
-            {/* Placeholders */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+        {/* Lateral: chat (sempre) + placeholders (colapsável) */}
+        <div className="flex flex-col gap-3 min-h-0">
+          {/* Chat de IA — sempre visível */}
+          <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-border">
+            <PetitionCorrectionChat
+              petition={petition}
+              learningTarget={learningTarget}
+              petitionConfig={petitionConfig}
+              embedded
+              onFieldsUpdated={(fields) => {
+                if (fields.generated_content) atualizarTexto(fields.generated_content);
+              }}
+            />
+          </div>
+
+          {/* Placeholders — oculta ao finalizar a análise */}
+          {placeholdersVisivel && (
+            <div className="max-h-[45%] overflow-y-auto p-3 rounded-xl border border-border bg-background space-y-2 min-h-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <Variable className="w-3.5 h-3.5 text-primary" />
@@ -219,20 +240,7 @@ Inclua uma entrada para cada placeholder listado.`;
                     Placeholders ({placeholders.length})
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleAnalisarPlaceholders}
-                  disabled={analisando || placeholders.length === 0}
-                  className="h-7 px-2 text-xs"
-                >
-                  {analisando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  {analisando ? "Analisando..." : "Analisar com IA"}
-                </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground/80 -mt-1">
-                A IA revela o que capturou para cada placeholder. Confirme, corrija ou preencha localmente.
-              </p>
 
               {placeholders.length === 0 ? (
                 <p className="text-sm text-muted-foreground italic py-2">Nenhum placeholder encontrado no documento.</p>
@@ -244,7 +252,6 @@ Inclua uma entrada para cada placeholder listado.`;
                     <div key={`${p.token}-${i}`} className="p-2.5 rounded-xl bg-muted/40 border border-border/60 space-y-1.5">
                       <p className="text-xs text-foreground font-medium break-words">{p.desc}</p>
 
-                      {/* Valor capturado pela IA */}
                       {analisado && (
                         <div className={`flex items-start gap-1.5 p-1.5 rounded-md text-xs ${valorIA ? "bg-green-50 border border-green-200 text-green-800" : "bg-amber-50 border border-amber-200 text-amber-700"}`}>
                           <span className="font-semibold shrink-0">IA:</span>
@@ -286,7 +293,6 @@ Inclua uma entrada para cada placeholder listado.`;
                 })
               )}
 
-              {/* Adicionar placeholder */}
               <div className="pt-2 mt-1 border-t border-border space-y-1.5">
                 <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Adicionar placeholder</p>
                 <div className="flex gap-2">
@@ -303,10 +309,9 @@ Inclua uma entrada para cada placeholder listado.`;
                 </div>
               </div>
             </div>
-          </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

@@ -187,6 +187,7 @@ export default function GerarDocumento() {
   const modoVigilante = isModeloVigilante(templateSelecionado);
   const modoPorteiro = isModoPorteiro(templateSelecionado);
   const modoGenerico = isModoGenerico(templateSelecionado);
+  const mostrarRevisao = iaMode && revisaoAberta && !!resultado && !!savedPetitionId && !!espSelecionado;
 
   const handleAreaChange = (val) => { setArea(val); setEspId(""); };
 
@@ -701,6 +702,7 @@ Retorne a petição completa, sem comentários adicionais.`;
         <p className="text-muted-foreground text-sm ml-12">Selecione o especialista ideal para o seu caso e forneça o contexto</p>
       </div>
 
+      {!mostrarRevisao && (
       <div className="px-6 lg:px-10 py-8 grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl">
         {/* Left — Form */}
         <div className="space-y-5">
@@ -958,13 +960,13 @@ Retorne a petição completa, sem comentários adicionais.`;
           )}
         </div>
       </div>
+      )}
 
-      {iaMode && savedPetitionId && resultado && espSelecionado && (
+      {mostrarRevisao && (
         <RevisaoDocumentoModal
-          open={revisaoAberta}
-          onOpenChange={setRevisaoAberta}
           texto={resultado}
           onTextoChange={setResultado}
+          onFechar={() => setRevisaoAberta(false)}
           petition={{
             id: savedPetitionId,
             title: `${espSelecionado.titulo || espSelecionado.name} — ${new Date().toLocaleDateString("pt-BR")}`,
