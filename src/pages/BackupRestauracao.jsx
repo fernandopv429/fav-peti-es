@@ -6,6 +6,7 @@ import {
   ShieldCheck, Loader2, AlertTriangle, CheckCircle2, Clock, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import RegrasAprendidas from "@/components/config/RegrasAprendidas.jsx";
 import { Badge } from "@/components/ui/badge";
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -343,6 +344,12 @@ export default function BackupRestauracao() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Regras Aprendidas com Correções */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <RegrasAprendidas configEntityName="PetitionConfig" title="Regras — Petições" />
+        <RegrasAprendidas configEntityName="DefesaConfig" title="Regras — Defesas" />
       </div>
 
       {/* Modal de confirmação de restauração */}

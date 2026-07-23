@@ -4,14 +4,13 @@ import { toast } from "sonner";
 import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-react";
 
 /**
- * Chat flutuante de correção de petições por comando em linguagem natural.
- * O advogado digita uma instrução (ex: "a data de admissão está errada"),
- * a IA analisa os dados atuais da petição e devolve campos corrigidos +
- * uma regra genérica para evitar o erro em gerações futuras.
+ * Chat flutuante de correção de defesas/contestações por comando em linguagem natural.
+ * Análogo ao PetitionCorrectionChat, mas operando sobre a entidade Defesa e DefesaConfig.
  *
- * Histórico é persistido em PetitionChatMessage vinculado ao petition_id.
+ * Histórico é persistido em DefesaChatMessage vinculado ao defesa_id.
+ * Correções são registradas em ErrorLog (context: "chat_correcao_defesa") para auditoria.
  */
-export default function PetitionCorrectionChat({ petition, petitionConfig, onFieldsUpdated }) {
+export default function DefesaCorrectionChat({ defesa, defesaConfig, onFieldsUpdated }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -20,15 +19,13 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, onFie
   const scrollRef = useRef(null);
   const errorLogIds = useRef(new Map());
 
-  const petitionId = petition?.id;
+  const defesaId = defesa?.id;
 
-  // Carrega histórico salvo ao abrir
   useEffect(() => {
-    if (!open || !petitionId) return;
+    if (!open || !defesaId) return;
     loadHistory();
-  }, [open, petitionId]);
+  }, [open, defesaId]);
 
-  // Auto-scroll para o final
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -36,11 +33,11 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, onFie
   }, [messages, loading]);
 
   const loadHistory = async () => {
-    if (!petitionId) return;
+    if (!defesaId) return;
     setLoadingHistory(true);
     try {
-      const history = await base44.entities.PetitionChatMessage.filter(
-        { petition_id: petitionId },
+      const history = await base44.entities.DefesaChatMessage.filter(
+        { defesa_id: defesaId },
         "created_date"
       );
       setMessages(history || []);
@@ -52,74 +49,66 @@ export default function PetitionCorrectionChat({ petition, petitionConfig, onFie
   };
 
   const buildContexto = () => {
-    const p = petition || {};
+    const p = defesa || {};
     return [
       `Título: ${p.title || "—"}`,
-      `Reclamante: ${p.claimant_name || "—"}`,
-      `CPF: ${p.claimant_cpf || "—"}`,
-      `RG: ${p.claimant_rg || "—"}`,
-      `PIS: ${p.claimant_pis || "—"}`,
-      `CTPS: ${p.claimant_ctps || "—"}`,
-      `Endereço: ${p.claimant_address || "—"}`,
-      `Função: ${p.claimant_role || "—"}`,
-      `Reclamada: ${p.defendant_name || "—"}`,
-      `CNPJ Reclamada: ${p.defendant_cnpj || "—"}`,
-      `Endereço Reclamada: ${p.defendant_address || "—"}`,
-      p.extra_defendants?.length ? `Reclamadas adicionais: ${JSON.stringify(p.extra_defendants)}` : "",
+      `Processo: ${p.process_number || "—"}`,
+      `Reclamante: ${p.reclamante_name || "—"}`,
+      `CPF: ${p.reclamante_cpf || "—"}`,
+      `Reclamada: ${p.reclamada_name || "—"}`,
+      `CNPJ: ${p.reclamada_cnpj || "—"}`,
+      `Setor/ramo: ${p.reclamada_setor || "—"}`,
+      `Posição processual: ${p.posicao_processual || "—"}`,
       `Admissão: ${p.contract_start || "—"}`,
       `Demissão: ${p.contract_end || "—"}`,
-      `Salário: ${p.salary ?? "—"}`,
-      `Jornada: ${p.work_schedule || "—"}`,
-      `Irregularidades: ${p.irregularities || "—"}`,
-      p.claims?.length ? `Pedidos: ${p.claims.join("; ")}` : "",
-      `Valor estimado: ${p.estimated_value ?? "—"}`,
-      `Jurisdição: ${p.jurisdiction || "—"}`,
-      `Tipo de caso: ${p.case_type || "—"}`,
-      `Rito: ${p.rite || "—"}`,
+      `Função: ${p.funcao || "—"}`,
+      `Salário: ${p.salario ?? "—"}`,
+      `Jornada: ${p.jornada || "—"}`,
+      `Valor da causa: ${p.valor_causa ?? "—"}`,
+      Array.isArray(p.pedidos_identificados) && p.pedidos_identificados.length
+        ? `Pedidos identificados: ${p.pedidos_identificados.join("; ")}`
+        : "",
+      `Status: ${p.status || "—"}`,
     ].filter(Boolean).join("\n");
   };
 
   const buildPrompt = (instrucao) => {
-    const configPrompt = petitionConfig?.prompt_sistema || "(config não disponível)";
-    return `Você é um assistente jurídico que corrige petições trabalhistas com base em instruções do advogado.
+    const configPrompt = defesaConfig?.prompt_sistema || "(config não disponível)";
+    return `Você é um assistente jurídico que corrige defesas/contestações trabalhistas com base em instruções do advogado.
 
-DADOS ATUAIS DA PETIÇÃO:
+DADOS ATUAIS DA DEFESA:
 ${buildContexto()}
 
-PROMPT DE SISTEMA ATUAL DO ESCRITÓRIO (PetitionConfig.prompt_sistema):
+PROMPT DE SISTEMA ATUAL DO ESCRITÓRIO (DefesaConfig.prompt_sistema):
 ${configPrompt}
 
 INSTRUÇÃO DE CORREÇÃO DO ADVOGADO:
 ${instrucao}
 
-Analise a instrução e determine quais campos da Petition devem ser corrigidos. Devolva:
+Analise a instrução e determine quais campos da Defesa devem ser corrigidos. Devolva:
 - "reply": explicação curta e direta do que foi alterado e por quê.
-- "corrected_fields": objeto com APENAS os campos que devem mudar e seus novos valores. Use os nomes exatos dos campos da entidade Petition (ex: claimant_name, defendant_cnpj, salary, contract_start, contract_end, work_schedule, irregularities, estimated_value, claims [array], jurisdiction, rite, free_justice, digital_court, additional_facts). Se a correção envolver o texto gerado (generated_content), inclua o novo texto completo. Se nenhum campo estruturado mudar (ex: só um esclarecimento), devolva {}.
-- "rule_suggestion": uma regra curta, genérica e reutilizável que evitaria esse erro em gerações futuras (ex: "Sempre validar se a data de admissão da CTPS bate com o contrato antes de gerar a peça"). Se a instrução for um caso único sem regra aplicável, devolva string vazia.`;
+- "corrected_fields": objeto com APENAS os campos que devem mudar e seus novos valores. Use os nomes exatos dos campos da entidade Defesa (title, process_number, reclamante_name, reclamante_cpf, reclamada_name, reclamada_cnpj, reclamada_setor, posicao_processual, contract_start, contract_end, funcao, salario [number], jornada, valor_causa [number], inicial_texto, generated_content, pedidos_identificados [array de strings], status). Se a correção envolver o texto gerado (generated_content), inclua o novo texto completo. Se nenhum campo estruturado mudar (ex: só um esclarecimento), devolva {}.
+- "rule_suggestion": uma regra curta, genérica e reutilizável que evitaria esse erro em gerações futuras (ex: "Sempre verificar se a prescrição quinquenal foi corretamente calculada na contestação"). Se a instrução for um caso único sem regra aplicável, devolva string vazia.`;
   };
 
   const handleSend = async () => {
     const instrucao = input.trim();
     if (!instrucao || loading) return;
 
-    // Mensagem do usuário (otimista)
-    const userMsg = { petition_id: petitionId, role: "user", text: instrucao, created_date: new Date().toISOString() };
+    const userMsg = { defesa_id: defesaId, role: "user", text: instrucao, created_date: new Date().toISOString() };
     const optimistic = [...messages, userMsg];
     setMessages(optimistic);
     setInput("");
     setLoading(true);
 
     try {
-      // Persiste a mensagem do usuário
-      const savedUser = await base44.entities.PetitionChatMessage.create({
-        petition_id: petitionId,
+      const savedUser = await base44.entities.DefesaChatMessage.create({
+        defesa_id: defesaId,
         role: "user",
         text: instrucao,
       });
-      // Substitui a otimista pela persistida
       setMessages(prev => prev.map(m => (m === userMsg ? savedUser : m)));
 
-      // Chama a IA
       const result = await base44.integrations.Core.InvokeLLM({
         prompt: buildPrompt(instrucao),
         response_json_schema: {
@@ -141,26 +130,22 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       let errorLogId = null;
       try {
         const log = await base44.entities.ErrorLog.create({
-          context: "chat_correcao_peticao",
+          context: "chat_correcao_defesa",
           error_type: "outro",
           message: instrucao,
-          petition_id: petitionId,
           resolved: false,
           occurred_at: new Date().toISOString(),
         });
         errorLogId = log?.id || null;
       } catch (_) {}
 
-      // Aplica as correções na Petition (se houver campos)
       if (Object.keys(correctedFields).length > 0) {
-        await base44.entities.Petition.update(petitionId, correctedFields);
-        // Atualiza a tela
+        await base44.entities.Defesa.update(defesaId, correctedFields);
         onFieldsUpdated?.(correctedFields);
       }
 
-      // Persiste a mensagem do assistente
-      const savedAssistant = await base44.entities.PetitionChatMessage.create({
-        petition_id: petitionId,
+      const savedAssistant = await base44.entities.DefesaChatMessage.create({
+        defesa_id: defesaId,
         role: "assistant",
         text: reply,
         corrected_fields: correctedFields,
@@ -170,11 +155,10 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       setMessages(prev => [...prev, savedAssistant]);
 
       if (Object.keys(correctedFields).length > 0) {
-        toast.success("Correção aplicada na petição!");
+        toast.success("Correção aplicada na defesa!");
       }
     } catch (e) {
       toast.error("Erro ao processar correção: " + e.message);
-      // Remove a mensagem otimista do usuário se falhou
       setMessages(prev => prev.filter(m => m !== userMsg));
     } finally {
       setLoading(false);
@@ -182,28 +166,25 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
   };
 
   const handleSaveRule = async (message) => {
-    if (!petitionConfig || !message.rule_suggestion) return;
+    if (!defesaConfig || !message.rule_suggestion) return;
     try {
-      const currentPrompt = petitionConfig.prompt_sistema || "";
+      const currentPrompt = defesaConfig.prompt_sistema || "";
       const SECTION_HEADER = "## Regras aprendidas com correções";
       const rule = message.rule_suggestion.trim();
 
       let newPrompt;
-      // Garante a seção existe
       if (currentPrompt.includes(SECTION_HEADER)) {
         const parts = currentPrompt.split(SECTION_HEADER);
         const before = parts[0];
         let rulesSection = parts.slice(1).join(SECTION_HEADER) || "";
-        // Verifica se a regra já existe (comparação simples, ignorando espaços extras)
         const normalizedRules = rulesSection.replace(/\s+/g, " ").toLowerCase();
         const normalizedRule = rule.replace(/\s+/g, " ").toLowerCase();
         if (normalizedRules.includes(normalizedRule)) {
           toast.info("Essa regra já está salva no prompt.");
-          await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
+          await base44.entities.DefesaChatMessage.update(message.id, { rule_saved: true });
           setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
           return;
         }
-        // Adiciona a regra como bullet
         rulesSection = rulesSection.trimEnd();
         rulesSection = rulesSection + (rulesSection ? "\n" : "") + `- ${rule}`;
         newPrompt = before.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + rulesSection;
@@ -211,8 +192,8 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         newPrompt = currentPrompt.trimEnd() + "\n\n" + SECTION_HEADER + "\n" + `- ${rule}`;
       }
 
-      await base44.entities.PetitionConfig.update(petitionConfig.id, { prompt_sistema: newPrompt });
-      // Marca a mensagem como regra salva
+      await base44.entities.DefesaConfig.update(defesaConfig.id, { prompt_sistema: newPrompt });
+
       // Marca o ErrorLog como resolvido com a regra salva
       const logId = errorLogIds.current.get(message.id);
       if (logId) {
@@ -221,7 +202,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         } catch (_) {}
       }
 
-      await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
+      await base44.entities.DefesaChatMessage.update(message.id, { rule_saved: true });
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
       toast.success("Regra salva no prompt do escritório!");
     } catch (e) {
@@ -238,7 +219,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
 
   return (
     <>
-      {/* Botão flutuante */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -249,21 +229,18 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         </button>
       )}
 
-      {/* Painel de chat */}
       {open && (
         <div className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-3rem)] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
-              <span className="font-semibold text-sm">Corrigir Petição com IA</span>
+              <span className="font-semibold text-sm">Corrigir Defesa com IA</span>
             </div>
             <button onClick={() => setOpen(false)} className="hover:bg-primary-foreground/20 rounded p-1 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Mensagens */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-muted/30">
             {loadingHistory ? (
               <div className="flex items-center justify-center h-full">
@@ -274,7 +251,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
                 <Wand2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
                 Digite uma instrução de correção em linguagem natural.
                 <br />
-                Ex: "a data de admissão está errada" ou "o valor da causa deve somar as horas extras".
+                Ex: "a data de demissão está errada" ou "incluir preliminar de prescrição".
               </div>
             ) : (
               messages.map((m) => (
@@ -288,7 +265,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
                   >
                     <p className="whitespace-pre-wrap break-words">{m.text}</p>
 
-                    {/* Botão salvar regra — apenas assistant com rule_suggestion não salva */}
                     {m.role === "assistant" && m.rule_suggestion && !m.rule_saved && (
                       <div className="mt-2 pt-2 border-t border-border/50">
                         <p className="text-xs text-muted-foreground mb-1.5">
@@ -324,7 +300,6 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
             )}
           </div>
 
-          {/* Input */}
           <div className="p-3 border-t border-border bg-card">
             <div className="flex items-end gap-2">
               <textarea

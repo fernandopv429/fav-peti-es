@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip, FileDown, FileText } from "lucide-react";
 import AnalisarDocumentosDefesa from "@/components/defesa/AnalisarDocumentosDefesa.jsx";
+import DefesaCorrectionChat from "@/components/defesa/DefesaCorrectionChat.jsx";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
@@ -50,11 +51,13 @@ export default function Defesa() {
   const [savedId, setSavedId] = useState(null);
   const [baixandoDocx, setBaixandoDocx] = useState(false);
   const [gerandoModelo, setGerandoModelo] = useState(false);
+  const [defesaConfig, setDefesaConfig] = useState(null);
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
     loadDefesas();
+    base44.entities.DefesaConfig.filter({ ativo: true }).then(r => setDefesaConfig(r[0] || null)).catch(() => {});
   }, []);
 
   const loadDefesas = async () => {
@@ -592,6 +595,17 @@ Elabore a contestação completa. Ao final, apresente separadamente:
             <p>{AVISO_REVISAO}</p>
           </div>
         </Card>
+      )}
+
+      {resultado && savedId && (
+        <DefesaCorrectionChat
+          defesa={{ ...form, id: savedId, generated_content: resultado }}
+          defesaConfig={defesaConfig}
+          onFieldsUpdated={(correctedFields) => {
+            setForm(prev => ({ ...prev, ...correctedFields }));
+            if (correctedFields.generated_content) setResultado(correctedFields.generated_content);
+          }}
+        />
       )}
 
       {/* Histórico */}
