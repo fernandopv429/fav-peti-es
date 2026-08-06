@@ -33,7 +33,19 @@ export default async function(req) {
       return Response.json({ error: 'payload sem data' }, { status: 400 });
     }
 
-    // 2) Mapeia o caso + cria registro "gerando"
+    // Identidade estável do lead de origem (payload.id, igual em reenvios) —
+    // usada para ATUALIZAR a mesma CasoTrabalhista/Petition em reprocessamentos
+    // (ex.: botão "Reenviar evento" no app que envia) em vez de duplicar.
+    // evento.id (a linha do WebhookEvento) muda a cada envio; evento.evento_id
+    // (o campo do payload) é o identificador estável do caso de origem.
+    const origemEventoId = evento.evento_id || evento_id;
+    const casosExistentes = origemEventoId
+      ? await base44.asServiceRole.entities.CasoTrabalhista.filter({ origem_evento_id: origemEventoId }).catch(() => [])
+      : [];
+    const casoExistente = casosExistentes?.[0] || null;
+    const petitionIdExistente = casoExistente?.analise_json?.petition_id || null;
+
+    // 2) Mapeia o caso + cria (ou atualiza) o registro "gerando"
     const caso = mapearCasoDeWebhook(data);
 
     // 2b) Modelo a preencher: vem PRONTO no payload (template_id de um
@@ -69,9 +81,10 @@ export default async function(req) {
     const configLista = await base44.asServiceRole.entities.IntegracaoConfig.list('-updated_date', 1);
     const config = configLista?.[0] || { cnpj_ativo: true, cep_ativo: true, cct_ativo: true };
 
-    const casoRecord = await base44.asServiceRole.entities.CasoTrabalhista.create({
+    const casoCampos = {
       titulo: (caso.recl_nome || 'Caso webhook').slice(0, 120),
       status: 'em_analise',
+      origem_evento_id: origemEventoId || undefined,
       entrevista_texto: caso.entrevista_texto || payload.fatos_narrados || '',
       recl_nome: caso.recl_nome || '',
       recl_cpf: caso.recl_cpf || '',
@@ -94,12 +107,24 @@ export default async function(req) {
       analise_json: {
         origem: 'webhook',
         evento_id,
+        origem_evento_id: origemEventoId,
         status: 'gerando',
         template_id: templateId || null,
         template_nome: petitionTemplate?.name || null,
         modelo_docx_url: petitionTemplate?.modelo_docx_url || null,
       },
-    });
+    };
+    // Reprocessamento do MESMO lead de origem: atualiza a CasoTrabalhista (e,
+    // mais abaixo, a Petition) existentes em vez de criar duplicatas — já
+    // aconteceu de o mesmo evento gerar 2 peças diferentes antes deste fix.
+    let casoId;
+    if (casoExistente) {
+      await base44.asServiceRole.entities.CasoTrabalhista.update(casoExistente.id, casoCampos);
+      casoId = casoExistente.id;
+    } else {
+      const casoCriado = await base44.asServiceRole.entities.CasoTrabalhista.create(casoCampos);
+      casoId = casoCriado.id;
+    }
 
     // 3) Enriquecimento oficial (CNPJ/CEP/CCT) direto nas APIs
     const cnpjs = config.cnpj_ativo
@@ -175,33 +200,35 @@ export default async function(req) {
       redacaoErro = e?.message || 'erro redação';
     }
 
-    // 8) Atualiza o CasoTrabalhista com o resultado pronto
-    await base44.asServiceRole.entities.CasoTrabalhista.update(casoRecord.id, {
+    // 8) Atualiza a CasoTrabalhista com o resultado pronto
+    const analiseJsonFinal = {
+      origem: 'webhook',
+      evento_id,
+      origem_evento_id: origemEventoId,
+      template_id: templateId,
+      template_nome: petitionTemplate?.name || null,
+      modelo_docx_url: petitionTemplate?.modelo_docx_url || null,
+      caso,
+      calculos,
+      dadosReceita,
+      dadosCep,
+      dadosCct: dadosCct ? {
+        categoria: dadosCct.categoria,
+        meta: dadosCct.meta,
+        clausulas: (dadosCct.clausulas || []).slice(0, 12).map((c) => ({
+          clausula_ref: c.clausula_ref, titulo: c.titulo, ementa: c.ementa, conteudo: c.conteudo, fonte_url: c.fonte_url,
+        })),
+      } : null,
+      blocos,
+      especialistasUsados,
+      redacaoErro,
+      gerado_em: new Date().toISOString(),
+    };
+    await base44.asServiceRole.entities.CasoTrabalhista.update(casoId, {
       status: 'gerado',
       analise_status: 'concluida',
       auditado_em: new Date().toISOString(),
-      analise_json: {
-        origem: 'webhook',
-        evento_id,
-        template_id: templateId,
-        template_nome: petitionTemplate?.name || null,
-        modelo_docx_url: petitionTemplate?.modelo_docx_url || null,
-        caso,
-        calculos,
-        dadosReceita,
-        dadosCep,
-        dadosCct: dadosCct ? {
-          categoria: dadosCct.categoria,
-          meta: dadosCct.meta,
-          clausulas: (dadosCct.clausulas || []).slice(0, 12).map((c) => ({
-            clausula_ref: c.clausula_ref, titulo: c.titulo, ementa: c.ementa, conteudo: c.conteudo, fonte_url: c.fonte_url,
-          })),
-        } : null,
-        blocos,
-        especialistasUsados,
-        redacaoErro,
-        gerado_em: new Date().toISOString(),
-      },
+      analise_json: analiseJsonFinal,
     });
 
     // 8b) Espelha em Petition para a peca aparecer em "Minhas Peticoes" e
@@ -234,40 +261,45 @@ export default async function(req) {
       .filter((c) => Number(c?.valor) > 0)
       .reduce((acc, c) => acc + Number(c.valor), 0);
 
-    let petitionId = null;
+    let petitionId = petitionIdExistente || null;
+    const petitionCampos = {
+      title: `${caso.recl_nome || 'Reclamante'} x ${caso.recl1_nome || 'Reclamada'}`.slice(0, 200),
+      case_type: 'trabalhista',
+      claimant_name: caso.recl_nome || 'A PREENCHER',
+      defendant_name: caso.recl1_nome || 'A PREENCHER',
+      claimant_cpf: caso.recl_cpf || undefined,
+      claimant_rg: caso.recl_rg || undefined,
+      claimant_pis: caso.recl_pis || undefined,
+      claimant_ctps: caso.recl_ctps || undefined,
+      claimant_address: caso.recl_endereco || undefined,
+      claimant_role: caso.funcao || undefined,
+      defendant_cnpj: caso.recl1_cnpj || undefined,
+      defendant_address: caso.recl1_logradouro || undefined,
+      contract_start: caso.data_admissao || undefined,
+      contract_end: caso.data_rescisao || undefined,
+      salary: Number(caso.salario) || undefined,
+      work_schedule: caso.jornada_horario || caso.escala || undefined,
+      jurisdiction: caso.comarca_uf || undefined,
+      estimated_value: totalCausa > 0 ? totalCausa : undefined,
+      template_used: templateId || undefined,
+      generated_content: textoRedigido || undefined,
+      additional_facts: avisos.length ? avisos.join(' | ') : undefined,
+      // Sem dialeto confirmado ou com falha de redacao nao afirmamos que
+      // esta pronta: vai para revisao explicita.
+      status: (dialetoOk && !redacaoErro) ? 'concluida' : 'revisao_necessaria',
+    };
     try {
-      const petition = await base44.asServiceRole.entities.Petition.create({
-        title: `${caso.recl_nome || 'Reclamante'} x ${caso.recl1_nome || 'Reclamada'}`.slice(0, 200),
-        case_type: 'trabalhista',
-        claimant_name: caso.recl_nome || 'A PREENCHER',
-        defendant_name: caso.recl1_nome || 'A PREENCHER',
-        claimant_cpf: caso.recl_cpf || undefined,
-        claimant_rg: caso.recl_rg || undefined,
-        claimant_pis: caso.recl_pis || undefined,
-        claimant_ctps: caso.recl_ctps || undefined,
-        claimant_address: caso.recl_endereco || undefined,
-        claimant_role: caso.funcao || undefined,
-        defendant_cnpj: caso.recl1_cnpj || undefined,
-        defendant_address: caso.recl1_logradouro || undefined,
-        contract_start: caso.data_admissao || undefined,
-        contract_end: caso.data_rescisao || undefined,
-        salary: Number(caso.salario) || undefined,
-        work_schedule: caso.jornada_horario || caso.escala || undefined,
-        jurisdiction: caso.comarca_uf || undefined,
-        estimated_value: totalCausa > 0 ? totalCausa : undefined,
-        template_used: templateId || undefined,
-        generated_content: textoRedigido || undefined,
-        additional_facts: avisos.length ? avisos.join(' | ') : undefined,
-        // Sem dialeto confirmado ou com falha de redacao nao afirmamos que
-        // esta pronta: vai para revisao explicita.
-        status: (dialetoOk && !redacaoErro) ? 'concluida' : 'revisao_necessaria',
-      });
-      petitionId = petition.id;
-      await base44.asServiceRole.entities.CasoTrabalhista.update(casoRecord.id, {
-        analise_json: { ...(casoRecord.analise_json || {}), petition_id: petitionId },
+      if (petitionIdExistente) {
+        await base44.asServiceRole.entities.Petition.update(petitionIdExistente, petitionCampos);
+      } else {
+        const petition = await base44.asServiceRole.entities.Petition.create(petitionCampos);
+        petitionId = petition.id;
+      }
+      await base44.asServiceRole.entities.CasoTrabalhista.update(casoId, {
+        analise_json: { ...analiseJsonFinal, petition_id: petitionId },
       });
     } catch (e) {
-      avisos.push(`Falha ao criar a Petition: ${e?.message || e}`);
+      avisos.push(`Falha ao ${petitionIdExistente ? 'atualizar' : 'criar'} a Petition: ${e?.message || e}`);
     }
 
     // 9) Marca o evento como processado
@@ -279,7 +311,8 @@ export default async function(req) {
 
     return Response.json({
       ok: true,
-      caso_id: casoRecord.id,
+      caso_id: casoId,
+      regenerado: Boolean(casoExistente),
       petition_id: petitionId,
       template: petitionTemplate.name,
       dialeto_entrevista: dialetoOk,
