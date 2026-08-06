@@ -4,85 +4,95 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Paleta amostrada da referência (Syensqo):
+ *   laranja  #FF5707  -> hsl(19 100% 51%)   56% da imagem
+ *   navy     #1E2129  -> hsl(224 15% 14%)   35% da imagem
+ *   laranja claro #FF6820 -> hsl(19 100% 56%)
+ *
+ * Regra de contraste que a própria referência usa: texto NAVY sobre laranja.
+ * Branco sobre esse laranja dá só 3.17:1 e reprova AA — por isso
+ * --primary-foreground é navy, não branco.
+ */
 @layer base {
   :root {
     --font-inter: 'Inter', sans-serif;
     --font-playfair: 'Playfair Display', serif;
 
-    /* ── Light Mode — Violeta + Lilás, acentos ciano ────────────────────── */
-    --background: 250 50% 98%;
-    --foreground: 245 30% 15%;
+    /* ── Light Mode — Laranja + Navy ─────────────────────────────────────── */
+    --background: 30 20% 97%;
+    --foreground: 224 15% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 245 30% 15%;
+    --card-foreground: 224 15% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 245 30% 15%;
-    --primary: 251 62% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 250 55% 95%;
-    --secondary-foreground: 251 45% 35%;
-    --muted: 250 50% 96%;
-    --muted-foreground: 245 18% 43%;
-    --accent: 188 74% 32%;
+    --popover-foreground: 224 15% 14%;
+    --primary: 19 100% 51%;
+    --primary-foreground: 224 15% 14%;
+    --secondary: 24 30% 94%;
+    --secondary-foreground: 224 15% 20%;
+    --muted: 25 20% 95%;
+    --muted-foreground: 224 10% 38%;
+    --accent: 19 90% 40%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 352 72% 45%;
+    --destructive: 0 72% 42%;
     --destructive-foreground: 0 0% 100%;
-    --success: 162 64% 31%;
-    --warning: 30 88% 35%;
-    --border: 250 40% 91%;
-    --input: 250 40% 91%;
-    --ring: 251 62% 55%;
-    --chart-1: 251 62% 55%;
-    --chart-2: 188 74% 32%;
-    --chart-3: 222 40% 24%;
-    --chart-4: 30 88% 45%;
-    --chart-5: 160 55% 45%;
-    --radius: 1rem;
-    --sidebar-background: 250 54% 51%;
+    --success: 162 64% 29%;
+    --warning: 30 88% 33%;
+    --border: 25 15% 88%;
+    --input: 25 15% 88%;
+    --ring: 19 100% 51%;
+    --chart-1: 19 100% 51%;
+    --chart-2: 224 15% 25%;
+    --chart-3: 19 90% 40%;
+    --chart-4: 199 60% 35%;
+    --chart-5: 162 55% 35%;
+    --radius: 0.75rem;
+    --sidebar-background: 224 15% 14%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 251 62% 48%;
-    --sidebar-accent: 250 50% 60%;
+    --sidebar-primary: 19 100% 51%;
+    --sidebar-primary-foreground: 224 15% 14%;
+    --sidebar-accent: 224 14% 22%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 250 45% 62%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-border: 224 12% 26%;
+    --sidebar-ring: 19 100% 51%;
   }
 
   .dark {
-    /* ── Dark Mode — Violeta profundo ───────────────────────────────────── */
-    --background: 248 25% 10%;
-    --foreground: 250 30% 94%;
-    --card: 248 24% 13%;
-    --card-foreground: 250 30% 94%;
-    --popover: 248 24% 13%;
-    --popover-foreground: 250 30% 94%;
-    --primary: 251 70% 66%;
-    --primary-foreground: 248 30% 10%;
-    --secondary: 248 20% 18%;
-    --secondary-foreground: 250 30% 94%;
-    --muted: 248 20% 18%;
-    --muted-foreground: 248 14% 66%;
-    --accent: 186 62% 52%;
-    --accent-foreground: 248 30% 10%;
-    --destructive: 352 74% 58%;
+    /* ── Dark Mode — mesmo par, superfícies navy ─────────────────────────── */
+    --background: 224 16% 10%;
+    --foreground: 30 15% 95%;
+    --card: 224 15% 14%;
+    --card-foreground: 30 15% 95%;
+    --popover: 224 15% 14%;
+    --popover-foreground: 30 15% 95%;
+    --primary: 19 100% 56%;
+    --primary-foreground: 224 15% 12%;
+    --secondary: 224 13% 20%;
+    --secondary-foreground: 30 15% 95%;
+    --muted: 224 13% 20%;
+    --muted-foreground: 224 10% 68%;
+    --accent: 19 100% 62%;
+    --accent-foreground: 224 15% 12%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 55% 48%;
-    --warning: 35 90% 60%;
-    --border: 248 18% 22%;
-    --input: 248 18% 22%;
-    --ring: 251 70% 66%;
-    --chart-1: 251 70% 66%;
-    --chart-2: 186 62% 52%;
-    --chart-3: 222 35% 62%;
-    --chart-4: 35 90% 62%;
-    --chart-5: 160 55% 52%;
-    --sidebar-background: 250 45% 22%;
+    --success: 162 55% 48%;
+    --warning: 30 90% 58%;
+    --border: 224 12% 24%;
+    --input: 224 12% 24%;
+    --ring: 19 100% 56%;
+    --chart-1: 19 100% 56%;
+    --chart-2: 30 15% 80%;
+    --chart-3: 19 90% 66%;
+    --chart-4: 199 60% 60%;
+    --chart-5: 162 55% 52%;
+    --sidebar-background: 224 18% 8%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 251 70% 66%;
-    --sidebar-primary-foreground: 248 30% 10%;
-    --sidebar-accent: 250 38% 32%;
+    --sidebar-primary: 19 100% 56%;
+    --sidebar-primary-foreground: 224 15% 12%;
+    --sidebar-accent: 224 14% 16%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 250 30% 34%;
-    --sidebar-ring: 251 70% 66%;
+    --sidebar-border: 224 12% 20%;
+    --sidebar-ring: 19 100% 56%;
   }
 }
 
@@ -97,26 +107,36 @@
 
 @layer components {
   /*
-   * Fundo do app: lilás com dois halos suaves, no espírito das ondas da
-   * referência — decorativo, sem competir com o conteúdo.
+   * Fundo do app: neutro quente com dois halos discretos no laranja da marca.
    */
   .app-canvas {
     background-color: hsl(var(--background));
     background-image:
-      radial-gradient(ellipse 70% 55% at 12% 0%, hsl(251 62% 55% / 0.07), transparent 60%),
-      radial-gradient(ellipse 60% 50% at 100% 18%, hsl(186 68% 44% / 0.06), transparent 62%);
+      radial-gradient(ellipse 70% 55% at 12% 0%, hsl(19 100% 51% / 0.06), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 18%, hsl(224 15% 14% / 0.05), transparent 62%);
     background-attachment: fixed;
   }
 
-  /* Sombra padrão dos cartões — difusa e arroxeada, não cinza. */
+  /* Sombras neutras (navy), não arroxeadas. */
   .card-soft {
-    box-shadow: 0 1px 2px hsl(250 40% 40% / 0.04), 0 8px 24px -8px hsl(250 40% 40% / 0.10);
+    box-shadow: 0 1px 2px hsl(224 15% 14% / 0.05), 0 8px 24px -8px hsl(224 15% 14% / 0.10);
   }
   .card-soft-lg {
-    box-shadow: 0 2px 4px hsl(250 40% 40% / 0.05), 0 20px 44px -12px hsl(250 40% 40% / 0.16);
+    box-shadow: 0 2px 4px hsl(224 15% 14% / 0.06), 0 20px 44px -12px hsl(224 15% 14% / 0.16);
   }
 
-  /* Esconde a barra de rolagem mantendo o scroll (listas do painel direito). */
+  /*
+   * Raios do hero, como na referência: leque de faixas em laranja mais claro.
+   */
+  .hero-rays {
+    background-color: hsl(var(--primary));
+    background-image: repeating-conic-gradient(
+      from 200deg at 118% 118%,
+      hsl(19 100% 56%) 0deg 3.2deg,
+      transparent 3.2deg 7.5deg
+    );
+  }
+
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
