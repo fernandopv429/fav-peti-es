@@ -1,0 +1,76 @@
+import { Route, Routes } from "react-router-dom";
+
+import AppLayout from "@/app/layout/AppLayout";
+import { useAuth } from "@/app/auth/AuthContext";
+import UserNotRegisteredError from "@/app/auth/UserNotRegisteredError";
+
+import Home from "@/pages/Home";
+import Catalogo from "@/pages/Catalogo";
+import NewPetition from "@/pages/NewPetition";
+import PetitionsList from "@/pages/PetitionsList";
+import PetitionView from "@/pages/PetitionView";
+import Templates from "@/pages/Templates";
+import Precedents from "@/pages/Precedents";
+import CalculadoraVerbas from "@/pages/CalculadoraVerbas";
+import Defesa from "@/pages/Defesa";
+import AtualizacaoCalculo from "@/pages/AtualizacaoCalculo";
+import BackupRestauracao from "@/pages/BackupRestauracao";
+import Analise from "@/pages/Analise";
+import NotFound from "@/pages/NotFound";
+
+/**
+ * Mapa de rotas do app + porteiro de autenticação.
+ *
+ * Toda rota nova entra AQUI e em nenhum outro lugar. O menu lateral que aponta
+ * para elas fica em app/layout/Sidebar.jsx — ao adicionar uma rota, confira se
+ * ela também precisa de um item de menu.
+ */
+export default function AppRoutes() {
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  // 1. Ainda verificando sessão / configurações públicas do app
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 2. Problemas de autenticação
+  if (authError?.type === "user_not_registered") {
+    return <UserNotRegisteredError />;
+  }
+  if (authError?.type === "auth_required") {
+    navigateToLogin();
+    return null;
+  }
+
+  // 3. Usuário autenticado — todas as telas vivem dentro do AppLayout
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/catalogo" element={<Catalogo />} />
+
+        {/* Petições */}
+        <Route path="/nova-peticao" element={<NewPetition />} />
+        <Route path="/peticoes" element={<PetitionsList />} />
+        <Route path="/peticoes/:id" element={<PetitionView />} />
+        <Route path="/modelos" element={<Templates />} />
+        <Route path="/precedentes" element={<Precedents />} />
+
+        {/* Ferramentas trabalhistas */}
+        <Route path="/calculadora-verbas" element={<CalculadoraVerbas />} />
+        <Route path="/defesa" element={<Defesa />} />
+        <Route path="/atualizacao-calculo" element={<AtualizacaoCalculo />} />
+
+        {/* Ferramentas */}
+        <Route path="/analise" element={<Analise />} />
+        <Route path="/backup" element={<BackupRestauracao />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  );
+}
