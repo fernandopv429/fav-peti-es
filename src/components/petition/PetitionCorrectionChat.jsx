@@ -165,7 +165,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
           occurred_at: new Date().toISOString(),
         });
         errorLogId = log?.id || null;
-      } catch (_) {}
+      } catch {}
 
       const camposValidos = filtrarCamposPeticao(correctedFields);
       if (Object.keys(camposValidos).length > 0) {
@@ -203,7 +203,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
         if (logId) {
           try {
             await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
-          } catch (_) {}
+          } catch {}
         }
         await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
         setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));
@@ -224,7 +224,7 @@ Analise a instrução e determine quais campos da Petition devem ser corrigidos.
       if (logId) {
         try {
           await base44.entities.ErrorLog.update(logId, { resolved: true, resolution: message.rule_suggestion });
-        } catch (_) {}
+        } catch {}
       }
       await base44.entities.PetitionChatMessage.update(message.id, { rule_saved: true });
       setMessages(prev => prev.map(m => (m.id === message.id ? { ...m, rule_saved: true } : m)));

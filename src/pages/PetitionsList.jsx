@@ -51,7 +51,7 @@ export default function PetitionsList() {
     if (!confirm("Tem certeza que deseja excluir esta petição?")) return;
     try {
       await base44.entities.Petition.delete(id);
-    } catch (_) {
+    } catch {
       // Registro já não existe — remove da lista mesmo assim
     }
     setPetitions((prev) => prev.filter((p) => p.id !== id));

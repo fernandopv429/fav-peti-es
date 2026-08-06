@@ -119,7 +119,7 @@ export default function AnalisarDocumentosDefesa({ existingUrls = [], existingNa
               merged[k] = v;
             }
           }
-        } catch (_) {
+        } catch {
           // arquivo individual falhou — continua com os demais
         }
       }

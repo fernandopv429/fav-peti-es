@@ -137,7 +137,7 @@ export default function AtualizacaoCalculoPage() {
     try {
       const data = await base44.entities.AtualizacaoCalculo.list("-created_date", 20);
       setCalculos(data);
-    } catch (e) { /* ignore */ } finally { setLoadingList(false); }
+    } catch { /* ignore */ } finally { setLoadingList(false); }
   };
 
   const handleCalcular = () => {

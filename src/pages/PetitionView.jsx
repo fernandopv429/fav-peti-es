@@ -74,7 +74,7 @@ export default function PetitionView() {
         } else {
           toast.error("A geração falhou. Tente novamente.");
         }
-      } catch (_) {}
+      } catch {}
     }, 4000);
     // Timeout de 10 minutos
     setTimeout(() => {

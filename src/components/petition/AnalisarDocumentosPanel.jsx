@@ -74,7 +74,7 @@ export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [],
           setLaudo(p.analise_documentos || "");
           toast.success("Análise concluída! Revise o laudo antes de continuar.");
         }
-      } catch (_) {}
+      } catch {}
     }, 5000);
 
     // Timeout de 8 min

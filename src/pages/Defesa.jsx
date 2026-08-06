@@ -65,7 +65,7 @@ export default function Defesa() {
     try {
       const data = await base44.entities.Defesa.list("-created_date", 20);
       setDefesas(data);
-    } catch (e) {
+    } catch {
       /* ignore */
     } finally {
       setLoadingList(false);

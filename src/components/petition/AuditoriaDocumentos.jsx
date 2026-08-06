@@ -51,7 +51,7 @@ function parseAuditResult(raw) {
   try {
     const parsed = JSON.parse(raw);
     return parsed && parsed.status_final ? parsed : null;
-  } catch (_) {
+  } catch {
     return null;
   }
 }

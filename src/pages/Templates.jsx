@@ -380,7 +380,7 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
             // Truncate to avoid entity size limits (content is used as style reference only)
             content = extracted.output.content.slice(0, 8000);
           }
-        } catch (e) { /* not critical */ }
+        } catch { /* not critical */ }
       }
     }
 

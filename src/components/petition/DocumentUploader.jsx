@@ -20,7 +20,7 @@ export default function DocumentUploader({ form, updateForm }) {
         const { file_url } = await base44.integrations.Core.UploadFile({ file });
         newUrls.push(file_url);
         newNames.push(file.name);
-      } catch (err) {
+      } catch {
         toast.error(`Erro ao enviar ${file.name}`);
       }
     }

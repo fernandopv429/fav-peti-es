@@ -196,8 +196,8 @@ export default function ExportButtons({ petition, petitionConfig }) {
       const lineH = fs * 0.352778 * fmt.lineHeight;
 
       let logoImg = null, footerImg = null;
-      if (fmt.logoUrl) { try { logoImg = await loadImage(fmt.logoUrl); } catch (_) {} }
-      if (fmt.footerImageUrl) { try { footerImg = await loadImage(fmt.footerImageUrl); } catch (_) {} }
+      if (fmt.logoUrl) { try { logoImg = await loadImage(fmt.logoUrl); } catch {} }
+      if (fmt.footerImageUrl) { try { footerImg = await loadImage(fmt.footerImageUrl); } catch {} }
 
       const footerImgH = footerImg
         ? Math.min((footerImg.height / footerImg.width) * maxW, 25) : 0;

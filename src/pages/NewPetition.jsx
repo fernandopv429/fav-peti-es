@@ -25,7 +25,7 @@ function getInitialForm() {
   try {
     const saved = localStorage.getItem(FORM_STORAGE_KEY);
     if (saved) return JSON.parse(saved);
-  } catch (e) {}
+  } catch {}
   return {
     title: "",
     case_type: "trabalhista",
@@ -127,7 +127,7 @@ export default function NewPetition() {
 
   const updateForm = (field, value) => setForm((prev) => {
     const next = { ...prev, [field]: value };
-    try { localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch (e) {}
+    try { localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(next)); } catch {}
     return next;
   });
 
@@ -190,7 +190,7 @@ export default function NewPetition() {
           return;
         }
 
-        try { localStorage.removeItem(FORM_STORAGE_KEY); } catch (_) {}
+        try { localStorage.removeItem(FORM_STORAGE_KEY); } catch {}
         // Reset completo do estado de trabalho para o próximo caso começar do zero
         setLastCompletedPetitionId(petitionId);
         setForm(getInitialForm());
@@ -231,7 +231,7 @@ export default function NewPetition() {
         } else {
           toast.success("Petição gerada com sucesso!");
         }
-      } catch (_) {
+      } catch {
         // erro de rede no polling — aguarda próxima tentativa
       }
     }, 5000);
@@ -302,7 +302,7 @@ export default function NewPetition() {
         setGenerating(false);
         setGenerateError("Erro ao iniciar geração DOCX: " + err.message);
         toast.error("Não foi possível iniciar a geração.");
-        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
+        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch {}
         return;
       }
     } else {
@@ -329,7 +329,7 @@ export default function NewPetition() {
         setGenerating(false);
         setGenerateError("Erro ao iniciar geração: " + err.message);
         toast.error("Não foi possível iniciar a geração.");
-        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch (_) {}
+        try { await base44.entities.Petition.update(petitionId, { status: "rascunho" }); } catch {}
         return;
       }
     }
@@ -522,7 +522,7 @@ export default function NewPetition() {
                     const p = await base44.entities.Petition.create(data);
                     setSavedPetitionId(p.id);
                   }
-                } catch (_) {}
+                } catch {}
               }
               setStep((s) => s + 1);
             }}
