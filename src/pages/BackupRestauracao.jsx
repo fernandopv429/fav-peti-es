@@ -352,7 +352,7 @@ export default function BackupRestauracao() {
         <RegrasAprendidas configEntityName="DefesaConfig" title="Regras — Defesas (DefesaConfig)" />
       </div>
       <div className="mt-6">
-        <RegrasAprendidas todosEspecialistas title="Regras — Especialistas (Defesa #32 e Gerar Documento por IA)" />
+        <RegrasAprendidas todosEspecialistas title="Regras — Especialistas (Defesa #32)" />
       </div>
 
       {/* Modal de confirmação de restauração */}
