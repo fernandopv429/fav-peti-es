@@ -171,7 +171,30 @@ export function temDanoMoralConcreto(caso = {}) {
   );
 }
 
-export function calcularVerbasCaso(caso = {}) {
+// Busca na CCT já consultada (dadosCct.clausulas) a cláusula real e o
+// percentual referentes a um tema (desvio/acúmulo/gratificação de função) —
+// evita citar um número/percentual fixo quando a convenção da categoria do
+// caso (vigilância/asseio/terceirizados) numera ou percentualiza diferente.
+// Sem cláusula encontrada, quem chama usa o padrão anterior (fallback).
+function buscarClausulaCct(dadosCct, regexTema) {
+  if (!dadosCct?.clausulas?.length) return null;
+  for (const c of dadosCct.clausulas) {
+    const texto = [c.clausula_titulo, c.ementa, c.texto, c.conteudo].filter(Boolean).join(' ');
+    const m = regexTema.exec(texto);
+    if (!m) continue;
+    const janela = texto.slice(Math.max(0, m.index - 80), m.index + 80);
+    const refNum = (c.clausula_ref || '').match(/\d+/)?.[0] || texto.match(/cl[áa]usula\s*(\d+)/i)?.[1];
+    const pctMatch = janela.match(/(\d{1,3})\s*%/);
+    const pct = pctMatch ? Number(pctMatch[1]) : null;
+    return {
+      clausula: refNum ? `cláusula ${refNum}ª` : (c.clausula_ref || null),
+      percentual: (pct && pct >= 5 && pct <= 100) ? pct / 100 : null,
+    };
+  }
+  return null;
+}
+
+export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const itens = [];
   const salario = Number(caso.salario) || null;
   const maiorRem = Number(caso.maior_remuneracao) || salario;
@@ -243,7 +266,10 @@ export function calcularVerbasCaso(caso = {}) {
   }
 
   if (caso.tem_acumulo && salario && meses) {
-    itens.push({ item: 'Acúmulo de função (20%)', memoria: `20% × ${formatBRL(salario)} × ${meses} meses`, valor: round2(0.2 * salario * meses) });
+    const cl = buscarClausulaCct(dadosCct, /ac[uú]mulo de fun/i);
+    const pct = cl?.percentual ?? 0.2;
+    const clTxt = cl?.clausula ? ` (${cl.clausula})` : '';
+    itens.push({ item: `Acúmulo de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses${clTxt}`, valor: round2(pct * salario * meses) });
   }
 
   if (caso.tem_gratificacao && meses) {
@@ -251,12 +277,18 @@ export function calcularVerbasCaso(caso = {}) {
     if (gratVal > 0) {
       itens.push({ item: 'Gratificação/bônus de função', memoria: `${formatBRL(gratVal)}/mês × ${meses} meses`, valor: round2(gratVal * meses) });
     } else if (salario) {
-      itens.push({ item: 'Gratificação de função (10%)', memoria: `10% × ${formatBRL(salario)} × ${meses} meses (cláusula 3ª)`, valor: round2(0.1 * salario * meses) });
+      const cl = buscarClausulaCct(dadosCct, /gratifica[çc][ãa]o de fun|condutor|motorista/i);
+      const pct = cl?.percentual ?? 0.1;
+      const clTxt = cl?.clausula || 'cláusula 3ª';
+      itens.push({ item: `Gratificação de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
     }
   }
 
   if (caso.tem_desvio && salario && meses) {
-    itens.push({ item: 'Desvio de função (50%)', memoria: `50% × ${formatBRL(salario)} × ${meses} meses (cláusula 64ª)`, valor: round2(0.5 * salario * meses) });
+    const cl = buscarClausulaCct(dadosCct, /desvio de fun/i);
+    const pct = cl?.percentual ?? 0.5;
+    const clTxt = cl?.clausula || 'cláusula 64ª';
+    itens.push({ item: `Desvio de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
   }
 
   if (caso.tem_assiduidade && caso.assiduidade_diferenca && meses) {
