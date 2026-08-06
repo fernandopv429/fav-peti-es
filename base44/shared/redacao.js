@@ -216,53 +216,10 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
   ].join('\n');
 }
 
-export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs = [], invokeLLM }) {
-  const ativos = ESPECIALISTAS.filter((e) => { try { return e.ativo(dados, caso); } catch { return false; } });
-  if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
-
-  const cfgPorNumero = new Map((configs || []).map((c) => [String(c.numero), c]));
-  const blocosAtivos = ativos.map((e) => e.nome);
-  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos });
-
-  const properties = {};
-  const tarefas = ativos.map((e) => {
-    const cfg = cfgPorNumero.get(e.numero);
-    const promptSistema = cfg?.prompt_sistema || e.promptPadrao;
-    const instrucao = typeof e.instrucao === 'function' ? e.instrucao(dados, caso) : e.instrucao;
-    properties[e.campo] = { type: 'string', description: `Capítulo: ${e.nome}. ${instrucao} Papel: ${promptSistema}` };
-    return `### ${e.campo} — ${e.nome}\nPapel: ${promptSistema}\nTarefa: ${instrucao}`;
-  });
-
-  const multasAtivo = ativos.some((e) => e.numero === 'multas_convencionais');
-  if (multasAtivo) {
-    properties.PEDIDOS_MULTAS = {
-      type: 'array', items: { type: 'string' },
-      description: 'Lista de violações convencionais específicas, uma frase curta por item terminando em ";". Cite o número da cláusula APENAS quando grounded em CLÁUSULAS DA CCT. Sem cláusula, descreva a violação legal. 3 a 10 itens. Sem R$.',
-    };
-    tarefas.push('### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas.');
-  }
-
-  const prompt = [
-    contexto, '',
-    '=============================',
-    'TAREFA ÚNICA: escreva TODOS os capítulos abaixo em UMA resposta JSON.',
-    'Cada chave do JSON é o campo do template; o valor é o texto do capítulo em português jurídico, sem rótulo e sem comentários.',
-    'Não inclua texto fora do JSON. Campos sem informação: string vazia.',
-    '', 'CAPÍTULOS A REDIGIR (escreva todos):', tarefas.join('\n\n'),
-  ].join('\n');
-
-  const model = modeloUnico(configs);
-
-  let r;
-  try {
-    r = await invokeLLM({ prompt, model, response_json_schema: { type: 'object', properties } });
-  } catch (e) {
-    // sem retry no backend — a peça segue com fallback determinístico do template
-    return { blocos: {}, especialistasUsados: blocosAtivos, erro: e?.message || 'falha InvokeLLM' };
-  }
+// InvokeLLM no backend envelopa o resultado em { response: ... }, às vezes
+// como string JSON, às vezes como objeto. Desembrulha para chegar aos campos.
+function desembrulhar(r) {
   let obj = (r && typeof r === 'object' && !Array.isArray(r)) ? r : {};
-  // InvokeLLM no backend envelopa o resultado em { response: ... }, às vezes
-  // como string JSON, às vezes como objeto. Desembrulha para chegar aos campos.
   if (obj.response != null) {
     if (typeof obj.response === 'string') {
       try { obj = JSON.parse(obj.response); } catch (e) { /* mantém obj */ }
@@ -273,6 +230,66 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs 
   if (typeof obj === 'string') {
     try { obj = JSON.parse(obj); } catch (e) { obj = {}; }
   }
+  return obj && typeof obj === 'object' ? obj : {};
+}
+
+export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs = [], invokeLLM }) {
+  const ativos = ESPECIALISTAS.filter((e) => { try { return e.ativo(dados, caso); } catch { return false; } });
+  if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
+
+  const cfgPorNumero = new Map((configs || []).map((c) => [String(c.numero), c]));
+  const blocosAtivos = ativos.map((e) => e.nome);
+  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos });
+
+  const properties = {};
+  const tarefaPorCampo = {};
+  const tarefas = ativos.map((e) => {
+    const cfg = cfgPorNumero.get(e.numero);
+    const promptSistema = cfg?.prompt_sistema || e.promptPadrao;
+    const instrucao = typeof e.instrucao === 'function' ? e.instrucao(dados, caso) : e.instrucao;
+    properties[e.campo] = { type: 'string', description: `Capítulo: ${e.nome}. ${instrucao} Papel: ${promptSistema}` };
+    const tarefa = `### ${e.campo} — ${e.nome}\nPapel: ${promptSistema}\nTarefa: ${instrucao}`;
+    tarefaPorCampo[e.campo] = tarefa;
+    return tarefa;
+  });
+
+  const multasAtivo = ativos.some((e) => e.numero === 'multas_convencionais');
+  if (multasAtivo) {
+    properties.PEDIDOS_MULTAS = {
+      type: 'array', items: { type: 'string' },
+      description: 'Lista de violações convencionais específicas, uma frase curta por item terminando em ";". Cite o número da cláusula APENAS quando grounded em CLÁUSULAS DA CCT. Sem cláusula, descreva a violação legal. 3 a 10 itens. Sem R$.',
+    };
+    tarefaPorCampo.PEDIDOS_MULTAS = '### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas.';
+    tarefas.push('### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas.');
+  }
+
+  const model = modeloUnico(configs);
+
+  // Uma chamada por capítulo, em paralelo. Uma única chamada com todos os
+  // capítulos estourava o limite de tempo do backend (120s).
+  const campos = Object.keys(properties);
+  const erros = [];
+  const respostas = await Promise.all(campos.map(async (campo) => {
+    const prompt = [
+      contexto, '',
+      '=============================',
+      `TAREFA: escreva SOMENTE o capítulo "${campo}" e devolva um JSON com essa única chave.`,
+      'O valor é o texto do capítulo em português jurídico, sem rótulo e sem comentários.',
+      'Não inclua texto fora do JSON. Sem informação suficiente: string vazia.',
+      '', tarefaPorCampo[campo] || '',
+    ].join('\n');
+    try {
+      const r = await invokeLLM({
+        prompt, model,
+        response_json_schema: { type: 'object', properties: { [campo]: properties[campo] } },
+      });
+      return desembrulhar(r);
+    } catch (e) {
+      erros.push(`${campo}: ${e?.message || 'falha InvokeLLM'}`);
+      return {};
+    }
+  }));
+  const obj = Object.assign({}, ...respostas);
 
   const blocos = {};
   for (const e of ativos) {
@@ -283,5 +300,10 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs 
     const lista = obj.PEDIDOS_MULTAS.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
     if (lista.length) blocos.pedidos_multas = lista;
   }
-  return { blocos, especialistasUsados: blocosAtivos, objKeys: Object.keys(obj || {}), objAmostra: JSON.stringify(obj || {}).slice(0, 500) };
+  return {
+    blocos,
+    especialistasUsados: blocosAtivos,
+    erro: erros.length ? erros.join(' | ') : null,
+    objKeys: Object.keys(obj || {}),
+  };
 }

@@ -4,6 +4,7 @@ import { calcularVerbasCaso } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA } from '../../shared/redacao.js';
+import { resolverTemplatePorNome } from '../../shared/resolverTemplate.js';
 
 // ============================================================
 // Geração automática de petição a partir de um WebhookEvento
@@ -16,7 +17,10 @@ import { computeFlags, redigirTesesIA } from '../../shared/redacao.js';
 export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
-    const { evento_id } = await req.json();
+    // Aceita chamada direta ({ evento_id }) e o payload do gatilho por
+    // entidade ({ event: { entity_id }, data }).
+    const body = await req.json().catch(() => ({}));
+    const evento_id = body.evento_id || body.event?.entity_id;
     if (!evento_id) return Response.json({ error: 'evento_id obrigatório' }, { status: 400 });
 
     // 1) Carrega o evento do webhook
@@ -35,20 +39,25 @@ export default async function(req) {
     // 2b) Modelo a preencher: vem PRONTO no payload (template_id de um
     // PetitionTemplate). Nao ha escolha por IA — se o ID nao resolver, para
     // aqui em vez de gerar em cima do modelo errado.
-    const templateId = caso.template_id || evento.template_id || '';
-    let petitionTemplate = null;
-    if (templateId) {
-      const achados = await base44.asServiceRole.entities.PetitionTemplate
-        .filter({ id: templateId }).catch(() => []);
-      petitionTemplate = achados?.[0] || null;
-      if (!petitionTemplate) {
-        const msg = `template_id "${templateId}" nao corresponde a nenhum PetitionTemplate`;
-        await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
-          status: 'erro', erro_mensagem: msg, processado_em: new Date().toISOString(),
-        });
-        return Response.json({ error: msg }, { status: 422 });
-      }
+    const idInformado = caso.template_id || evento.template_id || '';
+    const nomeInformado = data.modelo_peticao || data.modelo || '';
+    const ativos = await base44.asServiceRole.entities.PetitionTemplate
+      .filter({ is_active: true }).catch(() => []);
+
+    let petitionTemplate = idInformado
+      ? (ativos || []).find((t) => t.id === idInformado) || null
+      : resolverTemplatePorNome(nomeInformado, ativos);
+
+    if (!petitionTemplate) {
+      const msg = idInformado
+        ? `template_id "${idInformado}" nao corresponde a nenhum PetitionTemplate ativo`
+        : `nao foi possivel identificar o modelo a partir de "${nomeInformado || '(vazio)'}"`;
+      await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
+        status: 'erro', erro_mensagem: msg, processado_em: new Date().toISOString(),
+      });
+      return Response.json({ error: msg }, { status: 422 });
     }
+    const templateId = petitionTemplate.id;
     const configLista = await base44.asServiceRole.entities.IntegracaoConfig.list('-updated_date', 1);
     const config = configLista?.[0] || { cnpj_ativo: true, cep_ativo: true, cct_ativo: true };
 
