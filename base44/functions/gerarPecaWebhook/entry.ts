@@ -174,6 +174,9 @@ export default async function(req) {
       analise_json: {
         origem: 'webhook',
         evento_id,
+        template_id: templateId,
+        template_nome: petitionTemplate?.name || null,
+        modelo_docx_url: petitionTemplate?.modelo_docx_url || null,
         caso,
         calculos,
         dadosReceita,

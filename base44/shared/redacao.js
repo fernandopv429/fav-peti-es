@@ -233,6 +233,19 @@ function desembrulhar(r) {
   return obj && typeof obj === 'object' ? obj : {};
 }
 
+// Pega o valor do capítulo pedido; se o modelo nomeou a chave de outro jeito,
+// aceita o único valor útil da resposta (string longa ou array).
+function extrairCampo(obj, campo) {
+  const direto = obj?.[campo];
+  if (typeof direto === 'string' && direto.trim()) return direto.trim();
+  if (Array.isArray(direto) && direto.length) return direto;
+  const valores = Object.values(obj || {});
+  const arr = valores.find((v) => Array.isArray(v) && v.length);
+  if (campo === 'PEDIDOS_MULTAS' && arr) return arr;
+  const str = valores.find((v) => typeof v === 'string' && v.trim().length > 80);
+  return str ? str.trim() : null;
+}
+
 export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs = [], invokeLLM }) {
   const ativos = ESPECIALISTAS.filter((e) => { try { return e.ativo(dados, caso); } catch { return false; } });
   if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
@@ -278,16 +291,20 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs 
       'Não inclua texto fora do JSON. Sem informação suficiente: string vazia.',
       '', tarefaPorCampo[campo] || '',
     ].join('\n');
-    try {
-      const r = await invokeLLM({
-        prompt, model,
-        response_json_schema: { type: 'object', properties: { [campo]: properties[campo] } },
-      });
-      return desembrulhar(r);
-    } catch (e) {
-      erros.push(`${campo}: ${e?.message || 'falha InvokeLLM'}`);
-      return {};
+    const schema = { type: 'object', properties: { [campo]: properties[campo] } };
+    // Duas tentativas: modelos ocasionalmente devolvem a chave com outro nome
+    // ou vazia — sem isso o capítulo simplesmente some da peça.
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      try {
+        const bruto = desembrulhar(await invokeLLM({ prompt, model, response_json_schema: schema }));
+        const valor = extrairCampo(bruto, campo);
+        if (valor) return { [campo]: valor };
+      } catch (e) {
+        if (tentativa === 1) erros.push(`${campo}: ${e?.message || 'falha InvokeLLM'}`);
+      }
     }
+    if (!erros.some((x) => x.startsWith(`${campo}:`))) erros.push(`${campo}: capítulo veio vazio`);
+    return {};
   }));
   const obj = Object.assign({}, ...respostas);
 

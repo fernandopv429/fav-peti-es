@@ -39,14 +39,28 @@ function parseRange(s) {
   return (vals[0] + vals[1]) / 2;
 }
 
+// Devolve "Cidade/UF" quando possivel (formato usado na comarca); senao a UF.
 function extrairUF(end) {
   const s = String(end || '');
+  const cidadeUf = /([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.\s']{2,40})\/([A-Z]{2})\b/.exec(s);
+  if (cidadeUf) return `${cidadeUf[1].trim()}/${cidadeUf[2]}`;
   const m = /,\s*([A-Z]{2})\s*,\s*CEP/i.exec(s) || /\/([A-Z]{2})\b/.exec(s);
   return m ? m[1] : '';
 }
 
+// Primeiro valor nao vazio entre varias chaves possiveis do payload.
+const pick = (d, ...chaves) => {
+  for (const k of chaves) {
+    const v = d[k];
+    if (v != null && String(v).trim() !== '') return v;
+  }
+  return '';
+};
+
+const juntar = (...partes) => partes.filter((p) => p && String(p).trim()).join(', ');
+
 function inferirGenero(d) {
-  const ec = String(d.estado_civil || '').toLowerCase().trim();
+  const ec = String(d.RECL_ESTADOCIVIL || d.estado_civil || '').toLowerCase().trim();
   if (/a$/.test(ec)) return 'F';
   if (/o$/.test(ec)) return 'M';
   return 'M';
@@ -75,54 +89,63 @@ export function mapearCasoDeWebhook(data) {
   // Modelo a preencher vem pronto do webhook — nao ha matching por IA aqui.
   caso.template_id = extrairTemplateId(d);
 
-  caso.recl_nome = d.nome_cliente || '';
-  caso.recl_nacionalidade = d.nacionalidade || '';
-  caso.recl_estado_civil = d.estado_civil || '';
-  caso.recl_rg = d.rg || '';
-  caso.recl_cpf = d.cpf || '';
-  caso.recl_pis = d.pis || '';
-  if (d.ctps) {
-    const m = /(\d+)\s*,?\s*s[ée]rie\s*(\d+)/i.exec(d.ctps);
-    if (m) { caso.recl_ctps = m[1]; caso.recl_serie = m[2]; }
-    else caso.recl_ctps = d.ctps;
-  }
-  caso.recl_nascimento = normalizarData(d.data_nascimento);
-  caso.recl_filiacao = d.filiacao || '';
-  caso.recl_endereco = d.endereco_cliente || '';
-  caso.recl_email = d.email || '';
-  caso.recl_genero = inferirGenero(d);
-
+  const ctps = pick(d, 'RECL_CTPS', 'ctps');
   const r1 = (d.reclamadas && d.reclamadas[0]) || {};
   const r2 = (d.reclamadas && d.reclamadas[1]) || {};
-  caso.recl1_nome = r1.razao_social || '';
-  caso.recl1_cnpj = r1.cnpj || '';
-  caso.recl1_logradouro = r1.endereco || '';
-  caso.recl2_nome = r2.razao_social || '';
-  caso.recl2_cnpj = r2.cnpj || '';
-  caso.recl2_logradouro = r2.endereco || '';
-  caso.local_prestacao = r2.endereco || r1.endereco || '';
+  const r3 = (d.reclamadas && d.reclamadas[2]) || {};
 
-  caso.data_admissao = normalizarData(d.admissao);
-  caso.data_rescisao = normalizarData(d.demissao || d.ultimo_dia);
-  caso.salario = parseBRL(d.salario);
-  caso.funcao = r1.cargo || d.cargo || '';
-  caso.tipo_dispensa = mapearTipoDispensa(d.tipo_dispensa);
+  caso.recl_nome = pick(d, 'RECL_NOME', 'nome_cliente');
+  caso.recl_nacionalidade = pick(d, 'RECL_NACIONALIDADE', 'nacionalidade');
+  caso.recl_estado_civil = pick(d, 'RECL_ESTADOCIVIL', 'estado_civil');
+  caso.recl_rg = pick(d, 'RECL_RG', 'rg');
+  caso.recl_cpf = pick(d, 'RECL_CPF', 'cpf');
+  caso.recl_pis = pick(d, 'RECL_PIS', 'pis');
+  if (ctps) {
+    const m = /(\d+)\s*,?\s*s[ée]rie\s*(\d+)/i.exec(ctps);
+    if (m) { caso.recl_ctps = m[1]; caso.recl_serie = m[2]; }
+    else caso.recl_ctps = ctps;
+  }
+  if (!caso.recl_serie && pick(d, 'RECL_SERIE')) caso.recl_serie = pick(d, 'RECL_SERIE');
+  caso.recl_nascimento = normalizarData(pick(d, 'RECL_NASC', 'data_nascimento'));
+  caso.recl_filiacao = pick(d, 'RECL_FILIACAO', 'filiacao');
+  caso.recl_endereco = juntar(pick(d, 'RECL_ENDERECO', 'endereco_cliente'), pick(d, 'RECL_CEP') && `CEP ${pick(d, 'RECL_CEP')}`);
+  caso.recl_email = pick(d, 'email');
+  caso.recl_genero = inferirGenero(d);
 
-  caso.escala = r1.escala || d.escala || '';
+  caso.recl1_nome = pick(d, 'RECL1_NOME') || r1.razao_social || '';
+  caso.recl1_cnpj = pick(d, 'RECL1_CNPJ') || r1.cnpj || '';
+  caso.recl1_logradouro = juntar(pick(d, 'RECL1_LOGRADOURO') || r1.endereco, pick(d, 'RECL1_ENDCOMPL'));
+  caso.recl2_nome = pick(d, 'RECL2_NOME') || r2.razao_social || '';
+  caso.recl2_cnpj = pick(d, 'RECL2_CNPJ') || r2.cnpj || '';
+  caso.recl2_logradouro = juntar(pick(d, 'RECL2_LOGRADOURO') || r2.endereco, pick(d, 'RECL2_ENDCOMPL'));
+  caso.recl3_nome = pick(d, 'RECL3_NOME') || r3.razao_social || '';
+  caso.recl3_cnpj = pick(d, 'RECL3_CNPJ') || r3.cnpj || '';
+  caso.recl3_logradouro = juntar(pick(d, 'RECL3_LOGRADOURO') || r3.endereco, pick(d, 'RECL3_ENDCOMPL'));
+  caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
+
+  caso.data_admissao = normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
+  caso.data_rescisao = normalizarData(pick(d, 'DATA_RESCISAO', 'demissao', 'ultimo_dia'));
+  caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
+  caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
+  caso.tipo_dispensa = mapearTipoDispensa(pick(d, 'tipo_dispensa', 'TIPO_DISPENSA'));
+
+  caso.escala = pick(d, 'escala', 'ESCALA') || r1.escala || '';
+  caso.jornada_horario = pick(d, 'JORNADA_HORARIO', 'jornada_horario');
   if (d.horas_extras) {
     caso.jornada_extrapola = true;
-    caso.jornada_freq_extra = d.media_horas_extras || '';
+    caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
     const tol = [d.periodo_antecedente, d.periodo_sucedente].filter(Boolean);
     if (tol.length) caso.prorrogacao_jornada = tol.map((t) => `${t} de tolerância`).join(' — ');
   }
   if (d.intervalo_suprimido) {
     caso.intervalo_gozado = false;
-    caso.intervalo_usufruido = d.intervalo_detalhes || '';
+    caso.intervalo_usufruido = pick(d, 'INTERVALO_GOZADO', 'intervalo_detalhes');
   }
 
   if (d.folgas_trabalhadas || d.finais_semana) {
     caso.tem_ft = true;
-    caso.ft_qtd_media = parseRange(d.ft_quantidade);
+    caso.ft_qtd_media = parseRange(pick(d, 'FT_QTD_MEDIA', 'ft_quantidade'));
+    caso.val_ft = parseRange(pick(d, 'VAL_FT', 'val_ft'));
   }
   if (d.ft_pagamento && /pix|dinheiro/i.test(d.ft_pagamento)) {
     caso.tem_integracao_por_fora = true;
@@ -133,20 +156,20 @@ export function mapearCasoDeWebhook(data) {
     caso.acumulo_atividades = d.funcoes_acumuladas || '';
   }
 
-  if (d.periculosidade) caso.tem_periculosidade = true;
-  if (d.insalubridade) caso.tem_insalubridade = true;
-  if (d.adicional_noturno) caso.tem_adic_noturno = true;
+  if (d.periculosidade || d.tem_periculosidade) caso.tem_periculosidade = true;
+  if (d.insalubridade || d.tem_insalubridade) caso.tem_insalubridade = true;
+  if (d.adicional_noturno || d.tem_adic_noturno) caso.tem_adic_noturno = true;
 
   if (d.vale_transporte) caso.tem_vale_transporte = true;
-  if (d.vale_alimentacao) caso.tem_auxilio_alimentacao = true;
+  if (d.vale_alimentacao || d.vale_refeicao) caso.tem_auxilio_alimentacao = true;
 
-  if (d.doenca_acidente) caso.tem_doenca = true;
+  if (d.doenca_acidente || d.tem_doenca) caso.tem_doenca = true;
   if (d.gratificacao) caso.tem_gratificacao = true;
 
   caso.entrevista_texto = d.fatos_narrados || '';
   caso.dano_fatos = d.fatos_narrados || '';
 
-  caso.comarca_uf = extrairUF(r2.endereco || r1.endereco || d.endereco_cliente);
+  caso.comarca_uf = extrairUF(caso.local_prestacao || caso.recl_endereco);
 
   return caso;
 }
