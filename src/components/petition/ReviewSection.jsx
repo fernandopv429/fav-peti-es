@@ -26,10 +26,8 @@ export default function ReviewSection({ petition, onStatusChange }) {
   const [comment, setComment] = useState("");
   const [commentType, setCommentType] = useState("comentario");
   const [saving, setSaving] = useState(false);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
     loadReviews();
   }, [petition.id]);
 

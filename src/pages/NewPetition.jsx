@@ -765,7 +765,6 @@ function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, sele
           templates={allTemplates}
           selectedTemplateId={form.selected_template_id}
           onSelect={(id) => updateForm("selected_template_id", id)}
-          threshold={petitionConfig?.threshold_confianca ?? 0.6}
         />
       )}
 

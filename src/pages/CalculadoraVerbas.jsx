@@ -59,7 +59,6 @@ function calcular(form) {
 
   const anosCompletos = diffAnosCompletos(form.admission_date, form.termination_date);
   const diasAviso = avisoDias(anosCompletos, motivo, tipoAviso);
-  const mesesAviso = tipoAviso === "indenizado" ? diasAviso / 30 : 0;
 
   // Saldo de salário
   const diaFinal = demissao.getDate();
@@ -71,8 +70,6 @@ function calcular(form) {
   // Avos
   const admissaoMes = admissao.getMonth() + 1;
   const admissaoDia = admissao.getDate();
-  const demissaoMes = demissao.getMonth() + 1;
-  const demissaoDia = demissao.getDate();
   const demissaoAno = demissao.getFullYear();
   const admissaoAno = admissao.getFullYear();
 

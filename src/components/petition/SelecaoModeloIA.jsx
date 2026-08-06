@@ -17,9 +17,8 @@ import {
  *   templates        — lista de PetitionTemplate ativos (todos, sem filtro externo)
  *   selectedTemplateId — ID selecionado atualmente
  *   onSelect(id)     — callback ao escolher um template
- *   threshold        — limiar de confiança de PetitionConfig (default 0.6, reservado para uso futuro)
  */
-export default function SelecaoModeloIA({ form, templates, selectedTemplateId, onSelect, threshold = 0.6 }) {
+export default function SelecaoModeloIA({ form, templates, selectedTemplateId, onSelect }) {
   const [analisando, setAnalisando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState("");
