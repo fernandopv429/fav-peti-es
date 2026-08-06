@@ -1,5 +1,5 @@
 import { base44 } from '@/api/base44Client';
-import { traceAiCall } from '@/lib/sessionTrace';
+import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
 import { gerarGuiaCamposTexto, validarFormatoCampos } from './guiaCampos';
 
 // ============================================================

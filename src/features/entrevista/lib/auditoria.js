@@ -1,6 +1,6 @@
 import { base44 } from '@/api/base44Client';
 import { runtimeCacheKey, withRuntimeCache } from './runtimeCache';
-import { traceAiCall } from '@/lib/sessionTrace';
+import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
 
 // ============================================================
 // Auditoria de coerência jurídica: o LLM audita a peça gerada

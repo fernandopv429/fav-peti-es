@@ -1,7 +1,7 @@
 import React from 'react';
-import SessionTabs from '@/components/SessionTabs';
-import EntrevistaSession from '@/components/EntrevistaSession';
-import { useSessions } from '@/hooks/useSessions';
+import SessionTabs from '@/features/entrevista/components/SessionTabs';
+import EntrevistaSession from '@/features/entrevista/components/EntrevistaSession';
+import { useSessions } from '@/features/entrevista/useSessions';
 
 // ============================================================
 // Wrapper de Multi-Session.

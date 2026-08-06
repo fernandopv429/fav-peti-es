@@ -1,6 +1,6 @@
 import { base44 } from '@/api/base44Client';
 import mammoth from 'mammoth';
-import { traceAiCall } from '@/lib/sessionTrace';
+import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
 
 // ============================================================
 // Importação/cadastro de modelos de referência a partir de .docx:

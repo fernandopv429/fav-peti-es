@@ -4,26 +4,26 @@ import {
   ArrowLeft, Loader2, Paperclip, Send, X, FileText, Bot, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import ToolTraceMessage from '@/components/ToolTraceMessage';
-import SessionLogsModal from '@/components/SessionLogsModal';
-import DocumentReviewPreview from '@/components/DocumentReviewPreview';
-import { exportarDocxTemplate } from '@/lib/preencherDocxTemplate';
-import { TIPO_DISPENSA_LABELS } from '@/lib/trabalhista/tokens';
-import { formatBRL } from '@/lib/trabalhista/mathUtils';
-import { fontesEntrevista, fontesGeracao } from '@/lib/trabalhista/fontesAnalise';
-import useConsoleLogs from '@/hooks/useConsoleLogs';
+import ToolTraceMessage from '@/features/entrevista/components/ToolTraceMessage';
+import SessionLogsModal from '@/features/entrevista/components/SessionLogsModal';
+import DocumentReviewPreview from '@/features/entrevista/components/DocumentReviewPreview';
+import { exportarDocxTemplate } from '@/features/entrevista/lib/preencherDocxTemplate';
+import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
+import { formatBRL } from '@/features/entrevista/lib/mathUtils';
+import { fontesEntrevista, fontesGeracao } from '@/features/entrevista/lib/fontesAnalise';
+import useConsoleLogs from '@/features/entrevista/useConsoleLogs';
 import {
   conversarEntrevista,
   gerarDadosPeca,
-} from '@/lib/trabalhista/modelosReferencia';
+} from '@/features/entrevista/lib/modelosReferencia';
 import {
   carregarEsqueletoTemplate,
   preencherEsqueleto,
   textoDaPeca,
-} from '@/lib/trabalhista/previewTemplate';
-import ConfirmacaoGeracao from '@/components/ConfirmacaoGeracao';
-import FilaWebhooks from '@/components/FilaWebhooks';
-import { montarDadosTemplate } from '@/lib/trabalhista/dadosTemplate';
+} from '@/features/entrevista/lib/previewTemplate';
+import ConfirmacaoGeracao from '@/features/entrevista/components/ConfirmacaoGeracao';
+import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
+import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
 // ============================================================
 // Instância isolada do agente de entrevista.

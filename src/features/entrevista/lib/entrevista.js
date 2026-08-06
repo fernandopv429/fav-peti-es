@@ -1,18 +1,18 @@
 import { base44 } from '@/api/base44Client';
 import mammoth from 'mammoth';
 import { TIPO_DISPENSA_LABELS } from './tokens';
-import { loadTemplateContent } from '@/lib/templateContent';
+import { loadTemplateContent } from '@/features/entrevista/lib/templateContent';
 import { extrairCasoDeTexto } from './parserEntrevista';
 import { calcularVerbasCaso, round2 } from './mathUtils';
 import { runtimeCacheKey, withRuntimeCache } from './runtimeCache';
-import { removeTextLetterhead } from '@/lib/removeTextLetterhead';
+import { removeTextLetterhead } from '@/features/entrevista/lib/removeTextLetterhead';
 import { blocoRegrasCriticas, regiaoTrtPorMunicipio } from './regrasCriticas';
 import { BLOCO_ENGENHARIA_JURIDICA } from './engenhariaJuridica';
 import { BLOCO_REGRAS_QUALIDADE } from './regrasQualidadeFav';
 import { invokeLLMComRetry } from './llmRetry';
 import { aplicarFormatacaoPadrao, aplicarFechoDeterministico, removerPedidosZerados, esqueletoDoModelo, injetarEmailPessoal, flexionarGeneroMasculino } from './formatacaoPeca';
 import { extrairDeterministico } from './extracaoDeterministica';
-import { traceAiCall } from '@/lib/sessionTrace';
+import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
 import {
   consultarCnpj,
   enriquecerCnpjs,

@@ -1,7 +1,7 @@
 // ============================================================
 // Barrel do domínio trabalhista — re-exporta os módulos coesos.
 // Mantém compatibilidade com imports existentes de
-// '@/lib/trabalhista/modelosReferencia'. Prefira importar do
+// '@/features/entrevista/lib/modelosReferencia'. Prefira importar do
 // módulo específico em código novo.
 // ============================================================
 export * from './consultas';       // config + CNPJ + CEP + DataJud

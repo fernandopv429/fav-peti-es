@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Upload, Download, Library, CheckCircle2, AlertCircle, FileText, SlidersHorizontal } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { TIPO_DISPENSA_LABELS } from '@/lib/trabalhista/tokens';
-import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/lib/trabalhista/modelosReferencia';
-import { invalidateRuntimeCache } from '@/lib/trabalhista/runtimeCache';
-import { baixarTemplateCorrigido } from '@/lib/trabalhista/gerarTemplateCorrigido';
+import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
+import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/features/entrevista/lib/modelosReferencia';
+import { invalidateRuntimeCache } from '@/features/entrevista/lib/runtimeCache';
+import { baixarTemplateCorrigido } from '@/features/entrevista/lib/gerarTemplateCorrigido';
 
 const RITO_LABEL = { ordinario: 'Ordinário', sumarissimo: 'Sumaríssimo' };
 

@@ -1,4 +1,4 @@
-import { sessionTrace } from '@/lib/sessionTrace';
+import { sessionTrace } from '@/features/entrevista/lib/sessionTrace';
 
 const buckets = new Map();
 
