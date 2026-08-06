@@ -1,5 +1,5 @@
 // Mapeamento determinístico do payload do webhook → objeto `caso`.
-// Cópia backend de src/lib/trabalhista/mapearWebhook.js.
+// Fonte unica do contrato do webhook (a copia do frontend foi removida por ser morta).
 
 function parseBRL(s) {
   if (s == null) return null;
