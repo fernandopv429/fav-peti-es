@@ -261,6 +261,15 @@ export default async function(req) {
       .filter((c) => Number(c?.valor) > 0)
       .reduce((acc, c) => acc + Number(c.valor), 0);
 
+    // Texto grande estoura o limite do campo generated_content — sobe como
+    // .txt e guarda a URL (o PetitionView já resolve URLs http).
+    let generatedContent = textoRedigido || undefined;
+    if (generatedContent && generatedContent.length > 4000) {
+      const file = new File([generatedContent], 'peticao.txt', { type: 'text/plain' });
+      const { file_url } = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+      generatedContent = file_url;
+    }
+
     let petitionId = petitionIdExistente || null;
     const petitionCampos = {
       title: `${caso.recl_nome || 'Reclamante'} x ${caso.recl1_nome || 'Reclamada'}`.slice(0, 200),
@@ -282,7 +291,7 @@ export default async function(req) {
       jurisdiction: caso.comarca_uf || undefined,
       estimated_value: totalCausa > 0 ? totalCausa : undefined,
       template_used: templateId || undefined,
-      generated_content: textoRedigido || undefined,
+      generated_content: generatedContent,
       additional_facts: avisos.length ? avisos.join(' | ') : undefined,
       // Sem dialeto confirmado ou com falha de redacao nao afirmamos que
       // esta pronta: vai para revisao explicita.
