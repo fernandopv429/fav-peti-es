@@ -151,9 +151,21 @@ export function mapearCasoDeWebhook(data) {
     caso.tem_integracao_por_fora = true;
   }
 
+  // O formulário de entrevista tem UMA pergunta ("funções acumuladas") para
+  // um conceito que a CCT trata como DOIS institutos distintos por categoria:
+  // Vigilante — "desvio de função" (multa 50%, cláusula de inibição ao desvio
+  // funcional da CCT de vigilância); Porteiro/Controlador/Limpeza — "acúmulo
+  // de função" (multa 20%, cláusula 12ª SIEMACO/SINDEEPRES). Rotear pelo
+  // errado subestima a verba (20% em vez de 50%) e cita a tese errada na peça.
   if (d.acumulo_funcao) {
-    caso.tem_acumulo = true;
-    caso.acumulo_atividades = d.funcoes_acumuladas || '';
+    const ehVigilante = /vigilante|vigil/i.test(caso.funcao || '');
+    if (ehVigilante) {
+      caso.tem_desvio = true;
+      caso.desvio_atividades = d.funcoes_acumuladas || '';
+    } else {
+      caso.tem_acumulo = true;
+      caso.acumulo_atividades = d.funcoes_acumuladas || '';
+    }
   }
 
   if (d.periculosidade || d.tem_periculosidade) caso.tem_periculosidade = true;
