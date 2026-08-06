@@ -160,7 +160,7 @@ export default function ModelosReferencia() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 text-[#1a73e8] animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary-ink animate-spin" />
       </div>
     );
   }
@@ -169,14 +169,14 @@ export default function ModelosReferencia() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-5">
         <div className="flex items-center gap-3">
-          <Link to="/" className="text-[#5f6368] hover:text-[#202124]">
+          <Link to="/" className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="flex-1">
-            <h1 className="text-xl font-semibold text-[#202124] flex items-center gap-2">
-              <Library className="w-5 h-5 text-[#1a73e8]" /> Modelos de Referência
+            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Library className="w-5 h-5 text-primary-ink" /> Modelos de Referência
             </h1>
-            <p className="text-xs text-[#5f6368]">
+            <p className="text-xs text-muted-foreground">
               Peças corretas usadas como base para gerar novas minutas. A IA usa o <strong>diferencial</strong> de cada modelo
               para adaptar teses e capítulos ao tipo de caso — quanto mais preciso o diferencial, mais aderente a minuta.
             </p>
@@ -185,7 +185,7 @@ export default function ModelosReferencia() {
             <input type="file" multiple accept=".docx" onChange={handleImport} className="hidden" id="import-modelos" />
             <label
               htmlFor="import-modelos"
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#1a73e8] text-white rounded-lg text-sm font-medium hover:bg-[#1557b0] transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
             >
               {importando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               {importando ? 'Importando...' : 'Importar .docx'}
@@ -193,7 +193,7 @@ export default function ModelosReferencia() {
           </div>
         </div>
 
-        <div className="bg-[#e8f0fe] border border-[#c6dafc] rounded-xl p-4 text-xs text-[#3c4043]">
+        <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-xs text-foreground">
           Você pode enviar <strong>vários .docx de uma vez</strong>. O texto é <strong>anonimizado</strong> automaticamente
           (nomes, CPF, RG, PIS, endereços) e o sistema extrai apenas o <strong>diferencial</strong> — teses, capítulos e
           argumentos específicos que distinguem cada tipo de caso. Esse diferencial orienta a IA na redação quando um caso
@@ -201,9 +201,9 @@ export default function ModelosReferencia() {
           com o mesmo nome de um modelo existente o <strong>atualizam</strong>; os demais <strong>criam novos modelos</strong>.
         </div>
 
-        <div className="bg-white border border-[#dadce0] rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-[#202124] mb-1">Template principal da minuta</h2>
-          <p className="text-xs text-[#5f6368] mb-3">
+        <div className="bg-white border border-border rounded-xl p-4">
+          <h2 className="text-sm font-semibold text-foreground mb-1">Template principal da minuta</h2>
+          <p className="text-xs text-muted-foreground mb-3">
             Define a estrutura fixa da petição (tópicos, ordem, texto-padrão). A IA preenche esse template com os dados
             extraídos da entrevista — o modelo de referência mais aderente é selecionado automaticamente para enriquecer
             os capítulos de mérito específicos do caso.
@@ -212,7 +212,7 @@ export default function ModelosReferencia() {
             <select
               value={templates.find((template) => template.is_default)?.id || ''}
               onChange={(e) => salvarModeloPadrao(e.target.value)}
-              className="w-full rounded-lg border border-[#dadce0] bg-white px-3 py-2 text-sm text-[#202124] focus:border-[#1a73e8] focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
             >
               <option value="" disabled>Selecione o template principal</option>
               {templates.map((template) => (
@@ -225,11 +225,11 @@ export default function ModelosReferencia() {
         </div>
 
         {config && (
-          <div className="bg-white border border-[#dadce0] rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-[#202124] mb-1 flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-[#1a73e8]" /> Integrações (consultas externas)
+          <div className="bg-white border border-border rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-primary-ink" /> Integrações (consultas externas)
             </h2>
-            <p className="text-xs text-[#5f6368] mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Consultas automáticas que enriquecem os dados enviados à IA. Os resultados oficiais (Receita, ViaCEP, CNJ)
               são injetados no prompt como contexto — a IA usa esses dados para preencher qualificação, endereço e
               fundamentação jurisprudencial com precisão.
@@ -256,25 +256,25 @@ export default function ModelosReferencia() {
             </div>
             {config.datajud_ativo && (
               <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <label className="text-xs text-[#5f6368]">Tribunal DataJud:</label>
+                <label className="text-xs text-muted-foreground">Tribunal DataJud:</label>
                 <input
                   value={config.datajud_tribunal || 'trt2'}
                   onChange={(e) => setConfig({ ...config, datajud_tribunal: e.target.value })}
                   onBlur={(e) => salvarConfig({ datajud_tribunal: e.target.value.trim() || 'trt2' })}
-                  className="text-xs border border-[#dadce0] rounded-md px-2 py-1 w-24 focus:outline-none focus:border-[#1a73e8]"
+                  className="text-xs border border-border rounded-md px-2 py-1 w-24 focus:outline-none focus:border-primary"
                 />
-                <span className="text-[11px] text-[#9aa0a6]">ex.: trt2 (SP), trt1 (RJ), trt3 (MG), trt15 (Campinas)</span>
+                <span className="text-[11px] text-muted-foreground/70">ex.: trt2 (SP), trt1 (RJ), trt3 (MG), trt15 (Campinas)</span>
               </div>
             )}
           </div>
         )}
 
         {config && (
-          <div className="bg-white border border-[#dadce0] rounded-xl p-4">
-            <h2 className="text-sm font-semibold text-[#202124] mb-1 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#1a73e8]" /> Template Word oficial (.docx)
+          <div className="bg-white border border-border rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary-ink" /> Template Word oficial (.docx)
             </h2>
-            <p className="text-xs text-[#5f6368] mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Os modelos ficam cadastrados em <strong>Modelos de Petição</strong> (aba ao lado), com o .docx tokenizado
               de cada um. Aqui você apenas escolhe qual deles é usado por padrão na exportação — a formatação original
               (fonte, timbrado, espaçamento) é preservada 100%.
@@ -286,7 +286,7 @@ export default function ModelosReferencia() {
                   const t = peticoesDocx.find((x) => x.id === e.target.value);
                   if (t) salvarConfig({ template_docx_url: t.modelo_docx_url, template_docx_nome: t.modelo_docx_name || t.name });
                 }}
-                className="w-full mb-3 rounded-lg border border-[#dadce0] bg-white px-3 py-2 text-sm text-[#202124] focus:border-[#1a73e8] focus:outline-none"
+                className="w-full mb-3 rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
               >
                 <option value="" disabled>Selecione o modelo padrão</option>
                 {peticoesDocx.map((t) => (
@@ -294,7 +294,7 @@ export default function ModelosReferencia() {
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-[#8a5d00] mb-3">
+              <p className="text-xs text-warning mb-3">
                 Nenhum modelo com .docx tokenizado em Modelos de Petição — cadastre um lá para poder selecioná-lo aqui.
               </p>
             )}
@@ -303,7 +303,7 @@ export default function ModelosReferencia() {
                 <button
                   onClick={baixarCorrigido}
                   disabled={corrigindo}
-                  className="flex items-center gap-2 px-4 py-2 border border-[#0b8043] text-[#0b8043] rounded-lg text-sm font-medium hover:bg-[#e6f4ea] transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 border border-success text-success rounded-lg text-sm font-medium hover:bg-success/10 transition-colors disabled:opacity-50"
                   title="Baixa uma cópia do template com as verbas faltantes no rol de pedidos (saldo de salário, multas 467/477 e salários em aberto)"
                 >
                   {corrigindo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -313,7 +313,7 @@ export default function ModelosReferencia() {
               {config.template_docx_url ? (
                 <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {config.template_docx_nome || 'template enviado'}</span>
               ) : (
-                <span className="text-xs text-[#8a5d00]">Nenhum template enviado ainda</span>
+                <span className="text-xs text-warning">Nenhum template enviado ainda</span>
               )}
             </div>
           </div>
@@ -331,19 +331,19 @@ export default function ModelosReferencia() {
         )}
 
         {modelos.length === 0 ? (
-          <div className="text-center py-16 bg-white border border-[#dadce0] rounded-xl">
-            <Library className="w-10 h-10 text-[#dadce0] mx-auto mb-3" />
-            <p className="text-[#5f6368]">Nenhum modelo de referência ainda</p>
-            <p className="text-xs text-[#9aa0a6] mt-1">Importe arquivos .docx para começar</p>
+          <div className="text-center py-16 bg-white border border-border rounded-xl">
+            <Library className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground">Nenhum modelo de referência ainda</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Importe arquivos .docx para começar</p>
           </div>
         ) : (
           <div className="space-y-2">
             {modelos.map((m) => (
-              <div key={m.id} className="bg-white border border-[#dadce0] rounded-xl p-4">
+              <div key={m.id} className="bg-white border border-border rounded-xl p-4">
                 <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 text-[#1a73e8] flex-shrink-0 mt-0.5" />
+                  <FileText className="w-5 h-5 text-primary-ink flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#202124]">{m.titulo}</p>
+                    <p className="font-medium text-foreground">{m.titulo}</p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {m.funcao && <Badge>{m.funcao}</Badge>}
                       {m.rito && <Badge>{RITO_LABEL[m.rito] || m.rito}</Badge>}
@@ -354,7 +354,7 @@ export default function ModelosReferencia() {
                         : <Badge tone="amber">Sem diferencial</Badge>}
                     </div>
                     {(m.teses || []).length > 0 && (
-                      <p className="text-xs text-[#5f6368] mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         {(m.teses || []).slice(0, 8).join(' · ')}{(m.teses || []).length > 8 ? ' …' : ''}
                       </p>
                     )}
@@ -373,12 +373,12 @@ function Toggle({ label, desc, checked, onChange }) {
   return (
     <label className="flex items-start justify-between gap-3 py-1.5 cursor-pointer select-none">
       <span className="min-w-0">
-        <span className="block text-sm text-[#202124]">{label}</span>
-        {desc && <span className="block text-xs text-[#5f6368]">{desc}</span>}
+        <span className="block text-sm text-foreground">{label}</span>
+        {desc && <span className="block text-xs text-muted-foreground">{desc}</span>}
       </span>
       <span className="relative inline-flex flex-shrink-0 mt-0.5">
         <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
-        <span className="w-9 h-5 rounded-full bg-[#dadce0] peer-checked:bg-[#1a73e8] transition-colors" />
+        <span className="w-9 h-5 rounded-full bg-border peer-checked:bg-primary transition-colors" />
         <span className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
       </span>
     </label>
@@ -387,7 +387,7 @@ function Toggle({ label, desc, checked, onChange }) {
 
 function Badge({ children, tone = 'blue' }) {
   const cls = {
-    blue: 'bg-[#e8f0fe] text-[#1a73e8]',
+    blue: 'bg-primary/10 text-primary-ink',
     green: 'bg-green-100 text-green-700',
     amber: 'bg-amber-100 text-amber-700',
   }[tone];

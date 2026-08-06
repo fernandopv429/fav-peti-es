@@ -51,7 +51,7 @@ export default function AppLayout() {
       </header>
 
       {/* Conteúdo — largura total, apenas afastado da pílula do menu */}
-      <main className="lg:pl-24">
+      <main className="lg:pl-20">
         <Outlet />
       </main>
     </div>

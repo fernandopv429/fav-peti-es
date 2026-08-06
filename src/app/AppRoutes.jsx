@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import AppLayout from "@/app/layout/AppLayout";
 import { useAuth } from "@/app/auth/AuthContext";
@@ -64,7 +64,8 @@ export default function AppRoutes() {
         <Route path="/peticoes/:id" element={<PetitionView />} />
         <Route path="/modelos" element={<Modelos />} />
         {/* Rota antiga: cai na mesma página unificada */}
-        <Route path="/modelos-referencia" element={<Modelos />} />
+        {/* Mantido como redirect: a tela virou aba dentro de /modelos. */}
+        <Route path="/modelos-referencia" element={<Navigate to="/modelos" replace />} />
         <Route path="/precedentes" element={<Precedents />} />
 
         {/* Ferramentas trabalhistas */}
