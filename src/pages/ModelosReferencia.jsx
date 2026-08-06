@@ -14,6 +14,7 @@ const norm = (s) => (s || '').toString().trim().toLowerCase();
 export default function ModelosReferencia() {
   const [modelos, setModelos] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [peticoesDocx, setPeticoesDocx] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importando, setImportando] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -25,6 +26,8 @@ export default function ModelosReferencia() {
     Promise.all([
       base44.entities.ModeloReferencia.list('-updated_date', 100).then(setModelos),
       base44.entities.Template.list('-updated_date', 100).then(setTemplates),
+      base44.entities.PetitionTemplate.filter({ is_active: true }, '-updated_date', 100)
+        .then((l) => setPeticoesDocx((l || []).filter((t) => t.modelo_docx_url))),
     ])
       .catch(() => setErro('Erro ao carregar os modelos.'))
       .finally(() => setLoading(false));
@@ -83,23 +86,6 @@ export default function ModelosReferencia() {
     } finally {
       setCorrigindo(false);
     }
-  };
-
-  const handleTemplateUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportando(true); setErro(null); setMsg(null);
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      if (!file_url) throw new Error('upload não retornou URL do arquivo');
-      await salvarConfig({ template_docx_url: file_url, template_docx_nome: file.name });
-      setMsg(`Template oficial atualizado: ${file.name}`);
-    } catch (err) {
-      console.error(err);
-      setErro(`Erro ao enviar/salvar o template .docx: ${err?.message || err}`);
-    }
-    setImportando(false);
-    e.target.value = '';
   };
 
   const salvarModeloPadrao = async (templateId) => {
@@ -289,15 +275,30 @@ export default function ModelosReferencia() {
               <FileText className="w-4 h-4 text-[#1a73e8]" /> Template Word oficial (.docx)
             </h2>
             <p className="text-xs text-[#5f6368] mb-3">
-              Arquivo .docx com marcadores {'{{CAMPO}}'} (valores) e flags {'{{#condicao}}'} (liga/desliga seções).
-              A IA preenche os campos e ativa as flags conforme o caso — a exportação preserva 100% da formatação original
-              (fonte, timbrado, espaçamento). Sem o template, o preview funciona mas não há exportação fiel.
+              Os modelos ficam cadastrados em <strong>Modelos de Petição</strong> (aba ao lado), com o .docx tokenizado
+              de cada um. Aqui você apenas escolhe qual deles é usado por padrão na exportação — a formatação original
+              (fonte, timbrado, espaçamento) é preservada 100%.
             </p>
+            {peticoesDocx.length ? (
+              <select
+                value={peticoesDocx.find((t) => t.modelo_docx_url === config.template_docx_url)?.id || ''}
+                onChange={(e) => {
+                  const t = peticoesDocx.find((x) => x.id === e.target.value);
+                  if (t) salvarConfig({ template_docx_url: t.modelo_docx_url, template_docx_nome: t.modelo_docx_name || t.name });
+                }}
+                className="w-full mb-3 rounded-lg border border-[#dadce0] bg-white px-3 py-2 text-sm text-[#202124] focus:border-[#1a73e8] focus:outline-none"
+              >
+                <option value="" disabled>Selecione o modelo padrão</option>
+                {peticoesDocx.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-[#8a5d00] mb-3">
+                Nenhum modelo com .docx tokenizado em Modelos de Petição — cadastre um lá para poder selecioná-lo aqui.
+              </p>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
-              <input type="file" accept=".docx" onChange={handleTemplateUpload} className="hidden" id="tmpl-docx" />
-              <label htmlFor="tmpl-docx" className="flex items-center gap-2 px-4 py-2 border border-[#1a73e8] text-[#1a73e8] rounded-lg text-sm font-medium hover:bg-[#e8f0fe] cursor-pointer">
-                <Upload className="w-4 h-4" /> {config.template_docx_url ? 'Trocar template' : 'Enviar template'}
-              </label>
               {config.template_docx_url && (
                 <button
                   onClick={baixarCorrigido}
