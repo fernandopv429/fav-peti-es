@@ -31,6 +31,24 @@ export default async function(req) {
 
     // 2) Mapeia o caso + cria registro "gerando"
     const caso = mapearCasoDeWebhook(data);
+
+    // 2b) Modelo a preencher: vem PRONTO no payload (template_id de um
+    // PetitionTemplate). Nao ha escolha por IA — se o ID nao resolver, para
+    // aqui em vez de gerar em cima do modelo errado.
+    const templateId = caso.template_id || evento.template_id || '';
+    let petitionTemplate = null;
+    if (templateId) {
+      const achados = await base44.asServiceRole.entities.PetitionTemplate
+        .filter({ id: templateId }).catch(() => []);
+      petitionTemplate = achados?.[0] || null;
+      if (!petitionTemplate) {
+        const msg = `template_id "${templateId}" nao corresponde a nenhum PetitionTemplate`;
+        await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
+          status: 'erro', erro_mensagem: msg, processado_em: new Date().toISOString(),
+        });
+        return Response.json({ error: msg }, { status: 422 });
+      }
+    }
     const configLista = await base44.asServiceRole.entities.IntegracaoConfig.list('-updated_date', 1);
     const config = configLista?.[0] || { cnpj_ativo: true, cep_ativo: true, cct_ativo: true };
 
@@ -55,7 +73,15 @@ export default async function(req) {
       salario: caso.salario || undefined,
       tipo_dispensa: caso.tipo_dispensa || undefined,
       analise_status: 'em_andamento',
-      analise_json: { origem: 'webhook', evento_id, status: 'gerando' },
+      template_id: templateId || undefined,
+      analise_json: {
+        origem: 'webhook',
+        evento_id,
+        status: 'gerando',
+        template_id: templateId || null,
+        template_nome: petitionTemplate?.name || null,
+        modelo_docx_url: petitionTemplate?.modelo_docx_url || null,
+      },
     });
 
     // 3) Enriquecimento oficial (CNPJ/CEP/CCT) direto nas APIs

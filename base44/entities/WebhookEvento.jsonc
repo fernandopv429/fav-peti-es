@@ -18,6 +18,10 @@
       "type": "object",
       "title": "Payload recebido"
     },
+    "template_id": {
+      "type": "string",
+      "title": "Modelo indicado no payload (PetitionTemplate)"
+    },
     "status": {
       "type": "string",
       "enum": [

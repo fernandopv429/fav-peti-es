@@ -50,6 +50,13 @@ export default async function(req) {
       payload.eventId ||
       "";
 
+    // Modelo indicado pelo emissor (o formulario vive fora deste app).
+    const d = payload.data && typeof payload.data === "object" ? payload.data : {};
+    const templateId = String(
+      d.template_id || d.modelo_id || d.templateId || d.modeloId ||
+      payload.template_id || payload.modelo_id || payload.templateId || payload.modeloId || ""
+    ).trim();
+
     const ipOrigem = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
       "";
@@ -61,6 +68,7 @@ export default async function(req) {
       evento_tipo: String(eventoTipo).slice(0, 200),
       evento_id: String(eventoId).slice(0, 200),
       payload,
+      template_id: templateId.slice(0, 64),
       status: "recebido",
       ip_origem: String(ipOrigem).slice(0, 64),
     });
@@ -70,6 +78,7 @@ export default async function(req) {
       recebido: true,
       id: registro.id,
       evento_tipo: registro.evento_tipo,
+      template_id: registro.template_id || null,
     }, { status: 200 });
   } catch (error) {
     return Response.json({ error: error.message || "Erro interno" }, { status: 500 });

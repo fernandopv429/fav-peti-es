@@ -52,10 +52,28 @@ function inferirGenero(d) {
   return 'M';
 }
 
+// Extrai o ID do modelo enviado pelo sistema de origem.
+// Contrato: o formulario externo manda o template_id (um PetitionTemplate do FAV).
+// Aceita variacoes de nome para tolerar diferencas do emissor.
+export function extrairTemplateId(data, payload) {
+  const fontes = [data, payload].filter((o) => o && typeof o === 'object');
+  const chaves = ['template_id', 'modelo_id', 'templateId', 'modeloId'];
+  for (const o of fontes) {
+    for (const k of chaves) {
+      const v = o[k];
+      if (v != null && String(v).trim()) return String(v).trim();
+    }
+  }
+  return '';
+}
+
 export function mapearCasoDeWebhook(data) {
   if (!data || typeof data !== 'object') return {};
   const d = data;
   const caso = {};
+
+  // Modelo a preencher vem pronto do webhook — nao ha matching por IA aqui.
+  caso.template_id = extrairTemplateId(d);
 
   caso.recl_nome = d.nome_cliente || '';
   caso.recl_nacionalidade = d.nacionalidade || '';
