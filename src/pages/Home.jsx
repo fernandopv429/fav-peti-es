@@ -22,7 +22,7 @@ const AREA_ICONS = {
 };
 
 const TOOLS = [
-  { label: "Nova Petição",           icon: Wand2,      path: "/nova-peticao",         desc: "Gerar peça inicial com IA" },
+  { label: "Gerar por Entrevista",   icon: Wand2,      path: "/entrevista",           desc: "Agente entrevista e monta a peça" },
   { label: "Calculadora de Verbas",  icon: Calculator, path: "/calculadora-verbas",   desc: "Rescisórias trabalhistas" },
   { label: "Defesa / Contestação",   icon: Shield,     path: "/defesa",               desc: "Contestação do empregador" },
   { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo",  desc: "Correção monetária e juros" },
@@ -87,7 +87,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => navigate("/nova-peticao")}
+              onClick={() => navigate("/entrevista")}
               className="hidden sm:inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold card-soft hover:opacity-90 transition-opacity"
             >
               <Wand2 className="w-4 h-4" />

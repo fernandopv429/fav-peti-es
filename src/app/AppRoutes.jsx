@@ -16,6 +16,9 @@ import Defesa from "@/pages/Defesa";
 import AtualizacaoCalculo from "@/pages/AtualizacaoCalculo";
 import BackupRestauracao from "@/pages/BackupRestauracao";
 import Analise from "@/pages/Analise";
+import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
+import ModelosReferencia from "@/pages/ModelosReferencia";
+import Webhooks from "@/pages/Webhooks";
 import NotFound from "@/pages/NotFound";
 
 /**
@@ -54,6 +57,10 @@ export default function AppRoutes() {
         <Route path="/catalogo" element={<Catalogo />} />
 
         {/* Petições */}
+        <Route path="/entrevista" element={<GerarPorEntrevista />} />
+        <Route path="/modelos-referencia" element={<ModelosReferencia />} />
+        {/* Aposentada: sem entrada no menu, mantida acessível por URL para comparação
+            com /entrevista. Remover quando a entrevista estiver validada. */}
         <Route path="/nova-peticao" element={<NewPetition />} />
         <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
@@ -66,6 +73,7 @@ export default function AppRoutes() {
         <Route path="/atualizacao-calculo" element={<AtualizacaoCalculo />} />
 
         {/* Ferramentas */}
+        <Route path="/webhooks" element={<Webhooks />} />
         <Route path="/analise" element={<Analise />} />
         <Route path="/backup" element={<BackupRestauracao />} />
 
