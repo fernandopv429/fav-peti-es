@@ -274,7 +274,13 @@ export default function PetitionView() {
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full min-h-[600px] p-4 rounded-lg border border-amber-300 bg-amber-50/20 text-sm font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 resize-y"
+              style={{
+                fontFamily: "Arial, sans-serif",
+                fontSize: "12pt",
+                lineHeight: 1.5,
+                textAlign: "justify",
+              }}
+              className="w-full min-h-[600px] p-4 rounded-lg border border-amber-300 bg-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400 resize-y"
             />
           </div>
         ) : petitionContent ? (
