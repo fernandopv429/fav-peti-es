@@ -400,7 +400,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     <div className="flex flex-col h-full bg-[#f8f9fa]">
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-3 border-b border-[#dadce0] bg-white flex-shrink-0">
-        <Link to="/modelos" className="text-[#5f6368] hover:text-[#202124]" title="Modelos / Configurações">
+        <Link to="/modelos-referencia" className="text-[#5f6368] hover:text-[#202124]" title="Modelos / Configurações">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1 min-w-0">
@@ -428,7 +428,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             </span>
           )}
         </button>
-        <Link to="/modelos" className="flex items-center gap-1.5 text-xs text-[#1a73e8] hover:underline whitespace-nowrap">
+        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-[#1a73e8] hover:underline whitespace-nowrap">
           <Library className="w-3.5 h-3.5" /> Configurações
         </Link>
       </div>
@@ -441,7 +441,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             {config.template_docx_nome || 'enviado'}
           </span>
         ) : (
-          <Link to="/modelos" className="text-xs font-medium text-[#c5221f] hover:underline">
+          <Link to="/modelos-referencia" className="text-xs font-medium text-[#c5221f] hover:underline">
             nenhum — enviar em Configurações
           </Link>
         )}
@@ -623,7 +623,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 <p className="text-sm text-[#5f6368]">Nenhum template .docx configurado.</p>
                 <p className="text-xs text-[#9aa0a6] mt-1">
                   Envie o modelo oficial (marcado com as tags) em{' '}
-                  <Link to="/modelos" className="text-[#1a73e8] hover:underline">Configurações</Link>.
+                  <Link to="/modelos-referencia" className="text-[#1a73e8] hover:underline">Configurações</Link>.
                 </p>
               </div>
             ) : docHtml ? (
