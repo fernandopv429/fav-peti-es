@@ -325,23 +325,34 @@ export function calcularVerbasCaso(caso = {}) {
 
   // Acúmulo de função — 20% do salário por mês laborado
   if (caso.tem_acumulo && salario && meses) {
-    itens.push({ item: 'Acúmulo de função (20%)', memoria: `20% × ${formatBRL(salario)} × ${meses} meses`, valor: round2(0.2 * salario * meses) });
+    const cl = buscarClausulaCct(dadosCct, /ac[uú]mulo de fun/i);
+    const pct = cl?.percentual ?? 0.2;
+    const clTxt = cl?.clausula ? ` (${cl.clausula})` : '';
+    itens.push({ item: `Acúmulo de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses${clTxt}`, valor: round2(pct * salario * meses) });
   }
 
   // Gratificação/bônus de função — valor fixo mensal (diversos CCTs) ou
-  // 10% do salário (cláusula 3ª CCT vigilância, fallback quando sem valor)
+  // percentual do salário (padrão 10%/cláusula 3ª CCT vigilância; substituído
+  // pela cláusula/percentual real da CCT do caso, quando encontrada)
   if (caso.tem_gratificacao && meses) {
     const gratVal = Number(caso.gratificacao_valor);
     if (gratVal > 0) {
       itens.push({ item: 'Gratificação/bônus de função', memoria: `${formatBRL(gratVal)}/mês × ${meses} meses`, valor: round2(gratVal * meses) });
     } else if (salario) {
-      itens.push({ item: 'Gratificação de função (10%)', memoria: `10% × ${formatBRL(salario)} × ${meses} meses (cláusula 3ª)`, valor: round2(0.1 * salario * meses) });
+      const cl = buscarClausulaCct(dadosCct, /gratifica[çc][ãa]o de fun|condutor|motorista/i);
+      const pct = cl?.percentual ?? 0.1;
+      const clTxt = cl?.clausula || 'cláusula 3ª';
+      itens.push({ item: `Gratificação de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
     }
   }
 
-  // Desvio de função — multa convencional de 50% do salário por mês (cláusula 64ª)
+  // Desvio de função — multa convencional (padrão 50%/cláusula 64ª CCT
+  // vigilância; substituído pela cláusula/percentual real da CCT do caso)
   if (caso.tem_desvio && salario && meses) {
-    itens.push({ item: 'Desvio de função (50%)', memoria: `50% × ${formatBRL(salario)} × ${meses} meses (cláusula 64ª)`, valor: round2(0.5 * salario * meses) });
+    const cl = buscarClausulaCct(dadosCct, /desvio de fun/i);
+    const pct = cl?.percentual ?? 0.5;
+    const clTxt = cl?.clausula || 'cláusula 64ª';
+    itens.push({ item: `Desvio de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
   }
 
   // Bonificação de assiduidade — diferença mensal × meses
