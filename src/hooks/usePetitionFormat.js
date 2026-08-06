@@ -19,13 +19,3 @@ export function getPetitionFormat(config) {
     footerImageUrl: c.papel_timbrado_url || "",
   };
 }
-
-/** CSS inline para visualização na tela */
-export function getPetitionViewStyle(config) {
-  return {
-    fontFamily: "Arial, sans-serif",
-    fontSize:   "12pt",
-    lineHeight: 1.5,
-    textAlign:  "justify",
-  };
-}
