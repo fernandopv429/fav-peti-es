@@ -282,8 +282,10 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
     if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 39; // padrão SINDEEPRES
   }
 
-  // Cálculo 100% determinístico (a IA não faz aritmética).
-  const calculos = calcularVerbasCaso(caso || {});
+  // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
+  // consultada para corrigir cláusula/percentual de desvio/acúmulo/
+  // gratificação pela categoria real do caso (vigilância/asseio/terceirizados).
+  const calculos = calcularVerbasCaso(caso || {}, dadosCct);
   // Aviso de campos críticos ausentes após toda a extração (guia de campos)
   const faltantes = gerarFaltantesTexto(caso);
   if (faltantes) {
