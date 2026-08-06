@@ -1,6 +1,6 @@
 import { base44 } from "@/api/base44Client";
 
-export const SECTION_HEADER = "## Regras aprendidas com correções";
+const SECTION_HEADER = "## Regras aprendidas com correções";
 
 /**
  * Anexa uma regra (bullet) à seção "## Regras aprendidas com correções"
