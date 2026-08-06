@@ -478,7 +478,6 @@ export default function NewPetition() {
             templates={compatibleTemplates}
             allTemplates={templates}
             selectedTemplate={selectedTemplate}
-            petitionConfig={petitionConfig}
           />
         )}
         {step === 6 && (
@@ -742,7 +741,7 @@ function StepDetails({ form, updateForm }) {
 }
 
 /* ── Step 4: Modelo Obrigatório ─────────────────────────────────────── */
-function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, selectedTemplate, petitionConfig }) {
+function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, selectedTemplate }) {
   const hasCompatible = templates.length > 0;
   const hasAny = allTemplates.length > 0;
 
