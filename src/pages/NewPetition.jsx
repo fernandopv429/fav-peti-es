@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
+import { buildPetitionTemplate, buildShortAIPrompt } from "@/features/peticoes/petitionBuilder";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2, Sparkles, Plus, Trash2, Copy, AlertTriangle, CheckCircle2, FileText, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import DocumentUploader from "../components/petition/DocumentUploader";
-import LaborCalculator from "../components/petition/LaborCalculator";
-import PetitionStepIndicator from "../components/petition/PetitionStepIndicator";
-import SelecaoModeloIA from "../components/petition/SelecaoModeloIA";
-import AnalisarDocumentosPanel from "../components/petition/AnalisarDocumentosPanel";
-import AuditoriaDocumentos from "../components/petition/AuditoriaDocumentos";
+import DocumentUploader from "@/features/peticoes/DocumentUploader";
+import LaborCalculator from "@/features/peticoes/LaborCalculator";
+import PetitionStepIndicator from "@/features/peticoes/PetitionStepIndicator";
+import SelecaoModeloIA from "@/features/peticoes/SelecaoModeloIA";
+import AnalisarDocumentosPanel from "@/features/peticoes/AnalisarDocumentosPanel";
+import AuditoriaDocumentos from "@/features/peticoes/AuditoriaDocumentos";
 
 const STEPS = ["Dados das Partes", "Detalhes do Caso", "Cálculos", "Documentos", "Análise de Documentos", "Modelo Obrigatório", "Revisão e Geração"];
 const FORM_STORAGE_KEY = "juris_new_petition_form_v2";

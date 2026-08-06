@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Loader2, Trash2, ScrollText } from "lucide-react";
-import { parseRegras, removeRuleFromPrompt } from "@/lib/regraAprendida.js";
+import { parseRegras, removeRuleFromPrompt } from "@/lib/regraAprendida";
 
 /**
  * Seção reutilizável que lista/remove regras aprendidas automaticamente.

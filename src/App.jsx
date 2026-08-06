@@ -1,25 +1,25 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClientInstance } from '@/lib/query-client'
+import { queryClientInstance } from '@/app/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import NewPetition from './pages/NewPetition';
-import PetitionsList from './pages/PetitionsList';
-import PetitionView from './pages/PetitionView';
-import Templates from './pages/Templates';
-import Precedents from './pages/Precedents.jsx';
-import CalculadoraVerbas from './pages/CalculadoraVerbas';
-import Defesa from './pages/Defesa';
-import AtualizacaoCalculoPage from './pages/AtualizacaoCalculo';
-import Home from './pages/Home';
-import Catalogo from './pages/Catalogo';
-import BackupRestauracao from './pages/BackupRestauracao';
-import Analise from './pages/Analise';
+import PageNotFound from '@/pages/NotFound';
+import { AuthProvider, useAuth } from '@/app/auth/AuthContext';
+import ErrorBoundary from '@/app/ErrorBoundary';
+import UserNotRegisteredError from '@/app/auth/UserNotRegisteredError';
+import Layout from '@/app/layout/AppLayout';
+import Dashboard from '@/pages/Dashboard';
+import NewPetition from '@/pages/NewPetition';
+import PetitionsList from '@/pages/PetitionsList';
+import PetitionView from '@/pages/PetitionView';
+import Templates from '@/pages/Templates';
+import Precedents from '@/pages/Precedents';
+import CalculadoraVerbas from '@/pages/CalculadoraVerbas';
+import Defesa from '@/pages/Defesa';
+import AtualizacaoCalculoPage from '@/pages/AtualizacaoCalculo';
+import Home from '@/pages/Home';
+import Catalogo from '@/pages/Catalogo';
+import BackupRestauracao from '@/pages/BackupRestauracao';
+import Analise from '@/pages/Analise';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();

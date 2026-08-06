@@ -11,8 +11,8 @@ import {
   PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
 import { Link } from "react-router-dom";
-import RecentPetitions from "../components/dashboard/RecentPetitions";
-import TopTemplates from "../components/dashboard/TopTemplates";
+import RecentPetitions from "@/features/analise/RecentPetitions";
+import TopTemplates from "@/features/analise/TopTemplates";
 
 const STATUS_COLORS = {
   rascunho: "#94a3b8",

@@ -4,14 +4,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Copy, Clock, FileText, Pencil, Check, X, Sparkles, Loader2, FileDown } from "lucide-react";
-import ExportButtons from "../components/petition/ExportButtons";
-import ReviewSectionPanel from "../components/petition/ReviewSection";
-import { LetterheadHeader, LetterheadFooter } from "../components/petition/PetitionLetterhead";
-import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
+import ExportButtons from "@/features/peticoes/ExportButtons";
+import ReviewSectionPanel from "@/features/peticoes/ReviewSection";
+import { LetterheadHeader, LetterheadFooter } from "@/features/peticoes/PetitionLetterhead";
+import { buildPetitionTemplate, buildShortAIPrompt } from "@/features/peticoes/petitionBuilder";
 import { toast } from "sonner";
-import PetitionRenderer from "@/components/petition/PetitionRenderer";
-import PetitionCorrectionChat from "@/components/petition/PetitionCorrectionChat";
-import { formatarData } from "@/lib/formatarData.js";
+import PetitionRenderer from "@/features/peticoes/PetitionRenderer";
+import PetitionCorrectionChat from "@/features/peticoes/PetitionCorrectionChat";
+import { formatarData } from "@/lib/formatarData";
 
 export default function PetitionView() {
   const { id } = useParams();

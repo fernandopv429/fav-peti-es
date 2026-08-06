@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import Sidebar from "@/app/layout/Sidebar";
 import { Menu, Scale } from "lucide-react";
 
 export default function Layout() {

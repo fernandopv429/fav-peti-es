@@ -5,8 +5,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { getPetitionFormat } from "@/hooks/usePetitionFormat.js";
-import { buildDocxFAV } from "@/lib/buildDocxFAV.js";
+import { getPetitionFormat } from "@/features/peticoes/petitionFormat";
+import { buildDocxFAV } from "@/features/peticoes/buildDocxFAV";
 
 /**
  * Classifica uma linha do texto da petição no padrão FAV:

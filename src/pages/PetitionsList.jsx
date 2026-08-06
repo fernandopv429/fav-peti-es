@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "react-router-dom";
 import { FileText, Search, ArrowRight, Trash2, AlertTriangle, FileDown } from "lucide-react";
 import { toast } from "sonner";
-import { formatarDataHora } from "@/lib/formatarData.js";
+import { formatarDataHora } from "@/lib/formatarData";
 
 const STATUS_BADGE = {
   rascunho: "bg-muted text-muted-foreground",

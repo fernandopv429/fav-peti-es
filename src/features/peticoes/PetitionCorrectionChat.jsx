@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import { Loader2, Send, X, MessageSquare, BookmarkCheck, Wand2 } from "lucide-react";
-import { appendRuleToPrompt, salvarRegraAprendida } from "@/lib/regraAprendida.js";
+import { appendRuleToPrompt, salvarRegraAprendida } from "@/lib/regraAprendida";
 
 const PETITION_FIELDS = new Set([
   "title", "status", "case_type", "rite", "claimant_name", "claimant_cpf", "claimant_rg",

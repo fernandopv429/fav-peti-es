@@ -6,7 +6,7 @@ import {
   ShieldCheck, Loader2, AlertTriangle, Clock, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import RegrasAprendidas from "@/components/config/RegrasAprendidas.jsx";
+import RegrasAprendidas from "@/features/backup/RegrasAprendidas";
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 

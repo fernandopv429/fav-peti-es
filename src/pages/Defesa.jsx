@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useEspecialista } from "@/hooks/useEspecialista";
+import { useEspecialista } from "@/features/especialistas/useEspecialista";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Shield, Sparkles, Loader2, Copy, Trash2, ChevronDown, ChevronUp, AlertTriangle, Paperclip, FileDown, FileText } from "lucide-react";
-import AnalisarDocumentosDefesa from "@/components/defesa/AnalisarDocumentosDefesa.jsx";
-import DefesaCorrectionChat from "@/components/defesa/DefesaCorrectionChat.jsx";
+import AnalisarDocumentosDefesa from "@/features/defesa/AnalisarDocumentosDefesa";
+import DefesaCorrectionChat from "@/features/defesa/DefesaCorrectionChat";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
-import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend.js";
+import { fetchDocxViaBackend } from "@/lib/fetchDocxViaBackend";
 
 const AVISO_REVISAO = "Rascunho profissional — revisão final por advogado é obrigatória antes de protocolar.";
 
