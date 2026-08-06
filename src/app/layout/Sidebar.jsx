@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Scale, LogOut, FileText, FolderOpen, BookMarked,
-  Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook,
+  Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook, Settings,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -23,7 +23,6 @@ const NAV = [
       { label: "Minhas Petições", icon: FileText, path: "/peticoes" },
       { label: "Modelos", icon: FolderOpen, path: "/modelos" },
       { label: "Precedentes", icon: BookMarked, path: "/precedentes" },
-      { label: "Modelos de Referência", icon: BookMarked, path: "/modelos-referencia" },
     ],
   },
   {
@@ -38,6 +37,7 @@ const NAV = [
     group: "Ferramentas",
     items: [
       { label: "Painel / Análise", icon: BarChart2, path: "/analise" },
+      { label: "Configurações e Referências", icon: Settings, path: "/modelos-referencia" },
       { label: "Webhooks", icon: Webhook, path: "/webhooks" },
       { label: "Backup e Restauração", icon: ShieldCheck, path: "/backup" },
     ],
