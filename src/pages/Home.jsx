@@ -169,9 +169,6 @@ export default function Home() {
             <button onClick={() => navigate("/catalogo")} className="px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium transition-colors flex items-center gap-2">
               <BookOpen className="w-4 h-4" /> Catálogo
             </button>
-            <button onClick={() => navigate("/gerar")} className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold transition-colors flex items-center gap-2">
-              <Wand2 className="w-4 h-4" /> Gerar Documento
-            </button>
           </div>
         </div>
       </div>
