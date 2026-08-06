@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Search, Wand2, BookOpen } from "lucide-react";
+import { Search, BookOpen } from "lucide-react";
 
 const AREAS_ORDER = [
   "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
@@ -10,7 +10,6 @@ const AREAS_ORDER = [
 ];
 
 export default function Catalogo() {
-  const navigate = useNavigate();
   const { search } = useLocation();
   const initialArea = new URLSearchParams(search).get("area") || "";
 
@@ -39,10 +38,6 @@ export default function Catalogo() {
     if (!grouped[e.area]) grouped[e.area] = [];
     grouped[e.area].push(e);
   });
-
-  const handleGerar = (e) => {
-    navigate(`/gerar?especialista=${encodeURIComponent(e.id)}&area=${encodeURIComponent(e.area)}`);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,12 +115,6 @@ export default function Catalogo() {
                         <span className="text-[10px] text-muted-foreground font-mono shrink-0">#{esp.numero}</span>
                       </div>
                       <p className="text-muted-foreground text-xs leading-relaxed flex-1 line-clamp-3">{esp.descricao}</p>
-                      <button
-                        onClick={() => handleGerar(esp)}
-                        className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors border border-primary/20 hover:border-primary/40"
-                      >
-                        <Wand2 className="w-3.5 h-3.5" /> Gerar Documento
-                      </button>
                     </div>
                   ))}
                 </div>
