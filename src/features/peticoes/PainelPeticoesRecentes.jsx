@@ -28,7 +28,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
           aria-label="Buscar em todas as petições"
           className="w-9 h-9 rounded-full bg-card card-soft flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-4 h-4" strokeWidth={2.25} />
         </Link>
       </div>
       <p className="text-xs text-muted-foreground mb-5">
@@ -45,7 +45,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
           </div>
         ) : recentes.length === 0 ? (
           <div className="text-center py-10">
-            <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+            <FileText className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" strokeWidth={2.25} />
             <p className="text-sm text-muted-foreground">Nenhuma petição ainda.</p>
             <Link to="/webhooks" className="text-sm text-primary font-medium hover:underline mt-1 inline-block">
               Ver eventos recebidos
@@ -62,7 +62,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
                   className="flex items-center gap-3 p-2 rounded-2xl hover:bg-card transition-colors group"
                 >
                   <div className="w-10 h-10 shrink-0 rounded-full bg-card card-soft flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-primary" />
+                    <FileText className="w-4 h-4 text-primary" strokeWidth={2.25} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground truncate leading-tight">
@@ -89,7 +89,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
           {emRevisao > 0 ? (
             <>
               <div className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center mb-3">
-                <AlertTriangle className="w-4 h-4 text-destructive" />
+                <AlertTriangle className="w-4 h-4 text-destructive" strokeWidth={2.25} />
               </div>
               <p className="text-sm font-bold text-foreground leading-snug">
                 {emRevisao} petição{emRevisao > 1 ? "ões" : ""} precisa
@@ -104,14 +104,14 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
               >
                 Revisar agora
                 <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
                 </span>
               </Link>
             </>
           ) : (
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 shrink-0 rounded-xl bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-success" />
+                <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={2.25} />
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground leading-snug">Nada pendente</p>

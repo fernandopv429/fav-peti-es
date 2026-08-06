@@ -67,7 +67,7 @@ export default function Home() {
   });
 
   const resumo = [
-    { label: "Petições",     value: petitions.length,                                                 icon: FileText,      tone: "text-primary",     bg: "bg-primary/10",     to: "/peticoes" },
+    { label: "Petições",      value: petitions.length,                                                  icon: FileText,      tone: "text-primary",     bg: "bg-primary/10",     to: "/peticoes" },
     { label: "Em revisão",   value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
     { label: "Prontas",      value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success",    bg: "bg-success/10",     to: "/peticoes" },
     { label: "Especialistas", value: especialistas.length,                                            icon: Users,         tone: "text-accent",      bg: "bg-accent/10",      to: "/catalogo" },
@@ -90,7 +90,7 @@ export default function Home() {
               onClick={() => navigate("/entrevista")}
               className="hidden sm:inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold card-soft hover:opacity-90 transition-opacity"
             >
-              <Wand2 className="w-4 h-4" />
+              <Wand2 className="w-4 h-4" strokeWidth={2.25} />
               Entrevistas recebidas
             </button>
             <div
@@ -112,9 +112,9 @@ export default function Home() {
             >
               <div className="flex items-start justify-between">
                 <div className={`w-10 h-10 rounded-2xl ${s.bg} flex items-center justify-center`}>
-                  <s.icon className={`w-5 h-5 ${s.tone}`} />
+                  <s.icon className={`w-5 h-5 ${s.tone}`} strokeWidth={2.25} />
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" strokeWidth={2.25} />
               </div>
               <p className="text-2xl font-bold text-foreground mt-4 leading-none">
                 {loadingPet || loadingEsp ? "—" : s.value}
@@ -137,11 +137,11 @@ export default function Home() {
                 className="group relative text-left bg-card rounded-3xl p-5 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
               >
                 <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center mb-4">
-                  <t.icon className="w-5 h-5 text-primary-foreground" />
+                  <t.icon className="w-5 h-5 text-primary-foreground" strokeWidth={2.25} />
                 </div>
                 <p className="font-semibold text-sm text-foreground">{t.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5 pr-6">{t.desc}</p>
-                <ArrowRight className="absolute bottom-5 right-5 w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+                <ArrowRight className="absolute bottom-5 right-5 w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" strokeWidth={2.25} />
               </button>
             ))}
           </div>
@@ -157,7 +157,7 @@ export default function Home() {
               onClick={() => navigate("/catalogo")}
               className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
             >
-              Ver catálogo <ArrowRight className="w-3 h-3" />
+              Ver catálogo <ArrowRight className="w-3 h-3" strokeWidth={2.25} />
             </button>
           </div>
           {loadingEsp ? (
@@ -186,7 +186,7 @@ export default function Home() {
         </div>
 
         {/* Chamada para o catálogo */}
-        <div className="rounded-3xl bg-primary p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-3xl hero-rays p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-bold text-primary-foreground">Não sabe por onde começar?</p>
             <p className="text-primary-foreground/85 text-sm mt-0.5">
@@ -195,9 +195,9 @@ export default function Home() {
           </div>
           <button
             onClick={() => navigate("/catalogo")}
-            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-white text-primary text-sm font-bold hover:opacity-90 transition-opacity"
+            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary text-sm font-bold hover:opacity-90 transition-opacity"
           >
-            <BookOpen className="w-4 h-4" />
+            <BookOpen className="w-4 h-4" strokeWidth={2.25} />
             Abrir catálogo
           </button>
         </div>
