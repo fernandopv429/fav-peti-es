@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Scale, LogOut, FileText, FolderOpen, BookMarked,
   Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -44,12 +45,17 @@ const NAV = [
   },
 ];
 
+/** Traço mais grosso, como os ícones da referência. */
+const STROKE = 2.25;
+
 /**
- * Menu lateral em pílula flutuante.
+ * Menu lateral em pílula flutuante, no estilo da referência: superfície navy,
+ * ícones laranja de traço grosso e sem chip de fundo. Só o item ativo ganha
+ * bloco laranja com o ícone em navy — o mesmo contraste que a referência usa
+ * no hero (texto navy sobre laranja).
  *
  * No desktop fica estreito (só ícones) e expande no hover para mostrar os
  * rótulos — por isso todo texto usa `lg:opacity-0 lg:group-hover:opacity-100`.
- * No mobile ele é uma gaveta e aparece sempre expandido.
  */
 export default function Sidebar({ onNavigate }) {
   const location = useLocation();
@@ -59,27 +65,26 @@ export default function Sidebar({ onNavigate }) {
     <div
       className="group/nav h-full w-64 lg:w-20 lg:hover:w-64 overflow-hidden
                  flex flex-col bg-sidebar text-sidebar-foreground
-                 rounded-none lg:rounded-[28px] card-soft-lg
+                 rounded-none lg:rounded-2xl card-soft-lg
                  transition-[width] duration-300 ease-out"
     >
       {/* Marca */}
       <div className="h-20 flex items-center gap-3 px-4 shrink-0">
-        <div className="w-12 h-12 shrink-0 rounded-2xl bg-white/15 flex items-center justify-center">
-          <Scale className="w-5 h-5 text-white" />
+        <div className="w-12 h-12 shrink-0 flex items-center justify-center">
+          <Scale className="w-6 h-6 text-primary" strokeWidth={STROKE} />
         </div>
         <div className="min-w-0 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
-          <p className="font-bold text-sm whitespace-nowrap">FAV Petições</p>
+          <p className="font-bold text-sm whitespace-nowrap tracking-wide">FAV Petições</p>
           <p className="text-[10px] text-white/70 whitespace-nowrap">Fernando Vieira Advogados</p>
         </div>
       </div>
 
       {/* Navegação */}
-      <nav className="flex-1 px-4 py-2 overflow-y-auto no-scrollbar space-y-4">
+      <nav className="flex-1 px-3 py-2 overflow-y-auto no-scrollbar space-y-4">
         {NAV.map((section) => (
           <div key={section.group}>
-            {/* O título do grupo só faz sentido quando há rótulos para agrupar */}
             <p
-              className="text-[10px] font-bold uppercase tracking-widest text-white/65 mb-2 px-1
+              className="text-[10px] font-bold uppercase tracking-widest text-white/65 mb-2 px-2
                          whitespace-nowrap h-3 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100
                          transition-opacity duration-200"
             >
@@ -95,25 +100,34 @@ export default function Sidebar({ onNavigate }) {
                     onClick={onNavigate}
                     title={item.label}
                     aria-current={isActive ? "page" : undefined}
-                    className="flex items-center gap-3 rounded-2xl transition-colors"
+                    className={`group/item flex items-center gap-2 rounded-xl transition-colors ${
+                      isActive ? "bg-sidebar-primary" : "hover:bg-sidebar-accent"
+                    }`}
                   >
-                    <div
-                      className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center transition-all ${
-                        isActive
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <item.icon className="w-5 h-5" />
+                    <div className="w-14 h-12 shrink-0 flex items-center justify-center">
+                      <item.icon
+                        className={`w-5 h-5 ${
+                          isActive ? "text-sidebar-primary-foreground" : "text-primary"
+                        }`}
+                        strokeWidth={STROKE}
+                      />
                     </div>
                     <span
-                      className={`text-sm font-medium whitespace-nowrap transition-opacity duration-200
+                      className={`flex-1 text-sm font-semibold whitespace-nowrap transition-opacity duration-200
                                   opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 ${
-                                    isActive ? "text-white" : "text-white/70"
+                                    isActive ? "text-sidebar-primary-foreground" : "text-white"
                                   }`}
                     >
                       {item.label}
                     </span>
+                    {/* Chevron laranja, como na navegação da referência */}
+                    <ChevronRight
+                      className={`w-4 h-4 mr-3 shrink-0 transition-opacity duration-200
+                                  opacity-0 lg:group-hover/nav:opacity-100 ${
+                                    isActive ? "text-sidebar-primary-foreground" : "text-primary"
+                                  }`}
+                      strokeWidth={STROKE}
+                    />
                   </Link>
                 );
               })}
@@ -123,16 +137,16 @@ export default function Sidebar({ onNavigate }) {
       </nav>
 
       {/* Sair */}
-      <div className="p-4 shrink-0">
+      <div className="p-3 shrink-0">
         <button
           onClick={() => logout()}
           title="Sair"
-          className="flex items-center gap-3 w-full rounded-2xl transition-colors"
+          className="flex items-center gap-2 w-full rounded-xl hover:bg-sidebar-accent transition-colors"
         >
-          <div className="w-12 h-12 shrink-0 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition-colors">
-            <LogOut className="w-5 h-5" />
+          <div className="w-14 h-12 shrink-0 flex items-center justify-center">
+            <LogOut className="w-5 h-5 text-primary" strokeWidth={STROKE} />
           </div>
-          <span className="text-sm font-medium text-white/70 whitespace-nowrap opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
+          <span className="text-sm font-semibold text-white whitespace-nowrap opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
             Sair
           </span>
         </button>
