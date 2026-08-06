@@ -228,7 +228,30 @@ export function temDanoMoralConcreto(caso = {}) {
   );
 }
 
-export function calcularVerbasCaso(caso = {}) {
+// Busca na CCT já consultada (dadosCct.clausulas) a cláusula real e o
+// percentual referentes a um tema (desvio/acúmulo/gratificação de função) —
+// evita citar um número/percentual fixo quando a convenção da categoria do
+// caso (vigilância/asseio/terceirizados) numera ou percentualiza diferente.
+// Sem cláusula encontrada, quem chama usa o padrão anterior (fallback).
+function buscarClausulaCct(dadosCct, regexTema) {
+  if (!dadosCct?.clausulas?.length) return null;
+  for (const c of dadosCct.clausulas) {
+    const texto = [c.clausula_titulo, c.ementa, c.texto, c.conteudo].filter(Boolean).join(' ');
+    const m = regexTema.exec(texto);
+    if (!m) continue;
+    const janela = texto.slice(Math.max(0, m.index - 80), m.index + 80);
+    const refNum = (c.clausula_ref || '').match(/\d+/)?.[0] || texto.match(/cl[áa]usula\s*(\d+)/i)?.[1];
+    const pctMatch = janela.match(/(\d{1,3})\s*%/);
+    const pct = pctMatch ? Number(pctMatch[1]) : null;
+    return {
+      clausula: refNum ? `cláusula ${refNum}ª` : (c.clausula_ref || null),
+      percentual: (pct && pct >= 5 && pct <= 100) ? pct / 100 : null,
+    };
+  }
+  return null;
+}
+
+export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const itens = [];
   const salario = Number(caso.salario) || null;
   const maiorRem = Number(caso.maior_remuneracao) || salario;
