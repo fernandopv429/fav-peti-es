@@ -150,8 +150,9 @@ export default async function(req) {
       if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 39;
     }
 
-    // 5) Cálculo determinístico das verbas
-    const calculos = calcularVerbasCaso(caso);
+    // 5) Cálculo determinístico das verbas (usa a CCT já consultada para
+    // corrigir cláusula/percentual de desvio/acúmulo/gratificação por categoria)
+    const calculos = calcularVerbasCaso(caso, dadosCct);
 
     // 6) Flags para acender os capítulos da redação
     const flags = computeFlags(caso, caso, dadosReceita);
