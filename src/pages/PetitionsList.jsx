@@ -3,8 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Link, useNavigate } from "react-router-dom";
-import { FileText, Search, FilePlus, ArrowRight, Trash2, AlertTriangle, FileDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { FileText, Search, ArrowRight, Trash2, AlertTriangle, FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -35,7 +35,6 @@ const CASE_LABELS = {
 };
 
 export default function PetitionsList() {
-  const navigate = useNavigate();
   const [petitions, setPetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -85,13 +84,6 @@ export default function PetitionsList() {
           <h1 className="text-2xl lg:text-3xl font-playfair font-bold">Minhas Petições</h1>
           <p className="text-muted-foreground mt-1">{petitions.length} petição(ões) encontrada(s)</p>
         </div>
-        <button
-          onClick={() => navigate("/gerar")}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
-        >
-          <FilePlus className="w-4 h-4" />
-          Nova Petição
-        </button>
       </div>
 
       {/* Filters */}
@@ -126,9 +118,6 @@ export default function PetitionsList() {
           <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-4" />
           <h3 className="font-semibold text-lg">Nenhuma petição encontrada</h3>
           <p className="text-muted-foreground mt-1">Crie sua primeira petição para começar</p>
-          <button onClick={() => navigate("/gerar")} className="inline-block mt-4 text-primary hover:underline text-sm">
-            Criar petição
-          </button>
         </Card>
       ) : (
         <div className="space-y-3">
