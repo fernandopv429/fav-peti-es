@@ -4,7 +4,6 @@ import { calcularVerbasCaso } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA } from '../../shared/redacao.js';
-import { resolverTemplatePorNome } from '../../shared/resolverTemplate.js';
 
 // ============================================================
 // Geração automática de petição a partir de um WebhookEvento
@@ -48,17 +47,17 @@ export default async function(req) {
     // 2) Mapeia o caso + cria (ou atualiza) o registro "gerando"
     const caso = mapearCasoDeWebhook(data);
 
-    // 2b) Modelo a preencher: vem PRONTO no payload (template_id de um
-    // PetitionTemplate). Nao ha escolha por IA — se o ID nao resolver, para
-    // aqui em vez de gerar em cima do modelo errado.
-    const idInformado = caso.template_id || evento.template_id || '';
-    const nomeInformado = data.modelo_peticao || data.modelo || '';
+    // 2b) MODELO ÚNICO. A peça inicial sai sempre do template padrão marcado
+    // com a tag "blocos" (dialeto de entrevista): a variação por sindicato/
+    // função é feita pelos capítulos condicionais ({{BLOCO_*}}), não por um
+    // .docx diferente. O template_id/modelo_peticao do payload é ignorado —
+    // era a origem da peça sair no modelo errado.
     const ativos = await base44.asServiceRole.entities.PetitionTemplate
       .filter({ is_active: true }).catch(() => []);
 
-    let petitionTemplate = idInformado
-      ? (ativos || []).find((t) => t.id === idInformado) || null
-      : resolverTemplatePorNome(nomeInformado, ativos);
+    const petitionTemplate = (ativos || []).find(
+      (t) => Array.isArray(t.tags) && t.tags.includes('blocos') && t.modelo_docx_url
+    ) || null;
 
     // Os dois dialetos de template convivem no app e NAO sao compativeis:
     //   - entrevista/IA : {{BLOCO_*}} + {{VALOR_*}}  (este pipeline)
@@ -69,9 +68,7 @@ export default async function(req) {
     const ehDialetoEntrevista = (t) => Array.isArray(t?.tags) && t.tags.includes('blocos');
 
     if (!petitionTemplate) {
-      const msg = idInformado
-        ? `template_id "${idInformado}" nao corresponde a nenhum PetitionTemplate ativo`
-        : `nao foi possivel identificar o modelo a partir de "${nomeInformado || '(vazio)'}"`;
+      const msg = 'nenhum modelo padrao ativo com .docx e tag "blocos" cadastrado em Modelos de Peticao';
       await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
         status: 'erro', erro_mensagem: msg, processado_em: new Date().toISOString(),
       });
