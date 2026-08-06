@@ -91,7 +91,7 @@ export async function buildDocxFAV(content, fmt) {
     try {
       logoData = await loadImageData(resolvedLogoUrl);
       logoBuffer = await urlToBuffer(resolvedLogoUrl);
-    } catch (_) {}
+    } catch {}
   }
 
   let footerImgData = null, footerImgBuffer = null;
@@ -99,7 +99,7 @@ export async function buildDocxFAV(content, fmt) {
     try {
       footerImgData = await loadImageData(resolvedFooterImgUrl);
       footerImgBuffer = await urlToBuffer(resolvedFooterImgUrl);
-    } catch (_) {}
+    } catch {}
   }
 
   // ── Monta Header DOCX (logo + texto de cabeçalho) ─────────────────────

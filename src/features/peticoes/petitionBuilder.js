@@ -17,7 +17,7 @@ function fmtDate(d) {
   try {
     const [y, m, day] = d.split("-");
     return `${day}/${m}/${y}`;
-  } catch (_) { return d; }
+  } catch { return d; }
 }
 
 function calcDuration(start, end) {
@@ -31,7 +31,7 @@ function calcDuration(start, end) {
   return `${years} ano(s) e ${rem} mês(es)`;
 }
 
-function buildQualificacao(form, config) {
+function buildQualificacao(form) {
   const extra = (form.extra_defendants || []).map((d, i) =>
     `${i + 2}ª RECLAMADA: ${fmt(d.name)}, CNPJ ${fmt(d.cnpj)}, com endereço em ${fmt(d.address)};`
   ).join("\n");
@@ -110,7 +110,7 @@ ${config?.email_contato ? config.email_contato : ""}
 ${config?.telefone ? config.telefone : ""}`.trim();
 }
 
-function buildRequerimentos(form, config) {
+function buildRequerimentos(form) {
   const recs = [
     "a) a citação da(s) Reclamada(s) para, querendo, contestar a presente ação, sob pena de revelia e confissão;",
     "b) a produção de todos os meios de prova em direito admitidos, especialmente depoimento pessoal da(s) Reclamada(s), oitiva de testemunhas e juntada de documentos;",
@@ -129,11 +129,11 @@ function buildRequerimentos(form, config) {
  */
 export function buildPetitionTemplate(form, config) {
   return {
-    qualificacao: buildQualificacao(form, config),
+    qualificacao: buildQualificacao(form),
     contrato: buildContrato(form),
     beneficios: buildBeneficios(form),
     calculos: buildCalculos(form),
-    requerimentos: buildRequerimentos(form, config),
+    requerimentos: buildRequerimentos(form),
     valor_causa: buildValorCausa(form),
     fecho: buildFecho(form, config),
   };
