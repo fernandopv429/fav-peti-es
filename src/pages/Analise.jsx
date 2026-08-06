@@ -565,15 +565,13 @@ export default function Analise() {
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {casosIncompletos.map(c => (
               <div key={c.id}
-                onClick={() => navigate("/gerar")}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-200/60 bg-amber-50/30 dark:bg-amber-950/10 hover:bg-amber-100/50 cursor-pointer transition-colors">
+                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-200/60 bg-amber-50/30 dark:bg-amber-950/10 transition-colors">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground truncate">{c.titulo || c.RECL_NOME || c.id}</p>
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                     Pendente: {c.pendencias.join(" · ")}
                   </p>
                 </div>
-                <ExternalLink className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               </div>
             ))}
           </div>
