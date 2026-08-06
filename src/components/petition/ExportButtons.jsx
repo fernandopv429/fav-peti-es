@@ -55,8 +55,7 @@ export default function ExportButtons({ petition, petitionConfig }) {
     footerImageUrl: getPetitionFormat(petitionConfig).footerImageUrl || inlineRodapeImgUrl,
   };
 
-  const cm2mm   = (v) => v * 10;
-  const cm2twip = (v) => Math.round(v * 567);
+  const cm2mm = (v) => v * 10;
 
   // Carrega imagem a partir de URL ou data-URI base64
   const loadImage = (url) =>

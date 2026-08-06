@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useEspecialista } from "@/hooks/useEspecialista";
 import { buildPetitionTemplate, buildShortAIPrompt } from "@/lib/petitionBuilder.js";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,7 +69,6 @@ export default function NewPetition() {
   const [templates, setTemplates] = useState([]);
   const [petitionConfig, setPetitionConfig] = useState(null);
   const [generating, setGenerating] = useState(false);
-  const { especialista: esp31 } = useEspecialista("31");
   const [generatingStep, setGeneratingStep] = useState("");
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [savedPetitionId, setSavedPetitionId] = useState(null);

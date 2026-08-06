@@ -11,13 +11,6 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle2, FileSearch, Loader2, RefreshCw, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 
-const STATUS_LABELS = {
-  pendente: "Aguardando análise",
-  em_analise: "Analisando documentos...",
-  concluida: "Análise concluída",
-  sem_documentos: "Sem documentos para analisar",
-};
-
 export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [], documentNames = [], onRevisado }) {
   const [status, setStatus] = useState("pendente");
   const [laudo, setLaudo] = useState("");

@@ -81,7 +81,6 @@ export default function LaborCalculator({ form, updateForm }) {
   const base13 = totalHeMensalComDsr;
   const decimoTerceiro = (base13 / 12) * (mesesContrato % 12 || 12);
   const mesesFerias = mesesContrato % 12 || 12;
-  const ferias = (salary / 12) * mesesFerias * (1 + 1 / 3);
   const feriasHE = (base13 / 12) * mesesFerias * (1 + 1 / 3);
   const fgtsBase = (totalHePeriodo + decimoTerceiro + feriasHE) * 0.08;
 

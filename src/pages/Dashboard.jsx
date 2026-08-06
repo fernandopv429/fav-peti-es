@@ -95,9 +95,6 @@ export default function Dashboard() {
   const monthlyData = getMonthlyData(petitions);
   const greeting = getGreeting(user?.full_name);
 
-  // Weekly data (last 7 days)
-  const weeklyData = getWeeklyData(petitions);
-
   // Completion rate
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -426,23 +423,6 @@ function getMonthlyData(petitions) {
     months[key].total++;
   });
   return Object.values(months).slice(-12);
-}
-
-function getWeeklyData(petitions) {
-  const days = {};
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split("T")[0];
-    const label = d.toLocaleDateString("pt-BR", { weekday: "short" });
-    days[key] = { day: label, total: 0 };
-  }
-  petitions.forEach((p) => {
-    const key = new Date(p.created_date).toISOString().split("T")[0];
-    if (days[key]) days[key].total++;
-  });
-  return Object.values(days);
 }
 
 function getGreeting(name) {

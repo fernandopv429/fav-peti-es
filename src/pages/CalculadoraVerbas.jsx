@@ -99,8 +99,6 @@ function calcular(form) {
   };
 
   const avosFeriasProporcionais = () => {
-    let anoInicioPeriodo = demissaoAno;
-    let mesInicio = admissaoMes;
     // último período aquisitivo: aniversário do contrato
     // simplificado: avos desde o último aniversário
     const aniversario = new Date(demissaoAno, admissaoMes - 1, admissaoDia);
