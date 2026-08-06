@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Home, BookOpen, Wand2, Scale, X, LogOut, ChevronRight,
+  Home, BookOpen, Scale, X, LogOut, ChevronRight,
   FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck, BarChart2
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -11,7 +11,6 @@ const NAV = [
     items: [
       { label: "Início", icon: Home, path: "/" },
       { label: "Catálogo de Especialistas", icon: BookOpen, path: "/catalogo" },
-      { label: "Gerar Documento", icon: Wand2, path: "/gerar" },
     ],
   },
   {
