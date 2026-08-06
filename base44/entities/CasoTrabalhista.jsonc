@@ -19,6 +19,11 @@
       "default": "rascunho",
       "title": "Status"
     },
+    "origem_evento_id": {
+      "type": "string",
+      "title": "ID do evento de origem (webhook)",
+      "description": "ID est\u00e1vel do lead/entrevista de origem (payload.id), igual em reenvios \u2014 usado para atualizar em vez de duplicar a pe\u00e7a ao reprocessar o mesmo evento."
+    },
     "entrevista_texto": {
       "type": "string",
       "title": "Texto da Entrevista"
