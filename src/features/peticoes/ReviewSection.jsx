@@ -91,7 +91,7 @@ export default function ReviewSection({ petition, onStatusChange }) {
       {/* Header + Status Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-primary" />
+          <MessageSquare className="w-5 h-5 text-primary-ink" />
           <h3 className="font-semibold">Revisão & Aprovação</h3>
         </div>
         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full ${statusCfg.color}`}>

@@ -189,13 +189,13 @@ function PrecedentCard({ precedent: p, onDelete, onToggle }) {
             )}
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-            <span className="font-medium text-primary">{p.source}</span>
+            <span className="font-medium text-primary-ink">{p.source}</span>
             {p.reference && <span>• {p.reference}</span>}
           </div>
           <p className={`text-sm text-muted-foreground ${expanded ? "" : "line-clamp-3"}`}>{p.content}</p>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-xs text-primary hover:underline mt-1 flex items-center gap-1"
+            className="text-xs text-primary-ink hover:underline mt-1 flex items-center gap-1"
           >
             {expanded ? <><ChevronUp className="w-3 h-3" />Ver menos</> : <><ChevronDown className="w-3 h-3" />Ver completo</>}
           </button>
@@ -365,7 +365,7 @@ Retorne APENAS JSON válido com a estrutura:
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                    <span className="font-medium text-primary">{item.source}</span>
+                    <span className="font-medium text-primary-ink">{item.source}</span>
                     {item.reference && <span>• {item.reference}</span>}
                     {item.source_url && (
                       <a

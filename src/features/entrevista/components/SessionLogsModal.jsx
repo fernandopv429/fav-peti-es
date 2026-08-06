@@ -170,7 +170,7 @@ export default function SessionLogsModal({ open, onOpenChange, messages }) {
                       <Highlight text={message.title || LABELS[message.role] || message.role} term={search} />
                     </span>
                     {message.category && <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium">{message.category}</span>}
-                    {message.status && <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">{message.status}</span>}
+                    {message.status && <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-ink">{message.status}</span>}
                     {Number.isFinite(message.durationMs) && <span className="text-[10px] text-muted-foreground">{message.durationMs} ms</span>}
                   </div>
                   <span className="shrink-0 text-[10px] text-muted-foreground">{message.timestamp || `#${origIdx + 1}`}</span>

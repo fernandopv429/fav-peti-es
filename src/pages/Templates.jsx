@@ -168,7 +168,7 @@ export default function Templates() {
             <Card key={t.id} className={`p-5 transition-all hover:shadow-md ${!t.is_active ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between mb-3">
                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-primary" />
+                  <FileText className="w-5 h-5 text-primary-ink" />
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setViewTemplate(t)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Visualizar">
@@ -221,7 +221,7 @@ export default function Templates() {
               {(t.tags || []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {(t.tags || []).map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">
+                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary-ink">
                       <Tag className="w-2.5 h-2.5" />{tag}
                     </span>
                   ))}
@@ -266,10 +266,10 @@ export default function Templates() {
               )}
               {viewTemplate.file_name && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                  <FileText className="w-4 h-4 text-primary" />
+                  <FileText className="w-4 h-4 text-primary-ink" />
                   <span className="text-sm">{viewTemplate.file_name}</span>
                   {viewTemplate.file_url && (
-                    <a href={viewTemplate.file_url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-primary hover:underline">
+                    <a href={viewTemplate.file_url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-primary-ink hover:underline">
                       Baixar arquivo
                     </a>
                   )}
@@ -449,7 +449,7 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
         >
           {file ? (
             <div className="flex items-center justify-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
+              <FileText className="w-5 h-5 text-primary-ink" />
               <span className="text-sm font-medium">{file.name}</span>
               <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="p-1 hover:bg-muted rounded">
                 <X className="w-4 h-4" />
@@ -457,7 +457,7 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
             </div>
           ) : initialData?.file_name ? (
             <div className="text-sm text-muted-foreground">
-              <FileText className="w-5 h-5 mx-auto mb-1 text-primary" />
+              <FileText className="w-5 h-5 mx-auto mb-1 text-primary-ink" />
               <span className="font-medium">{initialData.file_name}</span>
               <p className="text-xs mt-1">Clique para substituir</p>
             </div>
@@ -510,7 +510,7 @@ function TemplateForm({ initialData, onSuccess, onCancel }) {
         <p className="text-xs text-muted-foreground mb-1.5">Digite uma tag e pressione Enter (ex: horas-extras, dano-moral, rescisão)</p>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {form.tags.map(tag => (
-            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary">
+            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary-ink">
               <Tag className="w-3 h-3" />{tag}
               <button onClick={() => removeTag(tag)} className="hover:text-destructive ml-1"><X className="w-3 h-3" /></button>
             </span>

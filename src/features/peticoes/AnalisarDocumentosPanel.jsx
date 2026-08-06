@@ -99,7 +99,7 @@ export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [],
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-          <FileSearch className="w-5 h-5 text-primary" />
+          <FileSearch className="w-5 h-5 text-primary-ink" />
           Análise de Documentos do Caso
         </h3>
         <p className="text-sm text-muted-foreground">
@@ -116,7 +116,7 @@ export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [],
           </p>
           {documentNames.map((name, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <FileText className="w-4 h-4 text-primary shrink-0" />
+              <FileText className="w-4 h-4 text-primary-ink shrink-0" />
               <span className="truncate">{name}</span>
             </div>
           ))}
@@ -148,7 +148,7 @@ export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [],
       {/* Loading */}
       {analisando && (
         <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-center space-y-2">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-ink" />
           <p className="font-medium">Analisando documentos...</p>
           <p className="text-muted-foreground text-xs">
             A IA está lendo cartões de ponto, holerites e demais documentos. Aguarde.
@@ -161,7 +161,7 @@ export default function AnalisarDocumentosPanel({ petitionId, documentUrls = [],
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Eye className="w-4 h-4 text-primary" />
+              <Eye className="w-4 h-4 text-primary-ink" />
               Laudo de Achados — revisão obrigatória
             </p>
             <Button

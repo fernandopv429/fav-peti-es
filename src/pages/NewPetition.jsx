@@ -626,7 +626,7 @@ function StepParties({ form, updateForm }) {
         <h3 className="text-lg font-semibold mb-1">Reclamado(s)</h3>
         <p className="text-sm text-muted-foreground mb-4">Dados da(s) empresa(s) reclamada(s)</p>
         <div className="p-4 rounded-xl border mb-3">
-          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Reclamado 1 — Principal</p>
+          <p className="text-xs font-semibold text-primary-ink uppercase tracking-wider mb-3">Reclamado 1 — Principal</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Razão Social *</Label>
@@ -646,7 +646,7 @@ function StepParties({ form, updateForm }) {
         {form.extra_defendants.map((d, i) => (
           <div key={i} className="p-4 rounded-xl border mb-3">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wider">Reclamado {i + 2}</p>
+              <p className="text-xs font-semibold text-primary-ink uppercase tracking-wider">Reclamado {i + 2}</p>
               <button
                 onClick={() => updateForm("extra_defendants", form.extra_defendants.filter((_, idx) => idx !== i))}
                 className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
@@ -673,7 +673,7 @@ function StepParties({ form, updateForm }) {
 
         <button
           onClick={() => updateForm("extra_defendants", [...form.extra_defendants, { name: "", cnpj: "", address: "" }])}
-          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors mt-1"
+          className="flex items-center gap-2 text-sm text-primary-ink hover:text-primary-ink/80 transition-colors mt-1"
         >
           <Plus className="w-4 h-4" /> Adicionar outro reclamado
         </button>
@@ -749,7 +749,7 @@ function StepModeloObrigatorio({ form, updateForm, templates, allTemplates, sele
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
+          <FileText className="w-5 h-5 text-primary-ink" />
           Modelo Obrigatório
         </h3>
         <p className="text-sm text-muted-foreground">
@@ -923,7 +923,7 @@ function StepReview({ form, selectedTemplate, petitionConfig, generating, genera
       </div>
 
       <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm">
-        <p className="font-semibold text-primary mb-1">Modo anti-alucinação ativo</p>
+        <p className="font-semibold text-primary-ink mb-1">Modo anti-alucinação ativo</p>
         <p className="text-muted-foreground">
           Campos não preenchidos aparecerão como <span className="font-mono text-xs bg-muted px-1 rounded">[A PREENCHER: ...]</span> na peça.
           Nenhum dado será inventado. Jurisprudência restrita aos precedentes cadastrados.
@@ -955,7 +955,7 @@ function StepReview({ form, selectedTemplate, petitionConfig, generating, genera
 function ReviewSection({ title, children }) {
   return (
     <div className="p-4 rounded-xl border">
-      <h4 className="font-medium text-sm text-primary mb-3">{title}</h4>
+      <h4 className="font-medium text-sm text-primary-ink mb-3">{title}</h4>
       <div className="space-y-2">{children}</div>
     </div>
   );

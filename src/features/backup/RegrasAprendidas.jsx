@@ -87,7 +87,7 @@ export default function RegrasAprendidas({ configEntityName, especialistaNumero,
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
       <h2 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-        <ScrollText className="w-4 h-4 text-primary" /> {title}
+        <ScrollText className="w-4 h-4 text-primary-ink" /> {title}
       </h2>
       <p className="text-xs text-muted-foreground mb-4">
         Regras aprendidas automaticamente nas correções. Revise e remova regras antigas ou redundantes para manter os prompts enxutos.
@@ -104,7 +104,7 @@ export default function RegrasAprendidas({ configEntityName, especialistaNumero,
             return (
               <div key={`${source.entityName}:${source.id}`}>
                 {todosEspecialistas && (
-                  <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2">{source.label}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-primary-ink mb-2">{source.label}</p>
                 )}
                 <ul className="space-y-2">
                   {regras.map((r, i) => {

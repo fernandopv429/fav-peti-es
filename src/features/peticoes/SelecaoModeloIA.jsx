@@ -121,8 +121,8 @@ Responda SOMENTE com JSON válido:
   if (analisando) {
     return (
       <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 mb-4">
-        <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
-        <p className="text-sm text-primary font-medium">Analisando caso e selecionando modelo automaticamente...</p>
+        <Loader2 className="w-4 h-4 text-primary-ink animate-spin shrink-0" />
+        <p className="text-sm text-primary-ink font-medium">Analisando caso e selecionando modelo automaticamente...</p>
       </div>
     );
   }
@@ -192,7 +192,7 @@ Responda SOMENTE com JSON válido:
                   isSel ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                 }`}
               >
-                <FileText className={`w-4 h-4 shrink-0 ${isSel ? "text-primary" : "text-muted-foreground"}`} />
+                <FileText className={`w-4 h-4 shrink-0 ${isSel ? "text-primary-ink" : "text-muted-foreground"}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{t.name}</p>
                   {t.description && <p className="text-xs text-muted-foreground truncate">{t.description}</p>}
@@ -202,7 +202,7 @@ Responda SOMENTE com JSON válido:
                     </div>
                   )}
                 </div>
-                {isSel && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
+                {isSel && <CheckCircle2 className="w-4 h-4 text-primary-ink shrink-0" />}
               </button>
             );
           })}

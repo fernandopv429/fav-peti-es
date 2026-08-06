@@ -199,7 +199,7 @@ export default function BackupRestauracao() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <Loader2 className="w-8 h-8 animate-spin text-primary-ink" />
     </div>
   );
 
@@ -208,7 +208,7 @@ export default function BackupRestauracao() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-          <ShieldCheck className="w-5 h-5 text-primary" />
+          <ShieldCheck className="w-5 h-5 text-primary-ink" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Backup e Restauração</h1>
@@ -243,7 +243,7 @@ export default function BackupRestauracao() {
           {/* Configuração de agendamento */}
           <div className="bg-card border border-border rounded-2xl p-5">
             <h2 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" /> Backup automático
+              <Calendar className="w-4 h-4 text-primary-ink" /> Backup automático
             </h2>
             <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 mb-4">
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />

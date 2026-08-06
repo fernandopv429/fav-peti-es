@@ -419,9 +419,9 @@ Elabore a contestação completa. Ao final, apresente separadamente:
   return (
     <div className="min-h-screen bg-background p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       <div className="pt-2">
-        <p className="text-primary text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <p className="text-primary-ink text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
         <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-foreground flex items-center gap-3">
-          <Shield className="w-7 h-7 text-primary" />
+          <Shield className="w-7 h-7 text-primary-ink" />
           Defesa — Contestação do Empregador
         </h1>
         <p className="text-muted-foreground mt-1">Gere contestações trabalhistas com IA a partir da petição inicial recebida</p>
@@ -433,7 +433,7 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         {/* Upload e análise de documentos */}
         <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
           <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Paperclip className="w-4 h-4 text-primary" />
+            <Paperclip className="w-4 h-4 text-primary-ink" />
             Documentos (petição inicial / pasta funcional)
           </p>
           <p className="text-xs text-muted-foreground">Anexe os documentos para que a IA preencha os campos automaticamente.</p>
@@ -565,7 +565,7 @@ Elabore a contestação completa. Ao final, apresente separadamente:
         <Card className="p-6 lg:p-8 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h2 className="font-semibold text-base text-foreground flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" /> Contestação gerada
+              <Shield className="w-5 h-5 text-primary-ink" /> Contestação gerada
             </h2>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(resultado); toast.success("Copiado!"); }}>

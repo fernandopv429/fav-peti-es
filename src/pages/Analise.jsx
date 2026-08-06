@@ -100,7 +100,7 @@ function Variacao({ atual, anterior }) {
 }
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, icon: Icon, color = "text-primary", sub, onClick, variacao, alert }) {
+function KpiCard({ label, value, icon: Icon, color = "text-primary-ink", sub, onClick, variacao, alert }) {
   return (
     <Card
       onClick={onClick}
@@ -528,7 +528,7 @@ export default function Analise() {
         {porAdvogado.length === 1 ? (
           <div className="flex items-center gap-4 py-4">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
+              <Users className="w-5 h-5 text-primary-ink" />
             </div>
             <div>
               <p className="font-semibold text-foreground">{porAdvogado[0].nome}</p>

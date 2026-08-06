@@ -172,7 +172,7 @@ export default function AuditoriaDocumentos({
     <div className="space-y-5">
       <div>
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-primary" />
+          <ShieldCheck className="w-5 h-5 text-primary-ink" />
           Auditoria de Petição Inicial (Especialista 58)
         </h3>
         <p className="text-sm text-muted-foreground">
@@ -186,7 +186,7 @@ export default function AuditoriaDocumentos({
         <div className="p-3 rounded-xl border bg-muted/20 space-y-1.5">
           {documentNames.map((name, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
-              <FileSearch className="w-3.5 h-3.5 text-primary shrink-0" />
+              <FileSearch className="w-3.5 h-3.5 text-primary-ink shrink-0" />
               <span className="truncate">{name}</span>
             </div>
           ))}
@@ -205,7 +205,7 @@ export default function AuditoriaDocumentos({
       {/* Loading */}
       {auditing && (
         <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-sm text-center space-y-2">
-          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-ink" />
           <p className="font-medium">Auditoria em andamento...</p>
           <p className="text-muted-foreground text-xs">
             A IA está lendo os documentos, classificando o caso, extraindo tokens e cruzando inconsistências.
@@ -239,7 +239,7 @@ export default function AuditoriaDocumentos({
           {/* Resumo para o advogado */}
           {result.resumo_para_advogado && (
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-              <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5 flex items-center gap-1.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary-ink mb-1.5 flex items-center gap-1.5">
                 <ClipboardList className="w-3.5 h-3.5" /> Resumo para o advogado
               </p>
               <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{result.resumo_para_advogado}</p>

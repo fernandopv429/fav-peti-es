@@ -130,7 +130,7 @@ export default function PetitionsList() {
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isRevisao ? "bg-red-100" : "bg-primary/10"}`}>
                         {isRevisao
                           ? <AlertTriangle className="w-6 h-6 text-red-500" />
-                          : <FileText className="w-6 h-6 text-primary" />
+                          : <FileText className="w-6 h-6 text-primary-ink" />
                         }
                       </div>
                       <div className="min-w-0 flex-1">

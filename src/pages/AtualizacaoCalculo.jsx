@@ -233,9 +233,9 @@ export default function AtualizacaoCalculoPage() {
   return (
     <div className="min-h-screen bg-background p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       <div className="pt-2">
-        <p className="text-primary text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
+        <p className="text-primary-ink text-xs font-bold uppercase tracking-widest mb-1">Ferramenta Trabalhista</p>
         <h1 className="text-2xl lg:text-3xl font-playfair font-bold text-foreground flex items-center gap-3">
-          <TrendingUp className="w-7 h-7 text-primary" />
+          <TrendingUp className="w-7 h-7 text-primary-ink" />
           Atualização de Cálculo
         </h1>
         <p className="text-muted-foreground mt-1">Correção monetária e juros com fundamento legal automático</p>
@@ -243,7 +243,7 @@ export default function AtualizacaoCalculoPage() {
 
       {/* Aviso sobre índices */}
       <div className="flex items-start gap-2.5 p-4 rounded-xl border text-sm" style={{ background: "hsl(var(--primary) / 0.08)", borderColor: "hsl(var(--primary) / 0.25)", color: "hsl(var(--foreground))" }}>
-        <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-primary-ink" />
         <div>
           <p className="font-medium mb-1">Atenção: informe o índice acumulado manualmente</p>
           <p>O percentual acumulado real (SELIC, IPCA-E, INPC, IGP-M, TR) deve ser consultado nas tabelas oficiais — BACEN (<span className="font-mono text-xs">bcb.gov.br</span>), Receita Federal, Portal CNJ ou tabelas do tribunal competente — e informado no campo abaixo. Este sistema não busca esses valores automaticamente.</p>
@@ -340,7 +340,7 @@ export default function AtualizacaoCalculoPage() {
       {resultado && (
         <Card className="p-6 lg:p-8 space-y-4">
           <h2 className="font-semibold text-base text-foreground flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" /> Resultado
+            <TrendingUp className="w-5 h-5 text-primary-ink" /> Resultado
           </h2>
 
           {/* Sumário */}
@@ -383,7 +383,7 @@ export default function AtualizacaoCalculoPage() {
 
           {/* Notas de termo inicial */}
           <div className="p-4 rounded-xl border text-xs space-y-1" style={{ background: "hsl(var(--primary) / 0.07)", borderColor: "hsl(var(--primary) / 0.2)", color: "hsl(var(--foreground))" }}>
-            <p className="font-semibold text-sm mb-2 flex items-center gap-1.5 text-primary"><Info className="w-3.5 h-3.5" /> Notas sobre termo inicial</p>
+            <p className="font-semibold text-sm mb-2 flex items-center gap-1.5 text-primary-ink"><Info className="w-3.5 h-3.5" /> Notas sobre termo inicial</p>
             <p>• <strong>Dano material:</strong> Súmula 43 STJ — correção monetária desde o evento danoso.</p>
             <p>• <strong>Juros (extracontratual):</strong> Súmula 54 STJ — juros de mora desde o evento.</p>
             <p>• <strong>Dano moral:</strong> Súmula 362 STJ (correção do arbitramento) + Súmula 54 STJ (juros desde o evento).</p>

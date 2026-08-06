@@ -12,7 +12,7 @@ export default function ToolTraceMessage({ message }) {
           {isJson ? (
             <Braces className="mt-0.5 h-3 w-3 flex-shrink-0 text-[#1a73e8]" />
           ) : (
-            <Wrench className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
+            <Wrench className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary-ink" />
           )}
           <div className="min-w-0 w-full">
             {message.title && (

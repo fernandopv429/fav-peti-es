@@ -361,7 +361,7 @@ export default function CalculadoraVerbas() {
 
           <Card className="p-6 lg:p-8">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Info className="w-5 h-5 text-primary" />
+              <Info className="w-5 h-5 text-primary-ink" />
               Resultado do Cálculo
             </h2>
 
@@ -385,8 +385,8 @@ export default function CalculadoraVerbas() {
                     </tr>
                   ))}
                   <tr className="border-t-2 border-primary/30 bg-primary/5">
-                    <td className="px-4 py-3 font-bold text-primary">TOTAL BRUTO ESTIMADO</td>
-                    <td className="px-4 py-3 text-right font-bold text-primary text-base tabular-nums">{fmt(resultado.total)}</td>
+                    <td className="px-4 py-3 font-bold text-primary-ink">TOTAL BRUTO ESTIMADO</td>
+                    <td className="px-4 py-3 text-right font-bold text-primary-ink text-base tabular-nums">{fmt(resultado.total)}</td>
                     <td className="hidden md:table-cell px-4 py-3 text-xs text-muted-foreground">Antes de INSS e IRRF</td>
                   </tr>
                 </tbody>

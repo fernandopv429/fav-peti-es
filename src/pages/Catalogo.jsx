@@ -46,7 +46,7 @@ export default function Catalogo() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-primary" />
+              <BookOpen className="w-4 h-4 text-primary-ink" />
             </div>
             <div>
               <h1 className="text-foreground font-bold text-lg">Catálogo de Especialistas</h1>
@@ -86,7 +86,7 @@ export default function Catalogo() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-muted-foreground text-lg">Nenhum especialista encontrado.</p>
-            <button onClick={() => { setQuery(""); setAreaFilter(""); }} className="mt-3 text-primary text-sm hover:text-primary/80">Limpar filtros</button>
+            <button onClick={() => { setQuery(""); setAreaFilter(""); }} className="mt-3 text-primary-ink text-sm hover:text-primary-ink/80">Limpar filtros</button>
           </div>
         ) : (
           AREAS_ORDER.map(area => {
@@ -110,7 +110,7 @@ export default function Catalogo() {
                         <span className="text-2xl">{esp.icone || "⚖️"}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-card-foreground font-semibold text-sm leading-tight">{esp.titulo || esp.name}</p>
-                          <p className="text-primary text-xs mt-0.5 opacity-70">{esp.area}</p>
+                          <p className="text-primary-ink text-xs mt-0.5 opacity-70">{esp.area}</p>
                         </div>
                         <span className="text-[10px] text-muted-foreground font-mono shrink-0">#{esp.numero}</span>
                       </div>
