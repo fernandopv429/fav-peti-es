@@ -6,12 +6,10 @@ import pluginUnusedImports from "eslint-plugin-unused-imports";
 
 export default [
   {
-    files: [
-      "src/components/**/*.{js,mjs,cjs,jsx}",
-      "src/pages/**/*.{js,mjs,cjs,jsx}",
-      "src/Layout.jsx",
-    ],
-    ignores: ["src/lib/**/*", "src/components/ui/**/*"],
+    // Cobre TODO o src/: App, app/ (chassi), pages/, features/, lib/, api/.
+    files: ["src/**/*.{js,mjs,cjs,jsx}"],
+    // components/ui/ é código gerado pelo shadcn — não seguimos as mesmas regras nele.
+    ignores: ["src/components/ui/**/*"],
     ...pluginJs.configs.recommended,
     ...pluginReact.configs.flat.recommended,
     languageOptions: {
