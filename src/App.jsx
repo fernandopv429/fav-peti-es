@@ -18,7 +18,6 @@ import Defesa from './pages/Defesa';
 import AtualizacaoCalculoPage from './pages/AtualizacaoCalculo';
 import Home from './pages/Home';
 import Catalogo from './pages/Catalogo';
-import GerarDocumento from './pages/GerarDocumento';
 import BackupRestauracao from './pages/BackupRestauracao';
 import Analise from './pages/Analise';
 
@@ -51,7 +50,6 @@ const AuthenticatedApp = () => {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/catalogo" element={<Catalogo />} />
-        <Route path="/gerar" element={<GerarDocumento />} />
         <Route path="/nova-peticao" element={<NewPetition />} />
         <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
