@@ -1,65 +1,61 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import Sidebar from "@/app/layout/Sidebar";
 import { Menu, Scale } from "lucide-react";
+import Sidebar from "@/app/layout/Sidebar";
 
-export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : true
-  );
+/**
+ * Moldura de todas as telas.
+ *
+ * Desktop: o menu é uma pílula flutuante fixa à esquerda, sempre visível. Ela
+ * expande no hover POR CIMA do conteúdo, então a margem do conteúdo é fixa e
+ * nada reposiciona quando o mouse passa.
+ *
+ * Mobile: o mesmo menu vira gaveta, aberta pelo botão do cabeçalho.
+ */
+export default function AppLayout() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
+    <div className="min-h-screen app-canvas">
+      {/* Sombra de fundo da gaveta (só mobile) */}
+      {drawerOpen && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setDrawerOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Menu */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed z-50 transition-transform duration-300 ease-out
+                    inset-y-0 left-0
+                    lg:inset-y-4 lg:left-4 lg:translate-x-0
+                    ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Sidebar onNavigate={() => setDrawerOpen(false)} />
       </div>
 
-      {/* Main content */}
-      <div className={`flex-1 flex flex-col overflow-hidden transition-[margin] duration-300 ${sidebarOpen ? "lg:ml-64" : "ml-0"}`}>
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center h-14 px-4 bg-sidebar border-b border-sidebar-border">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-sidebar-foreground/60"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2 ml-3">
-            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-              <Scale className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-sm text-sidebar-foreground">FAV Petições</span>
+      {/* Cabeçalho mobile */}
+      <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 h-16 px-4 bg-background/80 backdrop-blur-md border-b border-border">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Abrir menu"
+          className="w-10 h-10 rounded-2xl bg-card card-soft flex items-center justify-center text-foreground"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center">
+            <Scale className="w-4 h-4 text-primary-foreground" />
           </div>
+          <span className="font-bold text-sm">FAV Petições</span>
         </div>
+      </header>
 
-        {/* Desktop reopen button (when sidebar closed) */}
-        {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="hidden lg:flex fixed top-4 left-4 z-30 items-center justify-center w-10 h-10 rounded-xl bg-sidebar text-sidebar-foreground shadow-lg hover:bg-sidebar/90 transition-colors"
-            title="Abrir menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        )}
-
-        <main className="flex-1 overflow-y-auto">
-          <Outlet />
-        </main>
-      </div>
+      {/* Conteúdo — largura total, apenas afastado da pílula do menu */}
+      <main className="lg:pl-28">
+        <Outlet />
+      </main>
     </div>
   );
 }
