@@ -6,6 +6,7 @@ import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
 import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/features/entrevista/lib/modelosReferencia';
 import { invalidateRuntimeCache } from '@/features/entrevista/lib/runtimeCache';
 import { baixarTemplateCorrigido } from '@/features/entrevista/lib/gerarTemplateCorrigido';
+import TemplateAtualizarDocx from '@/features/entrevista/components/TemplateAtualizarDocx';
 
 const RITO_LABEL = { ordinario: 'Ordinário', sumarissimo: 'Sumaríssimo' };
 
@@ -298,7 +299,15 @@ export default function ModelosReferencia() {
                 Nenhum modelo com .docx tokenizado em Modelos de Petição — cadastre um lá para poder selecioná-lo aqui.
               </p>
             )}
-            <div className="flex items-center gap-3 flex-wrap">
+            <TemplateAtualizarDocx
+              template={peticoesDocx.find((t) => t.modelo_docx_url === config.template_docx_url)}
+              onAtualizado={async ({ url, nome }) => {
+                await salvarConfig({ template_docx_url: url, template_docx_nome: nome });
+                await load();
+                setMsg('Modelo atualizado com sucesso.');
+              }}
+            />
+            <div className="flex items-center gap-3 flex-wrap mt-3">
               {config.template_docx_url && (
                 <button
                   onClick={baixarCorrigido}
