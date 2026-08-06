@@ -236,12 +236,18 @@ export function temDanoMoralConcreto(caso = {}) {
 function buscarClausulaCct(dadosCct, regexTema) {
   if (!dadosCct?.clausulas?.length) return null;
   for (const c of dadosCct.clausulas) {
+    // Campos vistos na resposta real da API de CCT: clausula_ref, titulo
+    // (título do instrumento, não da cláusula), conteudo. clausula_titulo/
+    // ementa/texto não existem hoje, mas são mantidos por robustez a shapes
+    // futuros da API.
     const texto = [c.clausula_titulo, c.ementa, c.texto, c.conteudo].filter(Boolean).join(' ');
-    const m = regexTema.exec(texto);
-    if (!m) continue;
-    const janela = texto.slice(Math.max(0, m.index - 80), m.index + 80);
+    if (!regexTema.test(texto)) continue;
+    // Cláusulas de CCT numeiam por extenso ("CLÁUSULA SEXAGÉSIMA QUARTA") e o
+    // percentual costuma ficar em parágrafo separado da definição do tema —
+    // por isso a busca do percentual é na cláusula INTEIRA, não numa janela
+    // estreita ao redor do termo buscado.
     const refNum = (c.clausula_ref || '').match(/\d+/)?.[0] || texto.match(/cl[áa]usula\s*(\d+)/i)?.[1];
-    const pctMatch = janela.match(/(\d{1,3})\s*%/);
+    const pctMatch = texto.match(/(\d{1,3})\s*%/);
     const pct = pctMatch ? Number(pctMatch[1]) : null;
     return {
       clausula: refNum ? `cláusula ${refNum}ª` : (c.clausula_ref || null),
