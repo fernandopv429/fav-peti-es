@@ -1,6 +1,5 @@
 import { base44 } from '@/api/base44Client';
 import mammoth from 'mammoth';
-import { TIPO_DISPENSA_LABELS } from './tokens';
 import { loadTemplateContent } from '@/features/entrevista/lib/templateContent';
 import { extrairCasoDeTexto } from './parserEntrevista';
 import { calcularVerbasCaso, round2 } from './mathUtils';
@@ -14,20 +13,13 @@ import { aplicarFormatacaoPadrao, aplicarFechoDeterministico, removerPedidosZera
 import { extrairDeterministico } from './extracaoDeterministica';
 import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
 import {
-  consultarCnpj,
   enriquecerCnpjs,
   extrairCnpjs,
-  consultarCep,
   enriquecerCeps,
   extrairCeps,
-  CONFIG_INTEGRACOES_PADRAO,
   carregarConfigIntegracoes,
   montarTermosDatajud,
-  consultarDatajud,
   enriquecerDatajud,
-  categoriaCct,
-  consultarCct,
-  perguntasCct,
   enriquecerCct,
   extrairPisoCct,
 } from './consultas';
@@ -693,7 +685,7 @@ export function extrairValoresPedidos(html) {
   try {
     const arr = JSON.parse(m[1]);
     if (Array.isArray(arr)) valores = arr.map(Number).filter((n) => Number.isFinite(n));
-  } catch (e) {
+  } catch {
     /* array malformado — valores fica vazio, o piso de segurança assume depois */
   }
   return { valores, htmlSemComentario: html.replace(PEDIDOS_VALORES_RE, '').trim() };
@@ -703,7 +695,7 @@ export async function gerarPecaPadrao({ texto, fileUrls, attrs, modeloPadrao, on
   const notify = (msg) => {
     try {
       onTool?.(msg);
-    } catch (e) {
+    } catch {
       /* ignora */
     }
   };
@@ -796,7 +788,7 @@ export async function gerarPecaPadrao({ texto, fileUrls, attrs, modeloPadrao, on
       }));
       notify(`Referências mais semelhantes: ${modelosSemelhantes.map((m) => m.titulo).filter(Boolean).join(' • ')}`);
     }
-  } catch (e) {
+  } catch {
     /* segue sem referência */
   }
 

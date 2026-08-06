@@ -43,7 +43,7 @@ export default function ModelosReferencia() {
           });
           setConfig(c);
         }
-      } catch (e) { /* mantém defaults implícitos */ }
+      } catch { /* mantém defaults implícitos */ }
     })();
   }, []);
 
@@ -115,7 +115,7 @@ export default function ModelosReferencia() {
         atualizados.map((template) => ({ id: template.id, is_default: template.is_default }))
       );
       setMsg('Modelo padrão atualizado.');
-    } catch (e) {
+    } catch {
       setTemplates(anteriores);
       setErro('Erro ao definir o modelo padrão.');
     }

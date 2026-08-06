@@ -237,12 +237,12 @@ export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAt
 // faz UMA ÚNICA chamada à IA devolvendo TODOS os capítulos ativos de
 // uma vez (JSON) e devolve os blocos por campo do template.
 export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referencias = [], onTool } = {}) {
-  const notify = (m) => { try { onTool?.(m); } catch (e) { /* ignora */ } };
+  const notify = (m) => { try { onTool?.(m); } catch { /* ignora */ } };
 
   let configs = [];
   try {
     configs = await base44.entities.EspecialistaConfig.filter({ ativo: true });
-  } catch (e) {
+  } catch {
     configs = [];
   }
   const cfgPorNumero = new Map((configs || []).map((c) => [String(c.numero), c]));
@@ -250,7 +250,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
   const d = dados || {};
   const c = caso || {};
   const ativos = ESPECIALISTAS.filter((e) => {
-    try { return e.ativo(d, c); } catch (err) { return false; }
+    try { return e.ativo(d, c); } catch { return false; }
   });
   if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
 

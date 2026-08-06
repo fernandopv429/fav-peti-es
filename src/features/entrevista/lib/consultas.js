@@ -22,7 +22,7 @@ export async function carregarConfigIntegracoes() {
     try {
       const lista = await base44.entities.IntegracaoConfig.list('-updated_date', 1);
       return { ...CONFIG_INTEGRACOES_PADRAO, ...(lista?.[0] || {}) };
-    } catch (e) {
+    } catch {
       return { ...CONFIG_INTEGRACOES_PADRAO };
     }
   }, { ttlMs: 5 * 60 * 1000 });
@@ -51,7 +51,7 @@ export async function consultarCnpj(cnpj) {
     const resp = await base44.functions.invoke('cnpj', { cnpj: digits });
     const d = resp?.data ?? resp;
     return d || { cnpj: formatarCnpj(digits), erro: 'sem retorno da função' };
-  } catch (e) {
+  } catch {
     return { cnpj: formatarCnpj(digits), erro: 'falha de rede ao consultar a Receita' };
   }
 }
@@ -91,7 +91,7 @@ export async function consultarCep(cep) {
     const resp = await base44.functions.invoke('cep', { cep: digits });
     const d = resp?.data ?? resp;
     return d || { cep: fmt, erro: 'sem retorno da função' };
-  } catch (e) {
+  } catch {
     return { cep: fmt, erro: 'falha de rede ao consultar o CEP' };
   }
 }
@@ -118,7 +118,7 @@ export async function consultarDatajud({ termo, tribunal = 'trt2', size = 5 }) {
     const data = resp?.data ?? resp;
     const hits = data?.hits || data?.processos || [];
     return { termo, hits: Array.isArray(hits) ? hits : [] };
-  } catch (e) {
+  } catch {
     return { termo, erro: 'indisponível' };
   }
 }
@@ -153,7 +153,7 @@ export async function consultarCct({ pergunta, categoria, data_fato, municipio, 
     const resp = await base44.functions.invoke('cct', { pergunta, categoria, data_fato, municipio, uf, limite });
     const data = resp?.data ?? resp;
     return { pergunta, resultados: Array.isArray(data?.resultados) ? data.resultados : [], erro: data?.erro };
-  } catch (e) {
+  } catch {
     return { pergunta, resultados: [], erro: 'indisponível' };
   }
 }

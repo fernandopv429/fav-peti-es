@@ -50,7 +50,7 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   const notify = (msg) => {
     try {
       onTool?.(msg);
-    } catch (e) {
+    } catch {
       /* ignora */
     }
   };
@@ -313,7 +313,7 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
         diferencial: (m.diferencial || m.conteudo || m.resumo || '').slice(0, orcamento),
       }));
     }
-  } catch (e) {
+  } catch {
     /* segue sem referência */
   }
 

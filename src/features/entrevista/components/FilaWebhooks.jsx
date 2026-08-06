@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Inbox, Loader2, FileText, User, Building2, Clock, CheckCircle2 } from 'lucide-react';
+import { Inbox, Loader2, User, Building2, Clock, CheckCircle2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 // Fila de petições geradas automaticamente via webhook. Lista
