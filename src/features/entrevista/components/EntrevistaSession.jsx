@@ -106,7 +106,12 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   const [docHtml, setDocHtml] = useState('');
   const endRef = useRef(null);
 
-  const temTemplate = !!config?.template_docx_url;
+  // Template do caso aberto pela fila de webhooks (vem no evento). Quando
+  // ausente, cai no template padrão configurado.
+  const [templateCaso, setTemplateCaso] = useState(null);
+  const templateUrl = templateCaso?.url || config?.template_docx_url || '';
+  const templateNome = templateCaso?.nome || config?.template_docx_nome || '';
+  const temTemplate = !!templateUrl;
 
   useEffect(() => {
     base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
@@ -177,9 +182,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       // Preview a partir do próprio template .docx (fonte única)
       let html = '';
       let documentoTexto = '';
-      if (config?.template_docx_url) {
+      if (templateUrl) {
         try {
-          const esqueleto = await carregarEsqueletoTemplate(config.template_docx_url);
+          const esqueleto = await carregarEsqueletoTemplate(templateUrl);
           html = preencherEsqueleto(esqueleto, dados, { highlight: true });
           documentoTexto = textoDaPeca(esqueleto, dados);
         } catch (e) {
@@ -360,10 +365,13 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     Object.assign(dados, blocos);
     if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
     // Preview do template preenchido
+    // Cada evento traz o seu modelo — usa o do caso, não o padrão global.
+    const urlCaso = aj.modelo_docx_url || config?.template_docx_url || '';
+    setTemplateCaso(aj.modelo_docx_url ? { url: aj.modelo_docx_url, nome: aj.template_nome || 'modelo do evento' } : null);
     let html = '';
-    if (config?.template_docx_url) {
+    if (urlCaso) {
       try {
-        const esqueleto = await carregarEsqueletoTemplate(config.template_docx_url);
+        const esqueleto = await carregarEsqueletoTemplate(urlCaso);
         html = preencherEsqueleto(esqueleto, dados, { highlight: true });
       } catch (e) { console.error(e); }
     }
@@ -387,7 +395,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     if (!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting) return;
     setExporting(true);
     try {
-      await exportarDocxTemplate(config.template_docx_url, ultimaGeracao.dados, 'Petição inicial');
+      await exportarDocxTemplate(templateUrl, ultimaGeracao.dados, 'Petição inicial');
     } catch (err) {
       console.error(err);
       window.alert(`Não foi possível exportar o documento: ${err?.message || 'verifique o template .docx e as tags.'}`);
@@ -438,7 +446,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         <span className="text-xs text-[#5f6368]">Template .docx:</span>
         {temTemplate ? (
           <span className="text-xs font-medium text-[#0b8043] truncate max-w-[420px]">
-            {config.template_docx_nome || 'enviado'}
+            {templateNome || 'enviado'}
           </span>
         ) : (
           <Link to="/modelos-referencia" className="text-xs font-medium text-[#c5221f] hover:underline">
