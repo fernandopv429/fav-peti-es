@@ -195,7 +195,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => navigate("/catalogo")}
-            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary-ink text-sm font-bold hover:opacity-90 transition-opacity"
+            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary text-sm font-bold hover:opacity-90 transition-opacity"
           >
             <BookOpen className="w-4 h-4" strokeWidth={2.25} />
             Abrir catálogo
