@@ -189,7 +189,7 @@ export default function Home() {
         <div className="rounded-3xl bg-primary p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-bold text-primary-foreground">Não sabe por onde começar?</p>
-            <p className="text-primary-foreground/70 text-sm mt-0.5">
+            <p className="text-primary-foreground/85 text-sm mt-0.5">
               Escolha o especialista certo para o seu caso no catálogo.
             </p>
           </div>

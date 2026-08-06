@@ -66,7 +66,7 @@ export default function Sidebar({ onNavigate }) {
         </div>
         <div className="min-w-0 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
           <p className="font-bold text-sm whitespace-nowrap">FAV Petições</p>
-          <p className="text-[10px] text-white/50 whitespace-nowrap">Fernando Vieira Advogados</p>
+          <p className="text-[10px] text-white/70 whitespace-nowrap">Fernando Vieira Advogados</p>
         </div>
       </div>
 
@@ -76,7 +76,7 @@ export default function Sidebar({ onNavigate }) {
           <div key={section.group}>
             {/* O título do grupo só faz sentido quando há rótulos para agrupar */}
             <p
-              className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-2 px-1
+              className="text-[10px] font-bold uppercase tracking-widest text-white/65 mb-2 px-1
                          whitespace-nowrap h-3 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100
                          transition-opacity duration-200"
             >
