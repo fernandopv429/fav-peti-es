@@ -3,11 +3,10 @@ import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import {
   Download, Trash2, RotateCcw, Plus, Save, Upload,
-  ShieldCheck, Loader2, AlertTriangle, CheckCircle2, Clock, Calendar
+  ShieldCheck, Loader2, AlertTriangle, Clock, Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import RegrasAprendidas from "@/components/config/RegrasAprendidas.jsx";
-import { Badge } from "@/components/ui/badge";
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 

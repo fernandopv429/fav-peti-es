@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { BookOpen, Plus, Trash2, Search, Tag, ToggleLeft, ToggleRight, Loader2, Sparkles, ExternalLink, Link2, Bot, X, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { BookOpen, Plus, Trash2, Search, Tag, ToggleLeft, ToggleRight, Loader2, Sparkles, ExternalLink, Bot, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = {

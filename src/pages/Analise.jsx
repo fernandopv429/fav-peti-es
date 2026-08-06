@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, ComposedChart, Area,
 } from "recharts";
 import {
-  FileText, Clock, CheckCircle2, DollarSign, TrendingUp, TrendingDown,
+  FileText, Clock, CheckCircle2, DollarSign, TrendingUp,
   AlertTriangle, ArrowUpRight, ArrowDownRight, Minus, Users, AlertCircle,
   ExternalLink,
 } from "lucide-react";

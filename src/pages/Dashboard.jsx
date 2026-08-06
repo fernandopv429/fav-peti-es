@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import {
-  FileText, FilePlus, CheckCircle, TrendingUp, Scale, DollarSign,
-  AlertTriangle, PackageCheck, Clock, ArrowRight, Sparkles, Activity,
-  BarChart2, BookOpen, Zap, ChevronUp, ChevronDown, Calendar
+  FileText, TrendingUp, Scale, DollarSign,
+  AlertTriangle, PackageCheck, Clock, ArrowRight, Sparkles,
+  BarChart2, BookOpen, ChevronUp
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
+  PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
 import { Link } from "react-router-dom";
 import RecentPetitions from "../components/dashboard/RecentPetitions";

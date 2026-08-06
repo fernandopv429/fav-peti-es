@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
 import { FileText, Search, ArrowRight, Trash2, AlertTriangle, FileDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatarDataHora } from "@/lib/formatarData.js";
 

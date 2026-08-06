@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Home, BookOpen, Scale, X, LogOut, ChevronRight,
-  FilePlus, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck, BarChart2
+  Home, BookOpen, Scale, X, LogOut, ChevronRight, FileText, FolderOpen, BookMarked, Calculator, Shield, TrendingUp, ShieldCheck, BarChart2
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 

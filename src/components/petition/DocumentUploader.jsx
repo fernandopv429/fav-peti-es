@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { Upload, X, FileText, Loader2, FileIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Upload, X, Loader2, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 
 export default function DocumentUploader({ form, updateForm }) {
