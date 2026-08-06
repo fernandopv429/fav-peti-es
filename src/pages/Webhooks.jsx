@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Webhook, RefreshCw, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Webhook, RefreshCw, CheckCircle2, XCircle, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 const STATUS_CONFIG = {
   recebido: { label: 'Recebido', variant: 'secondary', icon: Clock, color: 'text-blue-600' },

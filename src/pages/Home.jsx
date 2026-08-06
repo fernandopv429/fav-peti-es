@@ -22,7 +22,7 @@ const AREA_ICONS = {
 };
 
 const TOOLS = [
-  { label: "Gerar por Entrevista",   icon: Wand2,      path: "/entrevista",           desc: "Agente entrevista e monta a peça" },
+  { label: "Entrevistas recebidas",  icon: Wand2,      path: "/entrevista",           desc: "Processar eventos e gerar a peça" },
   { label: "Calculadora de Verbas",  icon: Calculator, path: "/calculadora-verbas",   desc: "Rescisórias trabalhistas" },
   { label: "Defesa / Contestação",   icon: Shield,     path: "/defesa",               desc: "Contestação do empregador" },
   { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo",  desc: "Correção monetária e juros" },
@@ -82,7 +82,7 @@ export default function Home() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{saudacao(user?.full_name)}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              57 especialistas em 13 áreas do Direito, prontos para o seu caso.
+              As entrevistas chegam por webhook e viram peça aqui — o formulário fica no sistema de origem.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -91,7 +91,7 @@ export default function Home() {
               className="hidden sm:inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold card-soft hover:opacity-90 transition-opacity"
             >
               <Wand2 className="w-4 h-4" />
-              Nova Petição
+              Entrevistas recebidas
             </button>
             <div
               title={user?.full_name || ""}

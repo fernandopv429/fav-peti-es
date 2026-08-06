@@ -47,8 +47,8 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
           <div className="text-center py-10">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">Nenhuma petição ainda.</p>
-            <Link to="/nova-peticao" className="text-sm text-primary font-medium hover:underline mt-1 inline-block">
-              Criar a primeira
+            <Link to="/webhooks" className="text-sm text-primary font-medium hover:underline mt-1 inline-block">
+              Ver eventos recebidos
             </Link>
           </div>
         ) : (
