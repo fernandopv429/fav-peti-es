@@ -26,7 +26,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
         <Link
           to="/peticoes"
           aria-label="Buscar em todas as petições"
-          className="w-9 h-9 rounded-full bg-card card-soft flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+          className="w-9 h-9 rounded-full bg-card card-soft flex items-center justify-center text-muted-foreground hover:text-primary-ink transition-colors"
         >
           <Search className="w-4 h-4" strokeWidth={2.25} />
         </Link>
@@ -47,7 +47,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
           <div className="text-center py-10">
             <FileText className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" strokeWidth={2.25} />
             <p className="text-sm text-muted-foreground">Nenhuma petição ainda.</p>
-            <Link to="/webhooks" className="text-sm text-primary font-medium hover:underline mt-1 inline-block">
+            <Link to="/webhooks" className="text-sm text-primary-ink font-medium hover:underline mt-1 inline-block">
               Ver eventos recebidos
             </Link>
           </div>
@@ -62,7 +62,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
                   className="flex items-center gap-3 p-2 rounded-2xl hover:bg-card transition-colors group"
                 >
                   <div className="w-10 h-10 shrink-0 rounded-full bg-card card-soft flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-primary" strokeWidth={2.25} />
+                    <FileText className="w-4 h-4 text-primary-ink" strokeWidth={2.25} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground truncate leading-tight">
@@ -100,7 +100,7 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
               </p>
               <Link
                 to="/peticoes"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:gap-3 transition-all"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-primary-ink hover:gap-3 transition-all"
               >
                 Revisar agora
                 <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">

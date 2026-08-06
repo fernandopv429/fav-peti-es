@@ -67,7 +67,7 @@ export default function Home() {
   });
 
   const resumo = [
-    { label: "Petições",      value: petitions.length,                                                  icon: FileText,      tone: "text-primary",     bg: "bg-primary/10",     to: "/peticoes" },
+    { label: "Petições",      value: petitions.length,                                                  icon: FileText,      tone: "text-primary-ink",     bg: "bg-primary/10",     to: "/peticoes" },
     { label: "Em revisão",   value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
     { label: "Prontas",      value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success",    bg: "bg-success/10",     to: "/peticoes" },
     { label: "Especialistas", value: especialistas.length,                                            icon: Users,         tone: "text-accent",      bg: "bg-accent/10",      to: "/catalogo" },
@@ -95,7 +95,7 @@ export default function Home() {
             </button>
             <div
               title={user?.full_name || ""}
-              className="w-11 h-11 rounded-2xl bg-card card-soft flex items-center justify-center text-sm font-bold text-primary"
+              className="w-11 h-11 rounded-2xl bg-card card-soft flex items-center justify-center text-sm font-bold text-primary-ink"
             >
               {iniciais(user?.full_name)}
             </div>
@@ -114,7 +114,7 @@ export default function Home() {
                 <div className={`w-10 h-10 rounded-2xl ${s.bg} flex items-center justify-center`}>
                   <s.icon className={`w-5 h-5 ${s.tone}`} strokeWidth={2.25} />
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" strokeWidth={2.25} />
+                <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary-ink transition-colors" strokeWidth={2.25} />
               </div>
               <p className="text-2xl font-bold text-foreground mt-4 leading-none">
                 {loadingPet || loadingEsp ? "—" : s.value}
@@ -141,7 +141,7 @@ export default function Home() {
                 </div>
                 <p className="font-semibold text-sm text-foreground">{t.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5 pr-6">{t.desc}</p>
-                <ArrowRight className="absolute bottom-5 right-5 w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" strokeWidth={2.25} />
+                <ArrowRight className="absolute bottom-5 right-5 w-4 h-4 text-muted-foreground/40 group-hover:text-primary-ink transition-colors" strokeWidth={2.25} />
               </button>
             ))}
           </div>
@@ -155,7 +155,7 @@ export default function Home() {
             </h2>
             <button
               onClick={() => navigate("/catalogo")}
-              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+              className="text-xs font-semibold text-primary-ink hover:underline flex items-center gap-1"
             >
               Ver catálogo <ArrowRight className="w-3 h-3" strokeWidth={2.25} />
             </button>
@@ -176,7 +176,7 @@ export default function Home() {
                 >
                   <span className="text-2xl block mb-2">{AREA_ICONS[area] || "⚖️"}</span>
                   <p className="text-xs font-semibold text-foreground leading-tight">{area}</p>
-                  <p className="text-[11px] text-primary font-medium mt-1">
+                  <p className="text-[11px] text-primary-ink font-medium mt-1">
                     {countByArea[area] || 0} especialistas
                   </p>
                 </button>
@@ -195,7 +195,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => navigate("/catalogo")}
-            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary text-sm font-bold hover:opacity-90 transition-opacity"
+            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary-ink text-sm font-bold hover:opacity-90 transition-opacity"
           >
             <BookOpen className="w-4 h-4" strokeWidth={2.25} />
             Abrir catálogo

@@ -28,6 +28,9 @@
     --popover-foreground: 224 15% 14%;
     --primary: 19 100% 51%;
     --primary-foreground: 224 15% 14%;
+    /* Laranja de TEXTO sobre superficie clara: o vivo da marca da 3.2:1 e
+       reprova AA, entao links e rotulos usam este tom fechado (5.1:1). */
+    --primary-ink: 19 92% 35%;
     --secondary: 24 30% 94%;
     --secondary-foreground: 224 15% 20%;
     --muted: 25 20% 95%;
@@ -67,6 +70,7 @@
     --popover-foreground: 30 15% 95%;
     --primary: 19 100% 56%;
     --primary-foreground: 224 15% 12%;
+    --primary-ink: 19 100% 66%;
     --secondary: 224 13% 20%;
     --secondary-foreground: 30 15% 95%;
     --muted: 224 13% 20%;
