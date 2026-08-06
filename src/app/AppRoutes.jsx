@@ -9,7 +9,7 @@ import Catalogo from "@/pages/Catalogo";
 import NewPetition from "@/pages/NewPetition";
 import PetitionsList from "@/pages/PetitionsList";
 import PetitionView from "@/pages/PetitionView";
-import Templates from "@/pages/Templates";
+import Modelos from "@/pages/Modelos";
 import Precedents from "@/pages/Precedents";
 import CalculadoraVerbas from "@/pages/CalculadoraVerbas";
 import Defesa from "@/pages/Defesa";
@@ -17,7 +17,6 @@ import AtualizacaoCalculo from "@/pages/AtualizacaoCalculo";
 import BackupRestauracao from "@/pages/BackupRestauracao";
 import Analise from "@/pages/Analise";
 import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
-import ModelosReferencia from "@/pages/ModelosReferencia";
 import Webhooks from "@/pages/Webhooks";
 import NotFound from "@/pages/NotFound";
 
@@ -58,13 +57,14 @@ export default function AppRoutes() {
 
         {/* Petições */}
         <Route path="/entrevista" element={<GerarPorEntrevista />} />
-        <Route path="/modelos-referencia" element={<ModelosReferencia />} />
         {/* Aposentada: sem entrada no menu, mantida acessível por URL para comparação
             com /entrevista. Remover quando a entrevista estiver validada. */}
         <Route path="/nova-peticao" element={<NewPetition />} />
         <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
-        <Route path="/modelos" element={<Templates />} />
+        <Route path="/modelos" element={<Modelos />} />
+        {/* Rota antiga: cai na mesma página unificada */}
+        <Route path="/modelos-referencia" element={<Modelos />} />
         <Route path="/precedentes" element={<Precedents />} />
 
         {/* Ferramentas trabalhistas */}

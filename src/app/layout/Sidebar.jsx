@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Scale, LogOut, FileText, FolderOpen, BookMarked,
-  Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook, Settings,
+  Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -37,7 +37,6 @@ const NAV = [
     group: "Ferramentas",
     items: [
       { label: "Painel / Análise", icon: BarChart2, path: "/analise" },
-      { label: "Configurações e Referências", icon: Settings, path: "/modelos-referencia" },
       { label: "Webhooks", icon: Webhook, path: "/webhooks" },
       { label: "Backup e Restauração", icon: ShieldCheck, path: "/backup" },
     ],
