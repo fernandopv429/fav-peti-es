@@ -764,8 +764,10 @@ export async function gerarPecaPadrao({ texto, fileUrls, attrs, modeloPadrao, on
     }
   }
 
-  // Cálculo 100% determinístico (a IA não faz aritmética).
-  const calculos = calcularVerbasCaso(caso || {});
+  // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
+  // consultada para corrigir cláusula/percentual de desvio/acúmulo/
+  // gratificação pela categoria real do caso (vigilância/asseio/terceirizados).
+  const calculos = calcularVerbasCaso(caso || {}, dadosCct);
 
   // Seleciona os modelos de referência mais semelhantes (matching determinístico,
   // por atributos estruturados) — até 3, desde que tenham pontuação > 0. Usar mais
