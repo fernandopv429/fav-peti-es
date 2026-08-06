@@ -48,6 +48,14 @@ export default async function(req) {
       ? (ativos || []).find((t) => t.id === idInformado) || null
       : resolverTemplatePorNome(nomeInformado, ativos);
 
+    // Os dois dialetos de template convivem no app e NAO sao compativeis:
+    //   - entrevista/IA : {{BLOCO_*}} + {{VALOR_*}}  (este pipeline)
+    //   - legado        : {{P01}}..{{P87}} + texto juridico fixo (NewPetition)
+    // Preencher um com os dados do outro gera peca cheia de token cru sem o
+    // docxtemplater reclamar. Marcamos a suspeita em vez de falhar, porque um
+    // modelo legado pode ganhar os BLOCO_* depois (basta marcar a tag).
+    const ehDialetoEntrevista = (t) => Array.isArray(t?.tags) && t.tags.includes('blocos');
+
     if (!petitionTemplate) {
       const msg = idInformado
         ? `template_id "${idInformado}" nao corresponde a nenhum PetitionTemplate ativo`
@@ -195,18 +203,89 @@ export default async function(req) {
       },
     });
 
+    // 8b) Espelha em Petition para a peca aparecer em "Minhas Peticoes" e
+    // entrar no fluxo de revisao que o app ja tem.
+    const dialetoOk = ehDialetoEntrevista(petitionTemplate);
+    const avisos = [];
+    if (!dialetoOk) {
+      avisos.push(
+        `O modelo "${petitionTemplate.name}" nao esta marcado como dialeto de entrevista ` +
+        `(tag "blocos"). Se ele usa P01..P87, a peca sairia com tokens crus.`
+      );
+    }
+    if (redacaoErro) avisos.push(`Redacao por IA: ${redacaoErro}`);
+
+    const ORDEM_BLOCOS = [
+      ['BLOCO_ESPINHA_RESCISAO', 'DA MODALIDADE DE RESCISAO'],
+      ['BLOCO_JORNADA', 'DA JORNADA DE TRABALHO'],
+      ['BLOCO_ENQUADRAMENTO', 'DO ENQUADRAMENTO FUNCIONAL'],
+      ['BLOCO_INSALUBRIDADE', 'DA INSALUBRIDADE'],
+      ['BLOCO_DANO_MORAL', 'DO DANO MORAL'],
+      ['BLOCO_SUMULA_331', 'DA RESPONSABILIDADE SUBSIDIARIA'],
+      ['BLOCO_MULTAS_CONVENCIONAIS', 'DAS MULTAS CONVENCIONAIS'],
+    ];
+    const textoRedigido = ORDEM_BLOCOS
+      .filter(([k]) => blocos?.[k] && String(blocos[k]).trim())
+      .map(([k, titulo]) => `${titulo}\n\n${String(blocos[k]).trim()}`)
+      .join('\n\n');
+
+    const totalCausa = (calculos || [])
+      .filter((c) => Number(c?.valor) > 0)
+      .reduce((acc, c) => acc + Number(c.valor), 0);
+
+    let petitionId = null;
+    try {
+      const petition = await base44.asServiceRole.entities.Petition.create({
+        title: `${caso.recl_nome || 'Reclamante'} x ${caso.recl1_nome || 'Reclamada'}`.slice(0, 200),
+        case_type: 'trabalhista',
+        claimant_name: caso.recl_nome || 'A PREENCHER',
+        defendant_name: caso.recl1_nome || 'A PREENCHER',
+        claimant_cpf: caso.recl_cpf || undefined,
+        claimant_rg: caso.recl_rg || undefined,
+        claimant_pis: caso.recl_pis || undefined,
+        claimant_ctps: caso.recl_ctps || undefined,
+        claimant_address: caso.recl_endereco || undefined,
+        claimant_role: caso.funcao || undefined,
+        defendant_cnpj: caso.recl1_cnpj || undefined,
+        defendant_address: caso.recl1_logradouro || undefined,
+        contract_start: caso.data_admissao || undefined,
+        contract_end: caso.data_rescisao || undefined,
+        salary: Number(caso.salario) || undefined,
+        work_schedule: caso.jornada_horario || caso.escala || undefined,
+        jurisdiction: caso.comarca_uf || undefined,
+        estimated_value: totalCausa > 0 ? totalCausa : undefined,
+        template_used: templateId || undefined,
+        generated_content: textoRedigido || undefined,
+        additional_facts: avisos.length ? avisos.join(' | ') : undefined,
+        // Sem dialeto confirmado ou com falha de redacao nao afirmamos que
+        // esta pronta: vai para revisao explicita.
+        status: (dialetoOk && !redacaoErro) ? 'concluida' : 'revisao_necessaria',
+      });
+      petitionId = petition.id;
+      await base44.asServiceRole.entities.CasoTrabalhista.update(casoRecord.id, {
+        analise_json: { ...(casoRecord.analise_json || {}), petition_id: petitionId },
+      });
+    } catch (e) {
+      avisos.push(`Falha ao criar a Petition: ${e?.message || e}`);
+    }
+
     // 9) Marca o evento como processado
     await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
       status: 'processado',
       processado_em: new Date().toISOString(),
+      erro_mensagem: avisos.length ? avisos.join(' | ') : undefined,
     });
 
     return Response.json({
       ok: true,
       caso_id: casoRecord.id,
+      petition_id: petitionId,
+      template: petitionTemplate.name,
+      dialeto_entrevista: dialetoOk,
       blocos_redigidos: Object.keys(blocos).length,
       especialistas: especialistasUsados,
       calculos: (calculos || []).filter((c) => c.valor != null).length,
+      avisos,
     });
   } catch (error) {
     return Response.json({ error: error.message || 'erro interno' }, { status: 500 });
