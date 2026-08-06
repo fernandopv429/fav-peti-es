@@ -1,0 +1,303 @@
+// ============================================================
+// Extração determinística (regex) dos campos básicos da entrevista.
+// Usada como FALLBACK quando o parser da IA devolve o caso vazio —
+// garante que nome, CPF, RG, datas, salário, CNPJs etc. preencham o
+// template mesmo se a IA falhar ou devolver embrulhado.
+// A IA continua prioritária; isto só preenche lacunas.
+// ============================================================
+
+const ehVazio = (v) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+
+function limparDigitos(s) {
+  return String(s || '').replace(/\D/g, '');
+}
+
+// Converte "14/04/2025" -> "2025-04-14"
+function paraIsoData(s) {
+  const m = /(\d{2})\/(\d{2})\/(\d{4})/.exec(String(s || ''));
+  if (!m) return undefined;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function comoNumero(s) {
+  const limpo = String(s || '').replace(/R\$\s*/gi, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  const n = parseFloat(limpo);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function matchAny(texto, padroes) {
+  const lista = Array.isArray(padroes) ? padroes : [padroes];
+  for (const re of lista) {
+    const m = re.exec(texto);
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
+const ESTADOS_CIVIS = /^(solteir[oa]|casad[oa]?|divorciad[oa]|separad[oa]|vi[úu]v[oa]?|un[ií]ão\s+est[áa]vel)$/i;
+
+// Rótulos de entrevista separados por espaços (não newlines). Sem isto, regexes
+// que capturam [^\n]+ engolem rótulos subsequentes (ex.: "Jornada: 5x2 ... HORAS
+// EXTRAS: ... GRATIFICAÇÃO: ..."), vazando texto bruto da entrevista no template.
+// Aceita 1+ espaço antes do rótulo (pdfjs pode gerar apenas 1 espaço entre rótulos
+// na mesma linha) — o padrão anterior exigia 2+, falhando com o formato real do PDF.
+const ROTULOS = /(?:\s+|\n)(?:Admiss|Jornada|Sal[áa]|Remunera|DANO|GRATIFICA|AC[ÚU]MULO|HORAS|RESUMO|TEMPO|Sem\s+JUSTA|RESOLU|ENDERE|CNPJ|DATA|INTERVALO|INTRA|PERICUL|INSALUB|RITO|COMARCA|RECLAMAD|FOLGAS|VALE|AUX[ÍI]LIO|PIS|CTPS|RG\b|CPF|NASC|FILIA|RESID|DOMICIL|ESCALA|INTRAJORNADA|CARGO|FUN[ÇC][ÃA]O|DIREITOS|ESTADO\s+CIVIL|NACIONALIDADE|TIPO|RESOLU|S[ée]rie|Assinado\s+digitalmente)/i;
+function cortarAteRotulo(texto) {
+  return String(texto || '').split(ROTULOS)[0].replace(/[.,;\s]+$/, '').trim();
+}
+
+export function extrairDeterministico(texto) {
+  if (!texto || !texto.trim()) return {};
+  const t = texto;
+  const caso = {};
+
+  // Nome do reclamante — texto antes de "brasileiro(a)" ou "nascido em".
+  // O PDF padronizado insere "nascido em DD/MM/YYYY" entre o nome e
+  // "brasileiro(a)", quebrando o regex anterior. Aceita ambos os formatos.
+  const nome = matchAny(t, [
+    /(?:^|\n)\s*([A-ZÀ-Ý][A-ZÀ-Ýa-zà-ÿ\s]+?),\s*nascid[oa]\s+em\s*\d{2}\/\d{2}\/\d{4}/,
+    /(?:^|\n)\s*([A-ZÀ-Ý][A-ZÀ-Ýa-zà-ÿ\s]+?),\s*brasileir[oa]/,
+    /(?:^|\n)\s*([A-ZÀ-Ý][A-ZÀ-Ýa-zà-ÿ\s]+?),\s*portador/,
+  ]);
+  if (nome) caso.recl_nome = nome.trim();
+
+  // Estado civil — após "brasileiro(a)," vem o estado civil
+  const estCiv = matchAny(t, /brasileir[oa](?:\s*\(a\))?\s*,\s*([a-zçãáéíóú]+),/i);
+  if (estCiv) caso.recl_estado_civil = estCiv.trim().toLowerCase();
+
+  // CPF — primeiro CPF formatado da entrevista (do reclamante)
+  const cpfMatch = /\b(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})\b/.exec(t);
+  if (cpfMatch) caso.recl_cpf = limparDigitos(cpfMatch[1]);
+
+  // RG
+  const rg = matchAny(t, /RG[:\s]*(?:n[ºo]?\.?\s*)?(\d+)/i);
+  if (rg) caso.recl_rg = limparDigitos(rg);
+
+  // PIS
+  const pis = matchAny(t, /PIS[:\s]*(?:n[ºo]?\.?\s*)?([\d.-]+)/i);
+  if (pis) caso.recl_pis = limparDigitos(pis);
+
+  // CTPS e Série (separados)
+  const ctps = matchAny(t, /CTPS[:\s]*(?:n[ºo]?\.?\s*)?(\d+)/i);
+  if (ctps) caso.recl_ctps = limparDigitos(ctps);
+  // "n[ºo]?" opcional: entrevistas costumam escrever "serie: 25795" sem o "nº",
+  // e a versão anterior desta regex exigia o "n" literal — nunca casava nesse formato
+  // e o RECL_SERIE saía como "[SÉRIE]" (colchete não preenchido) na minuta final.
+  const serie = matchAny(t, /s[ée]rie[:\s]*(?:n[ºo]?\.?\s*)?(\d+)/i);
+  if (serie) caso.recl_serie = limparDigitos(serie);
+
+  // Nascimento
+  const nasc = matchAny(t, /nascid[oa]\s+em\s*(\d{2}\/\d{2}\/\d{4})/i);
+  if (nasc) caso.recl_nascimento = paraIsoData(nasc);
+
+  // Filiação
+  const fil = matchAny(t, /filh[oa]\s+de\s+(.+?)(?:,\s*residente|,\s*com\s*correio|,\s*domiciliad)/i);
+  if (fil) caso.recl_filiacao = fil.trim();
+
+  // Endereço do reclamante — entre "residente e domiciliado na" e ", com correio"
+  // (inclui o CEP no endereço). Fallback: até "CEP" se não houver "com correio".
+  const end = matchAny(t, [
+    /(?:residente|domiciliad[oa])\s+(?:e\s*domiciliad[oa]\s+)?n[ao]\s*(.+?)(?:,\s*com\s*correio)/i,
+    /(?:residente|domiciliad[oa])\s+(?:e\s*domiciliad[oa]\s+)?n[ao]\s*(.+?)(?:\s+CEP|\n|$)/i,
+  ]);
+  if (end) caso.recl_endereco = end.replace(/[,\s]+$/, '').trim();
+
+  // Função — texto após "FUNÇÃO:" ou "CARGO:" até o próximo rótulo.
+  // O PDF padronizado usa "CARGO:" em vez de "FUNÇÃO:".
+  const funcMatch = /(?:FUN[ÇC][ÃA]O|CARGO)[:\s]*([^\n]+)/i.exec(t);
+  if (funcMatch) {
+    const funcText = cortarAteRotulo(funcMatch[1]);
+    if (funcText && !ESTADOS_CIVIS.test(funcText)) caso.funcao = funcText;
+  }
+  if (!caso.funcao) {
+    const func2 = matchAny(t, /,\s*([A-ZÀ-Ýa-zà-ÿ]{4,}),\s*portador/i);
+    if (func2 && !ESTADOS_CIVIS.test(func2.trim())) caso.funcao = func2.trim();
+  }
+
+  // CNPJs — reclamadas (formato XX.XXX.XXX/XXXX-XX)
+  const cnpjs = [...t.matchAll(/\b(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/g)].map((m) => limparDigitos(m[1])).filter((d) => d.length === 14);
+  if (cnpjs[0]) caso.recl1_cnpj = cnpjs[0];
+  if (cnpjs[1]) caso.recl2_cnpj = cnpjs[1];
+
+  // Nomes das reclamadas — após "1ª RECLAMADA:" / "2ª RECLAMADA:" até "CNPJ"
+  const r1 = matchAny(t, /1[ªa]\s*RECLAMADA[:\s]*\n?\s*(.+?)(?:CNPJ|$)/i);
+  if (r1) caso.recl1_nome = r1.split(/,\s*devidamente/i)[0].trim();
+  const r2 = matchAny(t, /2[ªa]\s*RECLAMADA[:\s]*\n?\s*(.+?)(?:CNPJ|$)/i);
+  if (r2) caso.recl2_nome = r2.split(/,\s*devidamente/i)[0].trim();
+
+  // Endereços das reclamadas (após "ENDEREÇO:") — 1ª e 2ª ocorrência.
+  // Essencial p/ a competência: sem o endereço da tomadora (recl2), o template
+  // vazava a residência do reclamante como local de prestação.
+  const endsLog = [...t.matchAll(/ENDERE[ÇC]O[:\s]*([^\n]+)/gi)].map((m) => cortarAteRotulo(m[1]).trim());
+  if (endsLog[0]) caso.recl1_logradouro = endsLog[0];
+  if (endsLog[1]) caso.recl2_logradouro = endsLog[1];
+
+  // E-mail pessoal do reclamante. Robusto a roteiros diferentes de entrevista:
+  // tenta rótulos comuns (correio eletrônico / e-mail / email) e, se não houver,
+  // varre o texto inteiro por e-mails, excluindo o domínio do escritório —
+  // fica com o primeiro e-mail pessoal (não corporativo). Sem isto, a minuta
+  // dizia "O autor não possui correio eletrônico" mesmo com o e-mail na entrevista.
+  const OFFICE_DOM = /favadvogados|@advogados\b|juridico@/i;
+  function extrairEmailPessoal(texto) {
+    const labelMatch = /\b(?:correio\s*eletr[ôo]nico|e-?mail|correio)\s*[:=]\s*([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i.exec(texto);
+    if (labelMatch && !OFFICE_DOM.test(labelMatch[1])) return labelMatch[1].trim().toLowerCase();
+    const todos = [...texto.matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)].map((m) => m[0]);
+    const pessoais = todos.filter((e) => !OFFICE_DOM.test(e));
+    const alvo = pessoais[0];
+    return alvo ? alvo.trim().toLowerCase() : undefined;
+  }
+  const emailPessoal = extrairEmailPessoal(t);
+  if (emailPessoal) caso.recl_email = emailPessoal;
+
+  // Datas de admissão e rescisão — múltiplas fontes:
+  // - "TEMPO LABORADO: DD/MM/YYYY - DD/MM/YYYY" (PDF padronizado)
+  // - "Admissão: DD/MM/YYYY" + "Sem JUSTA CAUSA: DD/MM/YYYY" (texto livre)
+  const tempoMatch = /TEMPO\s+LABORADO[:\s]*(\d{2}\/\d{2}\/\d{4})\s*[-–—]\s*(\d{2}\/\d{2}\/\d{4})/i.exec(t);
+  if (tempoMatch) {
+    caso.data_admissao = paraIsoData(tempoMatch[1]);
+    caso.data_rescisao = paraIsoData(tempoMatch[2]);
+  }
+  const adm = matchAny(t, /Admiss[ãa]o[:\s]*(\d{2}\/\d{2}\/\d{4})/i);
+  if (adm && !caso.data_admissao) caso.data_admissao = paraIsoData(adm);
+  const res = matchAny(t, [/(?:Sem\s*JUSTA\s*CAUSA|Rescis[ãa]o|Dispensa)[:\s]*(\d{2}\/\d{2}\/\d{4})/i]);
+  if (res && !caso.data_rescisao) caso.data_rescisao = paraIsoData(res);
+
+  // Salário — tenta múltiplos rótulos comuns em roteiros de entrevista.
+  // Sem isto, "REMUNERAÇÃO: R$ 2.148,22" ou "Salário: 2148,22" sem "R$"
+  // não eram capturados → TODOS os cálculos rescisórios ficavam zerados.
+  const sal = matchAny(t, [
+    /Sal[áa]rio[:\s]*(?:R\$\s*)?([\d.,]+)/i,
+    /Remunera[çc][ãa]o[:\s]*(?:mensal\s*)?(?:R\$\s*)?([\d.,]+)/i,
+    /Sal[áa]rio\s+(?:base|contratual)[:\s]*(?:R\$\s*)?([\d.,]+)/i,
+    /[ÚU]ltimo\s+sal[áa]rio[:\s]*(?:R\$\s*)?([\d.,]+)/i,
+  ]);
+  if (sal) {
+    const n = comoNumero(sal);
+    if (n != null) caso.salario = n;
+  }
+
+  // Maior remuneração (base do dano moral 10x) — se não informada, usa salário
+  const maiorRem = matchAny(t, [
+    /Maior\s+remunera[çc][ãa]o[:\s]*(?:R\$\s*)?([\d.,]+)/i,
+    /Maior\s+sal[áa]rio[:\s]*(?:R\$\s*)?([\d.,]+)/i,
+  ]);
+  if (maiorRem) {
+    const n = comoNumero(maiorRem);
+    if (n != null) caso.maior_remuneracao = n;
+  }
+
+  // Jornada / escala — captura até o próximo rótulo (ex.: HORAS EXTRAS:).
+  // O PDF padronizado usa "ESCALA/HORARIO:" em vez de "Jornada:".
+  const jornadaMatch = /(?:Jornada|ESCALA\s*\/?\s*HOR[ÁA]RIO)[:\s]*([^\n]+)/i.exec(t);
+  if (jornadaMatch) caso.jornada_horario = cortarAteRotulo(jornadaMatch[1]);
+  const escalaMatch = matchAny(t, /(\d+\s*x\s*\d+)/i);
+  if (escalaMatch) caso.escala = escalaMatch.replace(/\s+/g, '').toLowerCase();
+
+  // Intervalo intrajornada
+  const intervaloMatch = /(?:Intrajornada|Intervalo)[:\s]*([^\n]+)/i.exec(t);
+  if (intervaloMatch) caso.intervalo_usufruido = cortarAteRotulo(intervaloMatch[1]);
+
+  // Prorrogação de jornada (horas extras antecedentes/sucedentes) — corta no
+  // próximo rótulo para não engolir "GRATIFICAÇÃO:", "ACÚMULO:" etc.
+  const heMatch = /HORAS\s+EXTRAS[:\s]*([^\n]+)/i.exec(t);
+  if (heMatch) caso.prorrogacao_jornada = cortarAteRotulo(heMatch[1]);
+
+  // Folgas trabalhadas — quantidade (média da faixa) e valor
+  const folgaFaixa = /FOLGAS\s*LABORADAS[:\s]*(\d+)\s*a\s*(\d+)/i.exec(t);
+  if (folgaFaixa) {
+    caso.ft_qtd_media = (Number(folgaFaixa[1]) + Number(folgaFaixa[2])) / 2;
+    caso.tem_ft = true;
+  }
+  // Valor das folgas — última ocorrência "FOLGAS LABORADAS:" com valor numérico
+  const folgasValores = [...t.matchAll(/FOLGAS\s*LABORADAS[:\s]*([\d.,]+)/gi)].map((m) => m[1]);
+  if (folgasValores.length) {
+    const v = comoNumero(folgasValores[folgasValores.length - 1]);
+    if (v != null) {
+      caso.val_ft = v;
+      caso.tem_ft = true;
+      if (/pix|dinheiro/i.test(t)) {
+        caso.tem_integracao_por_fora = true;
+        caso.valor_por_fora = v;
+      }
+    }
+  }
+
+  // Desvio de função
+  if (/desvio\s*de\s*fun[çc][ãa]o/i.test(t)) {
+    caso.tem_desvio = true;
+    const desvio = matchAny(t, /desvio\s*DE\s*FUN[ÇC][ÃA]O[:\s]*\n?(.+?)(?:\n\n|DANO\s|MORAL|$)/i);
+    if (desvio) caso.desvio_atividades = desvio.trim();
+  }
+  // Acúmulo de função — só ativa quando a entrevista menciona "acúmulo" explicitamente
+  // e como fato DISTINTO do desvio de função. "Prevenção de perdas" já é capturada acima
+  // como desvio_atividades; incluí-la também aqui disparava tem_acumulo=true para o MESMO
+  // fato, mas sem preencher acumulo_atividades (bloqueado pelo `if (!caso.desvio_atividades)`
+  // logo abaixo), gerando uma tese "DO ACÚMULO DE FUNÇÃO" na minuta com o campo de atividades
+  // em branco ("atividades de ,") e um pedido de multa de 20% duplicado sobre o mesmo fato
+  // já coberto pela multa de 50% do desvio de função.
+  if (/ac[úu]mulo\s*de\s*fun[çc][ãa]o/i.test(t) && !caso.desvio_atividades) {
+    caso.tem_acumulo = true;
+    const ac = matchAny(t, /ac[úu]mulo\s*(?:DE\s*FUN[ÇC][ÃA]O)?[:\s]*\n?(.+?)(?:\n\n|DANO\s|MORAL|$)/i);
+    if (ac) caso.acumulo_atividades = ac.trim();
+  }
+
+  // Tipo de dispensa
+  if (/sem\s*justa\s*causa/i.test(t)) caso.tipo_dispensa = 'sem_justa_causa';
+  else if (/rescis[ãa]o\s*indireta/i.test(t)) caso.tipo_dispensa = 'rescisao_indireta';
+  else if (/pedido\s*de\s*demiss[ãa]o/i.test(t)) caso.tipo_dispensa = 'nulidade_pedido_demissao';
+
+  // Dano moral / fatos narrados — trata três formatos:
+  // 1. "DANO MORAL / DIREITOS LESADOS:" (roteiro texto livre)
+  // 2. "DANO MORAL:" (roteiro antigo)
+  // 3. "FATOS NARRADOS PELO RECLAMANTE" (PDF padronizado — seção final)
+  // O PDF não tem o rótulo "DANO MORAL"; os fatos do dano estão na seção
+  // de fatos narrados, que pode conter desconto indevido, insalubridade etc.
+  if (/dano\s*moral/i.test(t) || /fatos\s+narrados/i.test(t)) {
+    caso.tem_dano_moral = true;
+    const dano = matchAny(t, [
+      /FATOS\s+NARRADOS\s+PELO\s+RECLAMANTE\s*\n+([\s\S]+)/i,
+      /DANO\s*MORAL\s*\/\s*DIREITOS\s+LESADOS[:\s]*([^\n]+)/i,
+      /DANO\s*MORAL[:\s]*\n?(.+?)(?:\n\n|$)/i,
+    ]);
+    if (dano) caso.dano_fatos = dano.trim();
+  }
+
+  // Gratificação de função (bnus de meta/bonificao) — valor fixo mensal
+  if (/gratifica[çc][ãa]o/i.test(t)) {
+    caso.tem_gratificacao = true;
+    // Gratificação: aceita texto entre o rótulo e o valor (ex.: "Bônus de meta de aproximadamente R$ 125,00")
+    const gratMatch = /GRATIFICA[ÇC][ÃA]O[\s\S]{0,60}?R\$\s*([\d.,]+)/i.exec(t);
+    if (gratMatch) {
+      const v = comoNumero(gratMatch[1]);
+      if (v != null && v > 0) caso.gratificacao_valor = v;
+    }
+  }
+
+  // Insalubridade — ambiente insalubre, odor, EPI inadequado
+  if (/insalubr/i.test(t) || /ambient[ei]\s+insalubr|odor\s+(?:de|proveniente)|EPIs?\s+inadequad/i.test(t)) {
+    caso.tem_insalubridade = true;
+    const insMatch = /(?:INSALUBRIDADE|AMBIENTE\s+INSALUBRE)[:\s]*([^\n]+)/i.exec(t);
+    if (insMatch) caso.insalubridade_descricao = cortarAteRotulo(insMatch[1]);
+    else if (/ambiente\s+de\s+trabalho\s+insalubre/i.test(t)) {
+      // Extrai o texto específico após "ambiente de trabalho insalubre" —
+      // capta odor, EPIs inadequados etc. (comum na seção de dano moral).
+      const ctx = /ambiente\s+de\s+trabalho\s+insalubre\s+(.+?)(?:\.\s*$|$)/i.exec(t);
+      caso.insalubridade_descricao = ctx
+        ? `Ambiente de trabalho insalubre ${ctx[1].trim().replace(/\.$/, '')}`
+        : 'Ambiente de trabalho insalubre com odor e sem EPIs adequados.';
+    } else if (/odor|EPI/i.test(t)) caso.insalubridade_descricao = 'Ambiente de trabalho insalubre com odor e sem EPIs adequados.';
+  }
+
+  // Vigilante -> periculosidade
+  if (/vigilante|vigil[âa]ncia/i.test(caso.funcao || t)) caso.tem_periculosidade = true;
+
+  // Noturno (jornada noturna: 22h–05h). O regex anterior aceitava 0[0-7], que
+  // casava "07:00" (início do diurno) e ativava noturno indevidamente para
+  // jornadas 07:00-17:00. Agora só 22h–05h é considerado noturno.
+  const horario = caso.jornada_horario || '';
+  if (/(?:2[2-3]|0[0-5])\s*[:h]/i.test(horario)) {
+    caso.tem_adic_noturno = true;
+  }
+
+  return caso;
+}
