@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Home, BookOpen, Scale, LogOut, FileText, FolderOpen, BookMarked,
   Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook,
-  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -49,13 +48,9 @@ const NAV = [
 const STROKE = 2.25;
 
 /**
- * Menu lateral em pílula flutuante, no estilo da referência: superfície navy,
- * ícones laranja de traço grosso e sem chip de fundo. Só o item ativo ganha
- * bloco laranja com o ícone em navy — o mesmo contraste que a referência usa
- * no hero (texto navy sobre laranja).
- *
- * No desktop fica estreito (só ícones) e expande no hover para mostrar os
- * rótulos — por isso todo texto usa `lg:opacity-0 lg:group-hover:opacity-100`.
+ * Menu lateral em pílula estreita: apenas ícones, sem rótulos. O nome de cada
+ * destino fica no `title`/`aria-label` (tooltip nativo + leitores de tela).
+ * Só o item ativo ganha bloco laranja com o ícone em navy.
  */
 export default function Sidebar({ onNavigate }) {
   const location = useLocation();
@@ -63,92 +58,54 @@ export default function Sidebar({ onNavigate }) {
 
   return (
     <div
-      className="group/nav h-full w-64 lg:w-20 lg:hover:w-64 overflow-hidden
-                 flex flex-col bg-sidebar text-sidebar-foreground
-                 rounded-none lg:rounded-2xl card-soft-lg
-                 transition-[width] duration-300 ease-out"
+      className="h-full w-16 flex flex-col items-center bg-sidebar text-sidebar-foreground
+                 rounded-none lg:rounded-2xl card-soft-lg"
     >
       {/* Marca */}
-      <div className="h-20 flex items-center gap-3 px-4 shrink-0">
-        <div className="w-12 h-12 shrink-0 flex items-center justify-center">
-          <Scale className="w-6 h-6 text-primary" strokeWidth={STROKE} />
-        </div>
-        <div className="min-w-0 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
-          <p className="font-bold text-sm whitespace-nowrap tracking-wide">FAV Petições</p>
-          <p className="text-[10px] text-white/70 whitespace-nowrap">Fernando Vieira Advogados</p>
-        </div>
+      <div className="h-16 shrink-0 flex items-center justify-center">
+        <Scale className="w-6 h-6 text-primary" strokeWidth={STROKE} />
       </div>
 
       {/* Navegação */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto no-scrollbar space-y-4">
+      <nav className="flex-1 w-full px-2 py-2 overflow-y-auto no-scrollbar space-y-3">
         {NAV.map((section) => (
-          <div key={section.group}>
-            <p
-              className="text-[10px] font-bold uppercase tracking-widest text-white/65 mb-2 px-2
-                         whitespace-nowrap h-3 opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100
-                         transition-opacity duration-200"
-            >
-              {section.group}
-            </p>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={onNavigate}
-                    title={item.label}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`group/item flex items-center gap-2 rounded-xl transition-colors ${
-                      isActive ? "bg-sidebar-primary" : "hover:bg-sidebar-accent"
+          <div key={section.group} className="space-y-1">
+            {section.items.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={onNavigate}
+                  title={item.label}
+                  aria-label={item.label}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center justify-center w-12 h-11 mx-auto rounded-xl transition-colors ${
+                    isActive ? "bg-sidebar-primary" : "hover:bg-sidebar-accent"
+                  }`}
+                >
+                  <item.icon
+                    className={`w-5 h-5 ${
+                      isActive ? "text-sidebar-primary-foreground" : "text-primary"
                     }`}
-                  >
-                    <div className="w-14 h-12 shrink-0 flex items-center justify-center">
-                      <item.icon
-                        className={`w-5 h-5 ${
-                          isActive ? "text-sidebar-primary-foreground" : "text-primary"
-                        }`}
-                        strokeWidth={STROKE}
-                      />
-                    </div>
-                    <span
-                      className={`flex-1 text-sm font-semibold whitespace-nowrap transition-opacity duration-200
-                                  opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 ${
-                                    isActive ? "text-sidebar-primary-foreground" : "text-white"
-                                  }`}
-                    >
-                      {item.label}
-                    </span>
-                    {/* Chevron laranja, como na navegação da referência */}
-                    <ChevronRight
-                      className={`w-4 h-4 mr-3 shrink-0 transition-opacity duration-200
-                                  opacity-0 lg:group-hover/nav:opacity-100 ${
-                                    isActive ? "text-sidebar-primary-foreground" : "text-primary"
-                                  }`}
-                      strokeWidth={STROKE}
-                    />
-                  </Link>
-                );
-              })}
-            </div>
+                    strokeWidth={STROKE}
+                  />
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
       {/* Sair */}
-      <div className="p-3 shrink-0">
+      <div className="p-2 shrink-0">
         <button
           onClick={() => logout()}
           title="Sair"
-          className="flex items-center gap-2 w-full rounded-xl hover:bg-sidebar-accent transition-colors"
+          aria-label="Sair"
+          className="flex items-center justify-center w-12 h-11 rounded-xl hover:bg-sidebar-accent transition-colors"
         >
-          <div className="w-14 h-12 shrink-0 flex items-center justify-center">
-            <LogOut className="w-5 h-5 text-primary" strokeWidth={STROKE} />
-          </div>
-          <span className="text-sm font-semibold text-white whitespace-nowrap opacity-100 lg:opacity-0 lg:group-hover/nav:opacity-100 transition-opacity duration-200">
-            Sair
-          </span>
+          <LogOut className="w-5 h-5 text-primary" strokeWidth={STROKE} />
         </button>
       </div>
     </div>
