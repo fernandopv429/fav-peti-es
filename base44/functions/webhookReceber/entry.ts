@@ -64,25 +64,11 @@ export default async function(req) {
     // Service role: webhook não tem usuário autenticado
     const base44 = createClientFromRequest(req);
 
-    // Idempotência: reenvio do mesmo evento (retry do emissor) não deve
-    // duplicar WebhookEvento/CasoTrabalhista — devolve o registro já existente.
-    const eventoIdTrim = String(eventoId).slice(0, 200).trim();
-    if (eventoIdTrim) {
-      const existentes = await base44.asServiceRole.entities.WebhookEvento
-        .filter({ evento_id: eventoIdTrim }).catch(() => []);
-      if (existentes && existentes.length) {
-        const jaExistente = existentes[0];
-        return Response.json({
-          ok: true,
-          recebido: true,
-          duplicado: true,
-          id: jaExistente.id,
-          evento_tipo: jaExistente.evento_tipo,
-          template_id: jaExistente.template_id || null,
-        }, { status: 200 });
-      }
-    }
-
+    // Sem idempotência aqui de propósito: cada POST fica registrado como um
+    // WebhookEvento próprio (log/auditoria em "Webhooks recebidos", inclusive
+    // reenvios manuais de teste). A proteção contra DUPLICAR a peça gerada
+    // para o mesmo evento fica em gerarPecaWebhook (atualiza a CasoTrabalhista
+    // existente em vez de criar outra) — ver comentário lá.
     const registro = await base44.asServiceRole.entities.WebhookEvento.create({
       origem: String(origem).slice(0, 200),
       evento_tipo: String(eventoTipo).slice(0, 200),
