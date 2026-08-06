@@ -11,7 +11,7 @@ import { parseRegras, removeRuleFromPrompt } from "@/lib/regraAprendida.js";
  *  - configEntityName: carrega o registro ativo de PetitionConfig/DefesaConfig
  *  - especialistaNumero: carrega um Especialista específico pelo número
  *  - todosEspecialistas: varre todos os Especialistas que possuem regras aprendidas
- *    (cobre o Especialista #32 da Defesa e os usados em "Gerar Documento por IA")
+ *    (cobre o Especialista #32 da Defesa e demais especialistas com regras aprendidas)
  */
 export default function RegrasAprendidas({ configEntityName, especialistaNumero, todosEspecialistas, title }) {
   const [sources, setSources] = useState([]); // [{ label, entityName, id, prompt }]
