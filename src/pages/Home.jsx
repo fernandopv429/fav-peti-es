@@ -1,177 +1,214 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Wand2, Calculator, Shield, TrendingUp, ArrowRight, ArrowUpRight,
+  BookOpen, FileText, AlertTriangle, PackageCheck, Users,
+} from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { Wand2, Calculator, Shield, TrendingUp, ArrowRight, Users, BookOpen } from "lucide-react";
+import { useAuth } from "@/app/auth/AuthContext";
+import PainelPeticoesRecentes from "@/features/peticoes/PainelPeticoesRecentes";
 
 const AREAS_ORDER = [
-  "Gestão & Prazos",
-  "Atendimento & Clientes",
-  "Pesquisa Jurídica",
-  "Cível",
-  "Recursos",
-  "Trabalhista",
-  "Família & Sucessões",
-  "Criminal",
-  "Tributário",
-  "Empresarial & Contratos",
-  "Imobiliário & Locação",
-  "Previdenciário",
-  "Execução & Cálculo",
+  "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
+  "Recursos", "Trabalhista", "Família & Sucessões", "Criminal", "Tributário",
+  "Empresarial & Contratos", "Imobiliário & Locação", "Previdenciário", "Execução & Cálculo",
 ];
 
 const AREA_ICONS = {
-  "Gestão & Prazos": "📋",
-  "Atendimento & Clientes": "🤝",
-  "Pesquisa Jurídica": "🔍",
-  "Cível": "⚖️",
-  "Recursos": "📤",
-  "Trabalhista": "👷",
-  "Família & Sucessões": "👨‍👩‍👧",
-  "Criminal": "🔒",
-  "Tributário": "💰",
-  "Empresarial & Contratos": "🏢",
-  "Imobiliário & Locação": "🏠",
-  "Previdenciário": "🛡️",
-  "Execução & Cálculo": "📊",
+  "Gestão & Prazos": "📋", "Atendimento & Clientes": "🤝", "Pesquisa Jurídica": "🔍",
+  "Cível": "⚖️", "Recursos": "📤", "Trabalhista": "👷", "Família & Sucessões": "👨‍👩‍👧",
+  "Criminal": "🔒", "Tributário": "💰", "Empresarial & Contratos": "🏢",
+  "Imobiliário & Locação": "🏠", "Previdenciário": "🛡️", "Execução & Cálculo": "📊",
 };
 
 const TOOLS = [
-  { label: "Nova Petição", icon: Wand2, path: "/nova-peticao", desc: "Gerar peça inicial com IA", colorClass: "bg-primary" },
-  { label: "Calculadora de Verbas", icon: Calculator, path: "/calculadora-verbas", desc: "Rescisórias trabalhistas", colorClass: "bg-primary" },
-  { label: "Defesa / Contestação", icon: Shield, path: "/defesa", desc: "Contestação do empregador", colorClass: "bg-primary" },
-  { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo", desc: "Correção monetária e juros", colorClass: "bg-primary" },
+  { label: "Nova Petição",           icon: Wand2,      path: "/nova-peticao",         desc: "Gerar peça inicial com IA" },
+  { label: "Calculadora de Verbas",  icon: Calculator, path: "/calculadora-verbas",   desc: "Rescisórias trabalhistas" },
+  { label: "Defesa / Contestação",   icon: Shield,     path: "/defesa",               desc: "Contestação do empregador" },
+  { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo",  desc: "Correção monetária e juros" },
 ];
+
+function saudacao(nome) {
+  const h = new Date().getHours();
+  const parte = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  const primeiro = nome?.trim().split(" ")[0];
+  return primeiro ? `${parte}, ${primeiro}!` : `${parte}!`;
+}
+
+function iniciais(nome) {
+  if (!nome) return "?";
+  const p = nome.trim().split(" ").filter(Boolean);
+  return ((p[0]?.[0] || "") + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase();
+}
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [especialistas, setEspecialistas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [petitions, setPetitions] = useState([]);
+  const [loadingEsp, setLoadingEsp] = useState(true);
+  const [loadingPet, setLoadingPet] = useState(true);
 
   useEffect(() => {
     base44.entities.Especialista.filter({ ativo: true })
       .then(setEspecialistas)
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => setLoadingEsp(false));
+
+    base44.entities.Petition.list("-created_date", 200)
+      .then(setPetitions)
+      .catch(() => {})
+      .finally(() => setLoadingPet(false));
   }, []);
 
   const countByArea = {};
-  especialistas.forEach(e => {
+  especialistas.forEach((e) => {
     countByArea[e.area] = (countByArea[e.area] || 0) + 1;
   });
 
-  const handleAreaClick = (area) => {
-    navigate(`/catalogo?area=${encodeURIComponent(area)}`);
-  };
+  const resumo = [
+    { label: "Petições",     value: petitions.length,                                                 icon: FileText,      tone: "text-primary",     bg: "bg-primary/10",     to: "/peticoes" },
+    { label: "Em revisão",   value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
+    { label: "Prontas",      value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success",    bg: "bg-success/10",     to: "/peticoes" },
+    { label: "Especialistas", value: especialistas.length,                                            icon: Users,         tone: "text-accent",      bg: "bg-accent/10",      to: "/catalogo" },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero header */}
-      <div className="relative overflow-hidden bg-sidebar border-b border-sidebar-border">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, hsl(221 83% 53%) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(172 66% 50%) 0%, transparent 40%)" }} />
-        <div className="relative px-6 lg:px-10 pt-10 pb-8">
-          <p className="text-primary text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "hsl(var(--warning))" }}>Fernando Vieira Advogados</p>
-          <h1 className="text-3xl lg:text-4xl font-playfair font-bold text-sidebar-foreground mb-2">FAV Petições</h1>
-          <p className="text-sidebar-foreground/50 text-sm max-w-lg">Inteligência jurídica com 57 especialistas em 13 áreas do Direito. Gere peças, calcule verbas e conteste com precisão.</p>
-
-          {/* Stats bar */}
-          <div className="flex flex-wrap gap-6 mt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sidebar-foreground font-bold text-lg leading-none">57</p>
-                <p className="text-sidebar-foreground/40 text-xs">Especialistas</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sidebar-foreground font-bold text-lg leading-none">13</p>
-                <p className="text-sidebar-foreground/40 text-xs">Áreas do Direito</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Wand2 className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sidebar-foreground font-bold text-lg leading-none">4</p>
-                <p className="text-sidebar-foreground/40 text-xs">Ferramentas</p>
-              </div>
+    <div className="flex gap-6 p-4 lg:p-6">
+      {/* ── Coluna principal ───────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 space-y-8">
+        {/* Saudação */}
+        <div className="flex items-start justify-between gap-4 pt-2">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{saudacao(user?.full_name)}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              57 especialistas em 13 áreas do Direito, prontos para o seu caso.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate("/nova-peticao")}
+              className="hidden sm:inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold card-soft hover:opacity-90 transition-opacity"
+            >
+              <Wand2 className="w-4 h-4" />
+              Nova Petição
+            </button>
+            <div
+              title={user?.full_name || ""}
+              className="w-11 h-11 rounded-2xl bg-card card-soft flex items-center justify-center text-sm font-bold text-primary"
+            >
+              {iniciais(user?.full_name)}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="px-6 lg:px-10 pb-10 pt-8 space-y-10">
-        {/* Quick tools */}
+        {/* Resumo rápido */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {resumo.map((s) => (
+            <button
+              key={s.label}
+              onClick={() => navigate(s.to)}
+              className="group text-left bg-card rounded-3xl p-5 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
+            >
+              <div className="flex items-start justify-between">
+                <div className={`w-10 h-10 rounded-2xl ${s.bg} flex items-center justify-center`}>
+                  <s.icon className={`w-5 h-5 ${s.tone}`} />
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-2xl font-bold text-foreground mt-4 leading-none">
+                {loadingPet || loadingEsp ? "—" : s.value}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1.5">{s.label}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Ferramentas */}
         <div>
-          <h2 className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-4">Ferramentas rápidas</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
+            Ferramentas rápidas
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {TOOLS.map((t) => (
               <button
                 key={t.path}
                 onClick={() => navigate(t.path)}
-                className="group relative overflow-hidden rounded-2xl p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl bg-card border border-border hover:border-primary/40 hover:shadow-primary/10"
+                className="group relative text-left bg-card rounded-3xl p-5 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
               >
-                <div className={`w-10 h-10 rounded-xl ${t.colorClass} flex items-center justify-center mb-3 shadow-lg shadow-primary/20`}>
+                <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center mb-4">
                   <t.icon className="w-5 h-5 text-primary-foreground" />
                 </div>
-                <p className="text-card-foreground font-semibold text-sm">{t.label}</p>
-                <p className="text-muted-foreground text-xs mt-0.5">{t.desc}</p>
-                <ArrowRight className="absolute bottom-4 right-4 w-4 h-4 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+                <p className="font-semibold text-sm text-foreground">{t.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 pr-6">{t.desc}</p>
+                <ArrowRight className="absolute bottom-5 right-5 w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
               </button>
             ))}
           </div>
         </div>
 
-        {/* Areas grid */}
+        {/* Áreas do Direito */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Áreas do Direito</h2>
-            <button onClick={() => navigate("/catalogo")} className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
-              Ver todos <ArrowRight className="w-3 h-3" />
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              Áreas do Direito
+            </h2>
+            <button
+              onClick={() => navigate("/catalogo")}
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              Ver catálogo <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {loadingEsp ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
               {Array.from({ length: 13 }).map((_, i) => (
-                <div key={i} className="h-28 rounded-2xl bg-muted animate-pulse" />
+                <div key={i} className="h-24 rounded-3xl bg-card/60 animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
               {AREAS_ORDER.map((area) => (
                 <button
                   key={area}
-                  onClick={() => handleAreaClick(area)}
-                  className="group relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/30"
+                  onClick={() => navigate(`/catalogo?area=${encodeURIComponent(area)}`)}
+                  className="text-left bg-card rounded-3xl p-4 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
                 >
-                  <span className="text-2xl mb-2 block">{AREA_ICONS[area] || "⚖️"}</span>
-                  <p className="text-card-foreground font-medium text-xs leading-tight">{area}</p>
-                  <p className="text-primary text-xs mt-1 font-semibold opacity-70">{countByArea[area] || 0} especialistas</p>
+                  <span className="text-2xl block mb-2">{AREA_ICONS[area] || "⚖️"}</span>
+                  <p className="text-xs font-semibold text-foreground leading-tight">{area}</p>
+                  <p className="text-[11px] text-primary font-medium mt-1">
+                    {countByArea[area] || 0} especialistas
+                  </p>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* CTA */}
-        <div className="rounded-2xl bg-primary/5 border border-primary/20 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Chamada para o catálogo */}
+        <div className="rounded-3xl bg-primary p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="text-foreground font-semibold">Pronto para gerar seu documento?</p>
-            <p className="text-muted-foreground text-sm mt-0.5">Escolha o especialista certo para o seu caso no catálogo.</p>
+            <p className="font-bold text-primary-foreground">Não sabe por onde começar?</p>
+            <p className="text-primary-foreground/70 text-sm mt-0.5">
+              Escolha o especialista certo para o seu caso no catálogo.
+            </p>
           </div>
-          <div className="flex gap-3">
-            <button onClick={() => navigate("/catalogo")} className="px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium transition-colors flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> Catálogo
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/catalogo")}
+            className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-white text-primary text-sm font-bold hover:opacity-90 transition-opacity"
+          >
+            <BookOpen className="w-4 h-4" />
+            Abrir catálogo
+          </button>
         </div>
       </div>
+
+      {/* ── Trilha lateral (só em telas largas) ────────────────────────── */}
+      <aside className="hidden xl:block w-[340px] shrink-0">
+        <div className="sticky top-6 h-[calc(100vh-3rem)] bg-secondary rounded-3xl p-5">
+          <PainelPeticoesRecentes petitions={petitions} loading={loadingPet} />
+        </div>
+      </aside>
     </div>
   );
 }
