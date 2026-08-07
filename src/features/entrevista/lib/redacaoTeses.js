@@ -27,13 +27,20 @@ import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 // valores oficiais são exclusivamente os do rol calculado por código
 // (mathUtils). A IA é instruída a não citar valores; esta função é a rede
 // de segurança caso desobedeça.
+// PRESERVA as quebras de parágrafo: o colapso anterior de /\s{2,}/ engolia
+// também os \n\n, e todo capítulo da IA saía como um bloco único — as peças
+// geradas ficavam com parágrafos de 30 linhas, enquanto as da especialista têm
+// parágrafos curtos. O docxtemplater já usa linebreaks: true, então a quebra
+// preservada aqui chega ao .docx. Espelha base44/shared/redacao.js.
 function sanitizarValoresIA(texto) {
   if (!texto) return texto;
   return texto
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
     .replace(/R\$\s*\d[\d.,]*/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.;:])/g, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
