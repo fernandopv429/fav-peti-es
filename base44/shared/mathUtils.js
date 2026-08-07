@@ -200,6 +200,89 @@ function buscarClausulaCct(dadosCct, regexTema) {
   return null;
 }
 
+// ============================================================
+// MATRIZ DE REFLEXOS DO ESCRITÓRIO
+// Derivada das peças reais da especialista: em Marcos e Luciano, TODOS os itens
+// com reflexos batem, ao centavo, nestes percentuais sobre o principal
+// (conferido em 6 verbas × 5 reflexos). Ex.: HE principal R$ 522,00 → DSR
+// R$ 37,85 / aviso R$ 20,88 / 13º R$ 31,32 / férias+1/3 R$ 36,54 / FGTS+40%
+// R$ 54,80 = R$ 703,39 no rol.
+// Atenção: a peça do Jonathan usa a matriz ortodoxa (1/12 para 13º, 1/12+1/3
+// para férias, 8%+40% de FGTS). São duas práticas no escritório; aqui ficou a
+// que aparece em 2 das 3 referências. Trocar = mexer só nesta tabela.
+// ============================================================
+export const REFLEXOS_PCT = {
+  'DSR': 0.0725,
+  'aviso prévio': 0.04,
+  '13º salário': 0.06,
+  'férias + 1/3': 0.07,
+  'FGTS': 0.075,
+  'multa de 40% do FGTS': 0.03,
+};
+export const REFLEXOS_TOTAL_PCT = 0.3475;
+
+export function reflexosSobre(principal) {
+  const p = Number(principal) || 0;
+  if (p <= 0) return null;
+  const memoria = Object.entries(REFLEXOS_PCT)
+    .map(([nome, pct]) => `${nome} ${formatBRL(round2(p * pct))}`)
+    .join(' · ');
+  return { valor: round2(p * REFLEXOS_TOTAL_PCT), memoria };
+}
+
+// ============================================================
+// PARÂMETROS DA ESTIMATIVA DAS VERBAS POR HORA
+// Antes, TODA verba que depende de contagem de horas saía "a apurar em
+// liquidação", SEM VALOR. Esse era o maior furo do valor da causa: na peça de
+// referência do Marcos essas seis verbas somam R$ 8.061,90 — 56% do gap de
+// R$ 14.464,75 entre a peça gerada e a da especialista.
+//
+// A quantidade de horas de cada tese fica AQUI, num só lugar, e a memória de
+// cálculo de cada item traz a conta inteira para o advogado auditar. Os padrões
+// abaixo são os tecnicamente devidos (1h de intervalo por dia trabalhado, 10
+// min a cada hora etc.) e ficam ACIMA das estimativas conservadoras da
+// especialista — calibrar aqui, nunca no meio do cálculo.
+// ============================================================
+export const PARAMS_HORAS = {
+  divisor_mensal: 220,                    // hora normal = salário / 220
+  adicional_convencional_vigilancia: 0.60, // cl. 12º CCT vigilância
+  adicional_convencional_demais: 0.50,     // art. 71, §4º / art. 59 CLT
+  dias_mes_12x36: 15,                      // 12x36 = ~15 dias/mês
+  dias_mes_padrao: 22,
+  horas_prorrogacao_dia: 1,                // 30 min antes + 30 min depois
+  horas_intervalo_dia: 1,                  // art. 71: 1h por dia trabalhado
+  janela_noturna_horas: 7,                 // 22h–05h
+  fator_hora_noturna_reduzida: 60 / 52.5,  // hora noturna de 52'30"
+  adicional_noturno: 0.20,
+  minutos_descanso_por_hora: 10,           // cl. 33º CCT vigilância
+  horas_jornada_dia: 12,
+  adicional_periculosidade: 0.30,
+};
+
+// Média de um intervalo escrito em texto ("4 a 6 vezes por mês" → 5).
+function mediaNumerica(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const nums = String(v).match(/\d+(?:[.,]\d+)?/g);
+  if (!nums || !nums.length) return null;
+  const vals = nums.map((n) => parseFloat(n.replace(',', '.'))).filter((n) => Number.isFinite(n));
+  if (!vals.length) return null;
+  if (vals.length === 1) return vals[0];
+  return (vals[0] + vals[1]) / 2;
+}
+
+// Mesma lógica de jornadaCruzaNoturno em shared/redacao.js e em
+// features/entrevista/lib/dadosTemplate.js — mudou lá, mudar aqui também.
+function cruzaNoturno(jornadaTxt) {
+  const m = /(\d{1,2})[:h]?(\d{2})?\s*(?:[àa]s?|-)\s*(\d{1,2})[:h]?(\d{2})?/i.exec(jornadaTxt || '');
+  if (!m) return false;
+  const inicio = Number(m[1]);
+  const fim = Number(m[3]);
+  const dentroDaJanela = (h) => h >= 22 || h < 5;
+  if (dentroDaJanela(inicio) || dentroDaJanela(fim)) return true;
+  return fim < inicio;
+}
+
 export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const itens = [];
   const salario = Number(caso.salario) || null;
@@ -319,6 +402,95 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
       ? `2 conduções × R$ 5,00 (padrão — valor não informado) × ${folgasMes}/mês × ${meses} meses`
       : `2 conduções × ${formatBRL(vc)} × ${folgasMes}/mês × ${meses} meses`;
     itens.push({ item: 'Vale-transporte nas folgas', memoria, valor: round2(2 * vc * folgasMes * meses) });
+  }
+
+  // ---- Verbas que dependem de contagem de horas ----
+  // Cada item entra com principal + reflexos (matriz do escritório) e com a
+  // conta inteira na memória. Antes, todas saíam "a apurar em liquidação".
+  const horaNormal = salario ? round2(salario / PARAMS_HORAS.divisor_mensal) : null;
+  if (horaNormal && meses) {
+    const ehVigilante = /vigilante|vigil/i.test(caso.funcao || '');
+    const adicConv = ehVigilante
+      ? PARAMS_HORAS.adicional_convencional_vigilancia
+      : PARAMS_HORAS.adicional_convencional_demais;
+    const adicTxt = `${Math.round(adicConv * 100)}%`;
+    const horaExtra = round2(horaNormal * (1 + adicConv));
+    const eh12x36 = /12\s*x\s*36/i.test(`${caso.escala || ''} ${caso.jornada_horario || ''}`);
+    const diasMes = eh12x36 ? PARAMS_HORAS.dias_mes_12x36 : PARAMS_HORAS.dias_mes_padrao;
+    const diasTotais = diasMes * meses;
+    const base = `hora normal ${formatBRL(horaNormal)} (salário ÷ ${PARAMS_HORAS.divisor_mensal})`;
+
+    const addComReflexos = (item, memoria, valor) => {
+      const v = round2(valor);
+      if (!(v > 0)) return;
+      itens.push({ item, memoria, valor: v });
+      const r = reflexosSobre(v);
+      if (r) {
+        itens.push({
+          item: `Reflexos de ${item}`,
+          memoria: `${(REFLEXOS_TOTAL_PCT * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
+          valor: r.valor,
+        });
+      }
+    };
+
+    // 1) Horas extras pela prorrogação habitual (minutos que antecedem/sucedem)
+    if (caso.jornada_extrapola || caso.prorrogacao_jornada) {
+      const freq = mediaNumerica(caso.jornada_freq_extra) ?? diasMes;
+      const horas = round2(PARAMS_HORAS.horas_prorrogacao_dia * freq * meses);
+      addComReflexos(
+        'Horas extras — prorrogação da jornada',
+        `${horas}h (${PARAMS_HORAS.horas_prorrogacao_dia}h × ${freq}×/mês × ${meses} meses) × ${base} + ${adicTxt}`,
+        horas * horaExtra,
+      );
+    }
+
+    // 2) Intervalo intrajornada suprimido (art. 71, §4º)
+    if (caso.intervalo_gozado === false || caso.intervalo_usufruido || caso.tem_intervalo_suprimido) {
+      const horas = round2(PARAMS_HORAS.horas_intervalo_dia * diasTotais);
+      addComReflexos(
+        'Intervalo intrajornada (art. 71 da CLT)',
+        `${horas}h (${PARAMS_HORAS.horas_intervalo_dia}h × ${diasMes} dias/mês × ${meses} meses) × ${base} + ${adicTxt}`,
+        horas * horaExtra,
+      );
+    }
+
+    // 3) Adicional noturno + hora noturna reduzida (art. 73 CLT, Súm. 60 TST)
+    if (caso.tem_adic_noturno || cruzaNoturno(caso.jornada_horario || caso.escala || '')) {
+      const fictas = round2(PARAMS_HORAS.janela_noturna_horas * PARAMS_HORAS.fator_hora_noturna_reduzida);
+      const excedente = round2(fictas - PARAMS_HORAS.janela_noturna_horas);
+      const porNoite = round2((PARAMS_HORAS.adicional_noturno * fictas + excedente) * horaNormal);
+      addComReflexos(
+        'Adicional noturno e hora noturna reduzida',
+        `${formatBRL(porNoite)}/noite [${PARAMS_HORAS.adicional_noturno * 100}% × ${fictas}h fictas + ${excedente}h de redução] × ${diasTotais} noites × ${base}`,
+        porNoite * diasTotais,
+      );
+    }
+
+    // 4) 10 minutos de descanso a cada hora (cl. 33º CCT vigilância)
+    if (ehVigilante || caso.tem_dez_min_cct) {
+      const horasDia = round2((PARAMS_HORAS.minutos_descanso_por_hora / 60) * PARAMS_HORAS.horas_jornada_dia);
+      const horas = round2(horasDia * diasTotais);
+      addComReflexos(
+        '10 minutos de descanso (cláusula 33º da CCT)',
+        `${horas}h (${PARAMS_HORAS.minutos_descanso_por_hora} min × ${PARAMS_HORAS.horas_jornada_dia}h = ${horasDia}h/dia × ${diasTotais} dias) × ${base} + ${adicTxt}`,
+        horas * horaExtra,
+      );
+    }
+
+    // 5) Periculosidade sobre as horas extras (Súm. 132, I, do TST)
+    if (caso.tem_periculosidade || ehVigilante) {
+      const baseHe = itens
+        .filter((i) => /^Horas extras|^Intervalo intrajornada|^10 minutos/.test(i.item))
+        .reduce((s, i) => s + (Number(i.valor) || 0), 0);
+      if (baseHe > 0) {
+        addComReflexos(
+          'Adicional de periculosidade sobre as horas extras',
+          `${PARAMS_HORAS.adicional_periculosidade * 100}% sobre ${formatBRL(round2(baseHe))} de horas extras (Súm. 132, I, do TST)`,
+          baseHe * PARAMS_HORAS.adicional_periculosidade,
+        );
+      }
+    }
   }
 
   const somaVerbas = round2(itens.reduce((s, c) => s + (Number(c.valor) || 0), 0));
