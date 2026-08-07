@@ -185,7 +185,21 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
       clausulas.push(r);
     }
   }
-  const top = clausulas[0] || null;
+  // A CCT de referência (meta) alimenta o ano citado na peça e vinha do PRIMEIRO
+  // resultado da busca semântica — que pode ser uma convenção antiga. A peça do
+  // Marcos citou "CCT 2024" onde a especialista cita a de 2026, e a revisora
+  // marcou o tópico das multas. Agora preferimos a convenção cuja vigência cobre
+  // a data do fato e, na falta dela, a mais recente.
+  const fimVigencia = (c) => c?.vigencia_fim || c?.vigencia_fim_sociais || c?.vigencia_fim_economicas || '';
+  const cobreDataFato = (c) => {
+    if (!data_fato || !c?.vigencia_inicio) return false;
+    const fim = fimVigencia(c);
+    return String(c.vigencia_inicio) <= String(data_fato) && (!fim || String(data_fato) <= String(fim));
+  };
+  const porInicioDesc = (a, b) => String(b?.vigencia_inicio || '').localeCompare(String(a?.vigencia_inicio || ''));
+  const top = clausulas.filter(cobreDataFato).sort(porInicioDesc)[0]
+    || [...clausulas].sort(porInicioDesc)[0]
+    || null;
   return {
     categoria,
     data_fato,
