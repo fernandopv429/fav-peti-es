@@ -218,19 +218,43 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
 
 // InvokeLLM no backend envelopa o resultado em { response: ... }, às vezes
 // como string JSON, às vezes como objeto. Desembrulha para chegar aos campos.
+// Remove cercas de código (```json ... ```) que alguns modelos põem em volta
+// do JSON — sem isso o parse falha e o envelope inteiro vaza como texto.
+function limparCercas(s) {
+  return String(s).replace(/^\s*```[a-z]*\s*/i, '').replace(/\s*```\s*$/, '').trim();
+}
+
 function desembrulhar(r) {
   let obj = (r && typeof r === 'object' && !Array.isArray(r)) ? r : {};
   if (obj.response != null) {
     if (typeof obj.response === 'string') {
-      try { obj = JSON.parse(obj.response); } catch (e) { /* mantém obj */ }
+      try { obj = JSON.parse(limparCercas(obj.response)); } catch (e) { /* mantém obj */ }
     } else if (typeof obj.response === 'object' && !Array.isArray(obj.response)) {
       obj = obj.response;
     }
   }
   if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj); } catch (e) { obj = {}; }
+    try { obj = JSON.parse(limparCercas(obj)); } catch (e) { obj = {}; }
   }
   return obj && typeof obj === 'object' ? obj : {};
+}
+
+// Último desembrulho: se o texto do capítulo ainda for um JSON cru
+// ('{ "BLOCO_X": "..." }'), extrai o valor de dentro em vez de deixar o
+// envelope vazar para a peça — foi exatamente o que aconteceu numa geração.
+function desempacotarTexto(texto, campo) {
+  const t = String(texto || '').trim();
+  if (!(t.startsWith('{') && t.endsWith('}'))) return t;
+  try {
+    const obj = JSON.parse(t);
+    if (obj && typeof obj === 'object') {
+      const direto = obj[campo];
+      if (typeof direto === 'string' && direto.trim()) return direto.trim();
+      const str = Object.values(obj).find((v) => typeof v === 'string' && v.trim().length > 80);
+      if (str) return str.trim();
+    }
+  } catch (e) { /* não era JSON válido — mantém o texto */ }
+  return t;
 }
 
 // Pega o valor do capítulo pedido; se o modelo nomeou a chave de outro jeito,
@@ -310,7 +334,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs 
 
   const blocos = {};
   for (const e of ativos) {
-    const texto = typeof obj[e.campo] === 'string' ? obj[e.campo].trim() : '';
+    const texto = typeof obj[e.campo] === 'string' ? desempacotarTexto(obj[e.campo], e.campo) : '';
     if (texto) blocos[e.campo] = sanitizarValoresIA(texto);
   }
   if (multasAtivo && Array.isArray(obj.PEDIDOS_MULTAS)) {
