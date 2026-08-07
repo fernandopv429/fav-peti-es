@@ -83,6 +83,18 @@ function sanitizarValoresIA(texto) {
 const flag = (v) => !!v;
 const soDigitos = (s) => (s || '').replace(/\D/g, '');
 
+// Mesma lógica de src/features/entrevista/lib/dadosTemplate.js
+// (jornadaCruzaNoturno) — mudou lá, mudar aqui também.
+function jornadaCruzaNoturno(jornadaTxt) {
+  const m = /(\d{1,2})[:h]?(\d{2})?\s*(?:[àa]s?|-)\s*(\d{1,2})[:h]?(\d{2})?/i.exec(jornadaTxt || '');
+  if (!m) return false;
+  const inicio = Number(m[1]);
+  const fim = Number(m[3]);
+  const dentroDaJanela = (h) => h >= 22 || h < 5;
+  if (dentroDaJanela(inicio) || dentroDaJanela(fim)) return true;
+  return fim < inicio;
+}
+
 export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   const d = {};
   const receita = (cnpj) => (dadosReceita || []).find((r) => r && !r.erro && soDigitos(r.cnpj) === soDigitos(cnpj));
@@ -105,7 +117,7 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   d.gratificacao_funcao = flag(caso.tem_gratificacao);
   d.escala_12x36 = /12\s*x\s*36/i.test(escalaTxt);
   d.escala_4x2 = /\b(4\s*x\s*2|6\s*x\s*2)\b/i.test(escalaTxt);
-  d.adicional_noturno = flag(caso.tem_adic_noturno);
+  d.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
   d.integracao_por_fora = flag(caso.tem_integracao_por_fora);
   d.periculosidade = flag(caso.tem_periculosidade) || ehVigilante;
   d.dez_minutos_cct = flag(caso.tem_dez_min_cct) || ehVigilante;
