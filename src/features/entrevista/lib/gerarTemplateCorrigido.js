@@ -64,9 +64,12 @@ function _substituirFraseTagTolerant(xml, frase, destino) {
 // desativar um bloco de IA sem tocar no texto determinístico que estava dentro
 // do fallback invertido. Percorre de trás para frente para os offsets de
 // _paras() continuarem válidos.
-function _removerParagrafosTag(xml, textos, { apenasUltimo = null } = {}) {
+function _removerParagrafosTag(xml, textos, { apenasUltimo = null, regex = null } = {}) {
   const ps = _paras(xml);
-  const alvos = ps.filter((p) => textos.includes(_textoPara(p.raw).trim()));
+  const alvos = ps.filter((p) => {
+    const t = _textoPara(p.raw).trim();
+    return regex ? regex.test(t) : textos.includes(t);
+  });
   const selecionados = apenasUltimo
     ? alvos.filter((p) => _textoPara(p.raw).trim() !== apenasUltimo)
       .concat(alvos.filter((p) => _textoPara(p.raw).trim() === apenasUltimo).slice(-1))
@@ -79,10 +82,17 @@ function _removerParagrafosTag(xml, textos, { apenasUltimo = null } = {}) {
   return { xml: out, removidos: selecionados.length };
 }
 
-// Desativa um bloco de IA por completo: apaga as 4 tags de abertura e o
-// fechamento do fallback, deixando o texto determinístico do escritório solto.
+// Desativa um bloco de IA por completo, deixando o texto determinístico solto.
+// ATENÇÃO: no modelo real as tags de abertura vivem TODAS NO MESMO parágrafo
+// ("{{#BLOCO_X}}{{BLOCO_X}}{{/BLOCO_X}}"), e só o {{^BLOCO_X}} e o fechamento
+// final ficam sozinhos. Comparar por texto exato removia apenas esses dois e
+// deixava o bloco da IA vivo — com o {{^}} fora, a peça sairia com o capítulo da
+// IA E o determinístico, duplicados. Por isso o alvo é qualquer parágrafo
+// composto SÓ por tags deste bloco.
 function _desativarBloco(xml, bloco) {
-  return _removerParagrafosTag(xml, [`{{#${bloco}}}`, `{{${bloco}}}`, `{{/${bloco}}}`, `{{^${bloco}}}`]);
+  return _removerParagrafosTag(xml, [], {
+    regex: new RegExp(`^(?:\\{\\{[#^/]?${bloco}\\}\\})+$`),
+  });
 }
 
 // numId decimal ainda NÃO usado no documento: dá ao rol uma lista própria, que
@@ -115,12 +125,17 @@ function _numerarRol(xml, numId) {
   const pPrNovo =
     `<w:pPr><w:pStyle w:val="PargrafodaLista"/>` +
     `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>`;
+  // O bullet costuma vir DEPOIS de uma tag de seção no mesmo parágrafo
+  // ("{{#tem_tomadora}}• responsabilidade subsidiária…"): 19 dos itens do rol
+  // são assim. Exigir o bullet no início do texto deixava todos esses de fora.
+  const INICIO_ITEM = /(?:^|\}\})\s*•\s/;
   let out = xml;
   let alterados = 0;
   for (let i = ps.length - 1; i > idxInicio; i--) {
     const raw = ps[i].raw;
-    if (!/^\s*•\s/.test(_textoPara(raw))) continue;
-    let novo = raw.replace(/(<w:t\b[^>]*>)\s*•\s*/, '$1');
+    if (!INICIO_ITEM.test(_textoPara(raw))) continue;
+    // remove apenas o PRIMEIRO bullet literal do parágrafo, onde ele estiver
+    let novo = raw.replace(/•\s*/, '');
     if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(novo)) novo = novo.replace(/<w:pPr>[\s\S]*?<\/w:pPr>/, pPrNovo);
     else if (/<w:pPr\s*\/>/.test(novo)) novo = novo.replace(/<w:pPr\s*\/>/, pPrNovo);
     else novo = novo.replace(/^<w:p([^>]*)>/, `<w:p$1>${pPrNovo}`);
