@@ -121,7 +121,15 @@ export const ESPECIALISTAS = [
     numero: 'jornada',
     nome: 'Jornada e horas extras',
     campo: 'BLOCO_JORNADA',
-    ativo: (d, c) => !!(d.escala_12x36 || d.escala_4x2 || c.jornada_horario || d.folgas_trabalhadas),
+    // DESATIVADO por decisão do escritório (revisão da especialista, ago/2026).
+    // O modelo já tem o parágrafo de jornada do padrão FAV — objetivo, com
+    // horário, escala e intervalo, 54 palavras — e é o que ela aprova. Quando a
+    // IA redigia este capítulo, entregava 988 palavras (peça do Jonathan) e o
+    // apontamento foi "fora da estrutura, muito extenso e diferente do modelo
+    // padrão". A jornada volta a ser 100% determinística. Para reativar, basta
+    // restaurar a condição original abaixo e retokenizar o .docx.
+    ativo: () => false,
+    ativoOriginal: (d, c) => !!(d.escala_12x36 || d.escala_4x2 || c.jornada_horario || d.folgas_trabalhadas),
     // Escopo: a IA redige o capítulo COMPLETO de jornada e horas extras
     // (narrativa fática + fundamentação legal + jurisprudência + pedido com
     // reflexos), em prosa argumentativa articulada — não apenas a narrativa
@@ -159,7 +167,13 @@ export const ESPECIALISTAS = [
     numero: 'sumula331',
     nome: 'Responsabilidade subsidiária (Súmula 331)',
     campo: 'BLOCO_SUMULA_331',
-    ativo: (d) => !!d.tem_tomadora,
+    // DESATIVADO por decisão do escritório (revisão da especialista, ago/2026).
+    // O capítulo da Súmula 331 é idêntico nas três peças de referência — não
+    // varia com o caso — e o modelo já o traz completo. Redigi-lo por IA só
+    // trocava o texto conferido por um mais longo. Para reativar, restaurar a
+    // condição original abaixo.
+    ativo: () => false,
+    ativoOriginal: (d) => !!d.tem_tomadora,
     instrucao:
       'Escreva o capítulo COMPLETO de responsabilidade subsidiária da 2ª reclamada (tomadora), em prosa jurídica fluida, articulada e SUBSTANCIAL (NÃO frases curtas ou resumos): (1) FATOS — narre a relação de terceirização/tomada de serviços e a inserção do reclamante na atividade-fim da tomadora; (2) FUNDAMENTO LEGAL/NORMATIVO — fundamente a responsabilidade subsidiária com a Súmula 331 do TST e os arts. 4º e 5º do Decreto-Lei 200/1967; (3) JURISPRUDÊNCIA — trate, quando relevante, a interpretação que ampara a tese; (4) PEDIDO/CONCLUSÃO — formule o requerimento de condenação subsidiária da tomadora pelos créditos deferidos. Desenvolva cada bloco em vários parágrafos coesos. USE SEMPRE "subsidiariamente"/"responsabilidade subsidiária" — nunca "solidária". NÃO trate de outros tópicos.',
     promptPadrao:
