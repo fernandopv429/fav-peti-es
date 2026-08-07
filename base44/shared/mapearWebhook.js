@@ -135,7 +135,7 @@ export function mapearCasoDeWebhook(data) {
     caso.jornada_extrapola = true;
     caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
     // Antes: tol.map(...).join(' — '), que com os dois períodos iguais produzia
-    // "30 minutos de tolerância — 30 minutos de tolerância" — saíu assim na peça
+    // "30 minutos de tolerância — 30 minutos de tolerância" — saiu assim na peça
     // do Marcos e a revisora marcou o trecho. Agora descreve as POSIÇÕES.
     const antes = d.periodo_antecedente ? String(d.periodo_antecedente).trim() : '';
     const depois = d.periodo_sucedente ? String(d.periodo_sucedente).trim() : '';

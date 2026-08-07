@@ -387,7 +387,7 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
   doc.render(dados || {});
   const outZip = doc.getZip();
   // Quebras de linha dos blocos da IA -> parágrafos reais, herdando a numeração
-  // do corpo (antes o capítulo inteiro saa como um parágrafo sem número).
+  // do corpo (antes o capítulo inteiro saía como um parágrafo sem número).
   dividirParagrafosInjetados(outZip);
   // Correções pós-preenchimento (erros recorrentes do template e duplicações do docxtemplater)
   corrigirTextoFinal(outZip);
