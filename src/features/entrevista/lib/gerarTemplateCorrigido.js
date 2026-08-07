@@ -60,6 +60,76 @@ function _substituirFraseTagTolerant(xml, frase, destino) {
   return xml.replace(new RegExp(pattern, 'gi'), destino);
 }
 
+// Remove os parágrafos cujo texto É exatamente uma das tags dadas. Usado para
+// desativar um bloco de IA sem tocar no texto determinístico que estava dentro
+// do fallback invertido. Percorre de trás para frente para os offsets de
+// _paras() continuarem válidos.
+function _removerParagrafosTag(xml, textos, { apenasUltimo = null } = {}) {
+  const ps = _paras(xml);
+  const alvos = ps.filter((p) => textos.includes(_textoPara(p.raw).trim()));
+  const selecionados = apenasUltimo
+    ? alvos.filter((p) => _textoPara(p.raw).trim() !== apenasUltimo)
+      .concat(alvos.filter((p) => _textoPara(p.raw).trim() === apenasUltimo).slice(-1))
+    : alvos;
+  selecionados.sort((a, b) => a.start - b.start);
+  let out = xml;
+  for (let i = selecionados.length - 1; i >= 0; i--) {
+    out = out.slice(0, selecionados[i].start) + out.slice(selecionados[i].end);
+  }
+  return { xml: out, removidos: selecionados.length };
+}
+
+// Desativa um bloco de IA por completo: apaga as 4 tags de abertura e o
+// fechamento do fallback, deixando o texto determinístico do escritório solto.
+function _desativarBloco(xml, bloco) {
+  return _removerParagrafosTag(xml, [`{{#${bloco}}}`, `{{${bloco}}}`, `{{/${bloco}}}`, `{{^${bloco}}}`]);
+}
+
+// numId decimal ainda NÃO usado no documento: dá ao rol uma lista própria, que
+// reinicia em 1 (é assim na peça da especialista — corpo numId 5, rol numId 4).
+function _numIdDecimalLivre(zip, xmlDoc) {
+  const numbering = zip.file('word/numbering.xml');
+  if (!numbering) return null;
+  const xmlNum = numbering.asText();
+  const usados = new Set(
+    [...xmlDoc.matchAll(/<w:numId\s+w:val="(\d+)"/g)].map((m) => m[1])
+  );
+  const decimais = new Set(
+    [...xmlNum.matchAll(/<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"[\s\S]*?<\/w:abstractNum>/g)]
+      .filter((m) => /<w:numFmt\s+w:val="decimal"/.test(m[0]))
+      .map((m) => m[1])
+  );
+  for (const m of xmlNum.matchAll(/<w:num\b[^>]*w:numId="(\d+)"[\s\S]*?<w:abstractNumId\s+w:val="(\d+)"/g)) {
+    if (!usados.has(m[1]) && decimais.has(m[2])) return m[1];
+  }
+  return null;
+}
+
+// Converte os itens do rol de "• texto" para parágrafos NUMERADOS. A revisora
+// apontou "pedidos incompletos, fora da estrutura": o rol saa com bullet
+// literal enquanto a peça dela numera cada pedido.
+function _numerarRol(xml, numId) {
+  const ps = _paras(xml);
+  const idxInicio = ps.findIndex((p) => _textoPara(p.raw).includes('passa a expor seus pedidos'));
+  if (idxInicio < 0) return { xml, alterados: 0 };
+  const pPrNovo =
+    `<w:pPr><w:pStyle w:val="PargrafodaLista"/>` +
+    `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>`;
+  let out = xml;
+  let alterados = 0;
+  for (let i = ps.length - 1; i > idxInicio; i--) {
+    const raw = ps[i].raw;
+    if (!/^\s*•\s/.test(_textoPara(raw))) continue;
+    let novo = raw.replace(/(<w:t\b[^>]*>)\s*•\s*/, '$1');
+    if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(novo)) novo = novo.replace(/<w:pPr>[\s\S]*?<\/w:pPr>/, pPrNovo);
+    else if (/<w:pPr\s*\/>/.test(novo)) novo = novo.replace(/<w:pPr\s*\/>/, pPrNovo);
+    else novo = novo.replace(/^<w:p([^>]*)>/, `<w:p$1>${pPrNovo}`);
+    out = out.slice(0, ps[i].start) + novo + out.slice(ps[i].end);
+    alterados++;
+  }
+  return { xml: out, alterados };
+}
+
 function _envolver(xml, posAntes_ini, posDepois_fim, bloco, pPr) {
   // Cada tag em parágrafo SEPARADO — com paragraphLoop:true do docxtemplater,
   // {{#BLOCO}}/{{BLOCO}}/{{/BLOCO}} no mesmo <w:t> não reconhece a seção
