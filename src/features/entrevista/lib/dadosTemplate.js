@@ -148,6 +148,21 @@ function montarVaraCidadeRegiao(caso, local) {
   return `${municipio.toUpperCase()}${uf ? `/${uf}` : ''}${regiao ? ` – ${regiao}` : ''}`;
 }
 
+// Deduz se o horário informado cruza o período noturno legal (22h–05h) —
+// sem isso, `adicional_noturno` só ligava se a entrevista marcasse o campo
+// explicitamente, e casos claros (ex.: 18h30 às 07h30) saiam sem a seção
+// "DO ADICIONAL NOTURNO", que a mesma jornada exige. Mesma lógica duplicada
+// em base44/shared/redacao.js (computeFlags) — mudou aqui, mudar lá também.
+function jornadaCruzaNoturno(jornadaTxt) {
+  const m = /(\d{1,2})[:h]?(\d{2})?\s*(?:[àa]s?|-)\s*(\d{1,2})[:h]?(\d{2})?/i.exec(jornadaTxt || '');
+  if (!m) return false;
+  const inicio = Number(m[1]);
+  const fim = Number(m[3]);
+  const dentroDaJanela = (h) => h >= 22 || h < 5;
+  if (dentroDaJanela(inicio) || dentroDaJanela(fim)) return true;
+  return fim < inicio; // turno que atravessa a meia-noite passa pela janela
+}
+
 function hojeExtenso() {
   const d = new Date();
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
@@ -330,6 +345,18 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const temTomadora = flag(caso.recl2_nome || r2 || attrs.tem_tomadora);
   const escalaTxt = `${caso.escala || ''} ${caso.jornada_horario || ''}`;
   const ehVigilante = /vigilante/i.test(caso.funcao || attrs.funcao || '');
+  // Percentuais que divergem por categoria (confirmado com peça real da
+  // especialista, CCT Vigilância 2026): Vigilante usa 60% convencional
+  // (cláusula 12ª) tanto nas HE quanto no intervalo do art. 71; demais
+  // categorias (SIEMACO/SINDEEPRES) usam 50% do art. 71, §4º, da CLT. Multa
+  // convencional: Vigilante 3% sobre o salário normativo; demais, 20% por
+  // cláusula descumprida.
+  dados.PERC_ART71 = ehVigilante
+    ? '60% (sessenta por cento), conforme a cláusula 12ª da Convenção Coletiva da Categoria'
+    : '50% (cinquenta por cento), conforme o artigo 71, §4º, da CLT';
+  dados.PERC_MULTA_CONV = ehVigilante
+    ? '3% (três por cento) sobre o salário normativo da categoria'
+    : '20% (vinte por cento) por cláusula descumprida';
   dados.tem_tomadora = temTomadora;
   dados.sem_justa_causa = tipo === 'sem_justa_causa';
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
@@ -348,7 +375,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.gratificacao_funcao = flag(caso.tem_gratificacao);
   dados.escala_12x36 = /12\s*x\s*36/i.test(escalaTxt);
   dados.escala_4x2 = /\b(4\s*x\s*2|6\s*x\s*2)\b/i.test(escalaTxt);
-  dados.adicional_noturno = flag(caso.tem_adic_noturno);
+  dados.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
   dados.integracao_por_fora = flag(caso.tem_integracao_por_fora);
   // Vigilância: 10 min (cláusula 33ª) e periculosidade nas HE são padrão da categoria.
   dados.periculosidade = flag(caso.tem_periculosidade) || ehVigilante;
