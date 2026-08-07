@@ -253,6 +253,8 @@ export function conferirDocumentoFinal(zip, dados = {}) {
   // alçada — saldo de salário (R$ 623,05), multa do art. 467 (R$ 2.978,38) e
   // multa do art. 477 (R$ 1.699,23) — sem que constassem do rol: valores
   // calculados, somados e nunca impressos pelo modelo. Isto barra a repetição.
+  // formatBRL usa espaço inquebrável entre "R$" e o número — normaliza os dois
+  // lados e compara só a parte numérica, que é o que sai impresso no rol.
   const norm = texto.replace(/ /g, ' ');
   const naoImpressos = Object.entries(dados || {})
     .filter(([k, v]) => /^VALOR_/.test(k) && !VALORES_FORA_DO_ROL.has(k)
