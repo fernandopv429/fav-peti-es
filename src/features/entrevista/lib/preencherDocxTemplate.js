@@ -156,6 +156,13 @@ function corrigirTextoFinal(zip) {
   xml = substituirFraseTagTolerant(xml, 'Súmula 425 do Tribunal Superior do Trabalho', 'artigo 791-A da CLT');
   xml = substituirFraseTagTolerant(xml, 'Súmula 425 TST', 'artigo 791-A da CLT');
   xml = substituirFraseTagTolerant(xml, 'Itapecerica da Terra', 'Itapecerica da Serra');
+  // MOTIVO_SAIDA_RESUMIDO vale "sido dispensado sem justa causa" (feito para
+  // "tendo {{MOTIVO}}"), mas o modelo também o usa em "o reclamante {{MOTIVO}}
+  // em <data>" — e aí sai "o reclamante sido dispensado", sem o verbo. Saiu
+  // assim nas três peças. Corrige a regência sem mexer no token.
+  xml = xml.replace(/(<w:t[^>]*>)([^<]*?\b(?:reclamante|obreiro|autor)\s+)sido\b/gi, '$1$2foi ');
+  xml = substituirFraseTagTolerant(xml, 'reclamante sido', 'reclamante foi');
+  xml = substituirFraseTagTolerant(xml, 'obreiro sido', 'obreiro foi');
   zip.file(alvo, xml);
 }
 
