@@ -279,7 +279,7 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   if (ehVig && caso.tem_ft) {
     caso.tem_vale_transporte = true;
     caso.tem_auxilio_alimentacao = true;
-    if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 39; // padrão SINDEEPRES
+    if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 42; // padrão Vigilância (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
   }
 
   // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
