@@ -66,6 +66,10 @@
       },
       "title": "Esqueleto de se\u00e7\u00f5es"
     },
+    "diferencial": {
+      "type": "string",
+      "title": "Diferencial (o que \u00e9 particular desta pe\u00e7a \u2014 usado pela IA na reda\u00e7\u00e3o)"
+    },
     "resumo": {
       "type": "string",
       "title": "Resumo t\u00e9cnico"
