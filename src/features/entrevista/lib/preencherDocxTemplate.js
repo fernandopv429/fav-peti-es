@@ -150,6 +150,90 @@ function corrigirTextoFinal(zip) {
   zip.file(alvo, xml);
 }
 
+// ============================================================
+// PARÁGRAFOS E NUMERAÇÃO DOS CAPÍTULOS ESCRITOS PELA IA
+// O modelo do escritório usa numeração automática do Word (w:numPr) — na peça
+// do Marcos, 82 dos 304 parágrafos. O texto da IA entra pelo parágrafo que
+// hospeda a tag {{BLOCO_*}}, que NÃO tem numeração, e com linebreaks: true o
+// texto de vários parágrafos vira <w:br/> DENTRO de um parágrafo só. Daí os
+// apontamentos da revisora: "tópico correto, apenas sem numeração" e "sem
+// estrutura, fora da sequência da numeração" — e o único parágrafo do documento
+// com <w:br/> era justamente o bloco da IA (6 quebras num parágrafo).
+// Aqui, depois do render: cada quebra passa a ser um <w:p> de verdade e, quando
+// o parágrafo hospedeiro não é numerado, herda o w:pPr do último parágrafo
+// numerado do corpo — o texto da IA entra na sequência como qualquer outro.
+// ============================================================
+const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+function quebrarParagrafo(doc, p, pPrModelo) {
+  const grupos = [[]];
+  for (const filho of Array.from(p.childNodes)) {
+    if (filho.nodeType !== 1) continue;
+    if (filho.localName === 'pPr') continue;
+    if (filho.localName !== 'r') {
+      grupos[grupos.length - 1].push(filho.cloneNode(true));
+      continue;
+    }
+    // Um <w:r> pode conter texto e quebras juntos: divide o próprio run,
+    // replicando o w:rPr para preservar a formatação de cada pedaço.
+    const rPr = filho.getElementsByTagNameNS(NS_W, 'rPr')[0] || null;
+    let run = null;
+    for (const n of Array.from(filho.childNodes)) {
+      if (n.nodeType !== 1 || n.localName === 'rPr') continue;
+      if (n.localName === 'br') {
+        if (run) { grupos[grupos.length - 1].push(run); run = null; }
+        grupos.push([]);
+        continue;
+      }
+      if (!run) {
+        run = doc.createElementNS(NS_W, 'w:r');
+        if (rPr) run.appendChild(rPr.cloneNode(true));
+      }
+      run.appendChild(n.cloneNode(true));
+    }
+    if (run) grupos[grupos.length - 1].push(run);
+  }
+  const novos = grupos.filter((g) => g.length).map((g) => {
+    const np = doc.createElementNS(NS_W, 'w:p');
+    if (pPrModelo) np.appendChild(pPrModelo.cloneNode(true));
+    g.forEach((n) => np.appendChild(n));
+    return np;
+  });
+  if (novos.length < 2) return 0;
+  const pai = p.parentNode;
+  novos.forEach((np) => pai.insertBefore(np, p));
+  pai.removeChild(p);
+  return novos.length;
+}
+
+export function dividirParagrafosInjetados(zip) {
+  const alvo = 'word/document.xml';
+  const file = zip.file(alvo);
+  if (!file) return 0;
+  const xmlStr = file.asText();
+  if (!/<w:br\s*\/>/.test(xmlStr)) return 0;
+  try {
+    const doc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) return 0;
+    let pPrNumerado = null;
+    let criados = 0;
+    for (const p of Array.from(doc.getElementsByTagNameNS(NS_W, 'p'))) {
+      const pPr = p.getElementsByTagNameNS(NS_W, 'pPr')[0] || null;
+      const numerado = !!(pPr && pPr.getElementsByTagNameNS(NS_W, 'numPr').length);
+      if (p.getElementsByTagNameNS(NS_W, 'br').length) {
+        criados += quebrarParagrafo(doc, p, numerado ? pPr : (pPrNumerado || pPr));
+      }
+      if (numerado) pPrNumerado = pPr;
+    }
+    if (criados) zip.file(alvo, new XMLSerializer().serializeToString(doc));
+    return criados;
+  } catch (e) {
+    // Parse/serialização falhou: mantém o documento exatamente como estava.
+    console.warn('Não foi possível dividir os parágrafos da IA:', e?.message || e);
+    return 0;
+  }
+}
+
 // Mapeamento de marcadores [ENTRE COLCHETES] -> campos de dados (mesma tabela do previewTemplate)
 const MARCADORES_COLCHETES = {
   'VARA / CIDADE / REGIÃO': 'VARA_CIDADE_REGIAO',
@@ -302,6 +386,9 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
   });
   doc.render(dados || {});
   const outZip = doc.getZip();
+  // Quebras de linha dos blocos da IA -> parágrafos reais, herdando a numeração
+  // do corpo (antes o capítulo inteiro saa como um parágrafo sem número).
+  dividirParagrafosInjetados(outZip);
   // Correções pós-preenchimento (erros recorrentes do template e duplicações do docxtemplater)
   corrigirTextoFinal(outZip);
   // Concordância de gênero após o preenchimento. O template-mestre veio com
