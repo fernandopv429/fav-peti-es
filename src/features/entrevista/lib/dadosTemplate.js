@@ -33,6 +33,20 @@ const CALC_CAMPO = {
   'Multa do art. 477 da CLT': 'VALOR_MULTA_477',
   'Salários em aberto': 'VALOR_SALARIOS_ABERTO',
   'Honorários advocatícios (15%)': 'VALOR_HONORARIOS',
+  // Verbas por hora, agora estimadas (mathUtils) em vez de "a apurar em
+  // liquidação". As tags abaixo ainda NÃO existem no .docx-mestre: os valores
+  // já entram no VALOR_CAUSA_TOTAL e aparecem na tela, mas para saírem no rol
+  // de pedidos o modelo precisa ser tokenizado com elas.
+  'Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO',
+  'Reflexos de Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO_REFLEXOS',
+  'Intervalo intrajornada (art. 71 da CLT)': 'VALOR_ART71',
+  'Reflexos de Intervalo intrajornada (art. 71 da CLT)': 'VALOR_ART71_REFLEXOS',
+  'Adicional noturno e hora noturna reduzida': 'VALOR_NOTURNO',
+  'Reflexos de Adicional noturno e hora noturna reduzida': 'VALOR_NOTURNO_REFLEXOS',
+  '10 minutos de descanso (cláusula 33º da CCT)': 'VALOR_DEZ_MINUTOS',
+  'Reflexos de 10 minutos de descanso (cláusula 33º da CCT)': 'VALOR_DEZ_MINUTOS_REFLEXOS',
+  'Adicional de periculosidade sobre as horas extras': 'VALOR_PERICULOSIDADE_HE',
+  'Reflexos de Adicional de periculosidade sobre as horas extras': 'VALOR_PERICULOSIDADE_HE_REFLEXOS',
 };
 
 // Contrato de tags do .docx (documentação viva).
@@ -53,6 +67,11 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_AVISO_PREVIO', 'VALOR_13', 'VALOR_FERIAS', 'VALOR_FGTS', 'VALOR_MULTA_40',
   'VALOR_FT', 'VALOR_DSR', 'VALOR_DANO_MORAL_10X', 'VALOR_CAUSA_TOTAL', 'DATA_PECA',
   'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS',
+  'VALOR_HE_PRORROGACAO', 'VALOR_HE_PRORROGACAO_REFLEXOS',
+  'VALOR_ART71', 'VALOR_ART71_REFLEXOS',
+  'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
+  'VALOR_DEZ_MINUTOS', 'VALOR_DEZ_MINUTOS_REFLEXOS',
+  'VALOR_PERICULOSIDADE_HE', 'VALOR_PERICULOSIDADE_HE_REFLEXOS',
 ];
 
 export const FLAGS_TEMPLATE = [
