@@ -134,17 +134,38 @@ export function mapearCasoDeWebhook(data) {
   if (d.horas_extras) {
     caso.jornada_extrapola = true;
     caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
-    const tol = [d.periodo_antecedente, d.periodo_sucedente].filter(Boolean);
-    if (tol.length) caso.prorrogacao_jornada = tol.map((t) => `${t} de tolerância`).join(' — ');
+    // Antes: tol.map(...).join(' — '), que com os dois períodos iguais produzia
+    // "30 minutos de tolerância — 30 minutos de tolerância" — saíu assim na peça
+    // do Marcos e a revisora marcou o trecho. Agora descreve as POSIÇÕES.
+    const antes = d.periodo_antecedente ? String(d.periodo_antecedente).trim() : '';
+    const depois = d.periodo_sucedente ? String(d.periodo_sucedente).trim() : '';
+    if (antes && depois) {
+      caso.prorrogacao_jornada = antes === depois
+        ? `${antes} antes e ${depois} depois da jornada`
+        : `${antes} antes e ${depois} após a jornada`;
+    } else if (antes || depois) {
+      caso.prorrogacao_jornada = `${antes || depois} ${antes ? 'antes' : 'após'} a jornada`;
+    }
   }
   if (d.intervalo_suprimido) {
     caso.intervalo_gozado = false;
-    caso.intervalo_usufruido = pick(d, 'INTERVALO_GOZADO', 'intervalo_detalhes');
+    // O campo entra na frase "concessão parcial do intervalo ... de X", então só
+    // aceita DURAÇÃO. Na peça do Marcos a entrevista havia posto "Rádio HT
+    // sempre ligado" neste campo e a frase saiu sem sentido no documento.
+    // Detalhe que não é duração vai para observação, não para o texto da peça.
+    const det = String(pick(d, 'INTERVALO_GOZADO', 'intervalo_detalhes') || '').trim();
+    if (det && /\d|minut|hora|meia/i.test(det)) caso.intervalo_usufruido = det;
+    else if (det) caso.intervalo_observacao = det.slice(0, 200);
   }
 
   if (d.folgas_trabalhadas || d.finais_semana) {
     caso.tem_ft = true;
-    caso.ft_qtd_media = parseRange(pick(d, 'FT_QTD_MEDIA', 'ft_quantidade'));
+    const ftTxt = String(pick(d, 'FT_QTD_MEDIA', 'ft_quantidade') || '').trim();
+    caso.ft_qtd_media = parseRange(ftTxt);
+    // Guarda o TEXTO original ("5 a 6 vezes por mês"). A média numérica serve ao
+    // cálculo; imprimir ela na peça produziu "em média de 5.5 vezes por mês",
+    // marcado como incorreto pela revisora. A peça usa o intervalo declarado.
+    if (ftTxt) caso.ft_qtd_texto = ftTxt;
     caso.val_ft = parseRange(pick(d, 'VAL_FT', 'val_ft'));
   }
   if (d.ft_pagamento && /pix|dinheiro/i.test(d.ft_pagamento)) {
@@ -229,7 +250,16 @@ export function mapearCasoDeWebhook(data) {
   }
 
   caso.entrevista_texto = d.fatos_narrados || '';
-  caso.dano_fatos = d.fatos_narrados || '';
+  // O relato da entrevista NÃO é a narrativa do dano moral. Copiar o campo cru
+  // pôs na peça do Marcos anotações em terceira pessoa ("Alega que não recebia
+  // PL") e um fato irrelevante para o dano (empréstimo consignado descontado na
+  // rescisão) — a revisora marcou "inserido sem contexto". Só aproveitamos o
+  // relato quando ele tem cara de narrativa; se tiver cara de anotação, vai
+  // para observação e a narrativa é montada dos fatos (narrativaDanoMoral).
+  const relato = String(d.fatos_narrados || '').trim();
+  const pareceAnotacao = /\balega\s+que\b|\bhavia\s+solicitad|\brelata\s+que\b|\binforma\s+que\b|^\s*[-•*\d]\s|\bPL\b|consignado/i.test(relato);
+  if (relato && !pareceAnotacao) caso.dano_fatos = relato;
+  else if (relato) caso.dano_observacao = relato;
 
   caso.comarca_uf = extrairUF(caso.local_prestacao || caso.recl_endereco);
 
