@@ -216,7 +216,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const dados = {};
 
   // 1) Valores determinísticos
+  // INVARIANTE: o valor da causa soma apenas o que a peça efetivamente PEDE.
+  // A peça do Jonathan cobrou R$ 5.300,66 na alçada (saldo de salário, multa do
+  // art. 467 e multa do art. 477) sem que esses itens constassem do rol de
+  // pedidos. Verba sem token mapeado não é impressa — logo, não entra na soma;
+  // fica registrada em _itensSemToken para o modelo .docx ser corrigido.
   let somaCausa = 0;
+  const itensSemToken = [];
   for (const c of calculos || []) {
     if (c.valor == null) continue;
     const campo = CALC_CAMPO[c.item];
@@ -225,8 +231,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     // CPC) — padrão do escritório. Não compõem o valor da causa (o rol de
     // pedidos não os lista como valor), senão o fecho fica maior que a soma
     // do rol. VALOR_HONORARIOS continua disponível para o tópico de honorários.
-    if (c.item !== 'Honorários advocatícios (15%)') somaCausa += Number(c.valor) || 0;
+    if (c.item === 'Honorários advocatícios (15%)') continue;
+    if (!campo) { itensSemToken.push(`${c.item} (${formatBRL(c.valor)})`); continue; }
+    somaCausa += Number(c.valor) || 0;
   }
+  // Chave com underscore: não é tag do template, só diagnóstico para a UI/gate.
+  dados._itensSemToken = itensSemToken;
   const valorCausa = brlComExtenso(round2(somaCausa));
   dados.VALOR_CAUSA_TOTAL = valorCausa;
   // Aliases — algumas versões do template usam tags diferentes para o mesmo valor
