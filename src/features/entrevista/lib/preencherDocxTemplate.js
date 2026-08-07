@@ -255,11 +255,11 @@ export function conferirDocumentoFinal(zip, dados = {}) {
   // calculados, somados e nunca impressos pelo modelo. Isto barra a repetição.
   // formatBRL usa espaço inquebrável entre "R$" e o número — normaliza os dois
   // lados e compara só a parte numérica, que é o que sai impresso no rol.
-  const norm = texto.replace(/ /g, ' ');
+  const norm = texto.replace(/\u00a0/g, ' ');
   const naoImpressos = Object.entries(dados || {})
     .filter(([k, v]) => /^VALOR_/.test(k) && !VALORES_FORA_DO_ROL.has(k)
       && typeof v === 'string' && /\d,\d{2}/.test(v))
-    .filter(([, v]) => !norm.includes(String(v).replace(/ /g, ' ').replace(/^R\$\s*/, '')))
+    .filter(([, v]) => !norm.includes(String(v).replace(/\u00a0/g, ' ').replace(/^R\$\s*/, '')))
     .map(([k, v]) => `${k} = ${v}`);
   if (naoImpressos.length) {
     achados.push(
