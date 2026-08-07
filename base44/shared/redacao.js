@@ -70,13 +70,21 @@ REGRAS CRÍTICAS (erros já cometidos — NÃO repita):
 6. VALOR DA CAUSA, FECHO E ASSINATURA são determinísticos — não os escreva.`;
 }
 
+// Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
+// no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
+// /\s{2,}/ engolia também os \n\n e todo capítulo da IA saa como um bloco
+// único de texto — as peças geradas ficavam com parágrafos de 30 linhas,
+// enquanto as da especialista têm parágrafos curtos. O docxtemplater já está
+// com linebreaks: true, então a quebra preservada aqui chega ao .docx.
 function sanitizarValoresIA(texto) {
   if (!texto) return texto;
   return texto
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
     .replace(/R\$\s*\d[\d.,]*/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.;:])/g, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
