@@ -339,7 +339,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.ESCALA = caso.escala || '[ESCALA]';
   dados.INTERVALO_USUFRUIDO = caso.intervalo_usufruido || '';
   dados.PRORROGACAO_JORNADA = caso.prorrogacao_jornada || '';
-  dados.FOLGAS_LABORADAS_MES = caso.ft_qtd_media != null ? String(caso.ft_qtd_media) : (caso.folgas_laboradas_mes || '');
+  // Texto declarado na entrevista ("5 a 6 vezes por mês") tem preferência sobre
+  // a média numérica: imprimir a média gerava "em média de 5.5 vezes por mês"
+  // no documento, apontado como incorreto na revisão. A média só serve ao
+  // cálculo (mathUtils); a peça repete o intervalo tal como declarado.
+  dados.FOLGAS_LABORADAS_MES = caso.ft_qtd_texto
+    || caso.folgas_laboradas_mes
+    || (caso.ft_qtd_media != null ? String(caso.ft_qtd_media).replace('.', ',') : '');
 
   // 9) Teses (dados de apoio)
   dados.ACUMULO_ATIVIDADES = caso.acumulo_atividades || caso.acumulo_funcao || '';
@@ -468,7 +474,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   {
     const hor = caso.jornada_horario || '[HORÁRIOS]';
     const esc = caso.escala || (dados.escala_12x36 ? '12x36' : dados.escala_4x2 ? '4x2' : '[ESCALA]');
-    const prorrog = caso.prorrogacao_jornada ? `, estendia a jornada ${caso.prorrogacao_jornada}` : '';
+    const prorrog = caso.prorrogacao_jornada ? `, prorrogando a jornada em ${caso.prorrogacao_jornada}` : '';
     const intervaloTxt = caso.intervalo_usufruido
       ? `concessão parcial do intervalo para refeição e descanso de ${caso.intervalo_usufruido}`
       : 'concessão parcial do intervalo intrajornada';
