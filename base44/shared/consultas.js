@@ -204,6 +204,7 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   };
 }
 
+// Pisos de último recurso. NÃO são usados por padrão — ver extrairPisoCct.
 const PISOS_FALLBACK = {
   vigilante_2025: 2127.66,
   vigilante_2026: 2271.74,
@@ -213,8 +214,26 @@ const PISOS_FALLBACK = {
   asseio_2026: 1805.00,
 };
 
-export function extrairPisoCct(dadosCct, funcao = '') {
-  if (!dadosCct?.clausulas?.length) return null;
+/**
+ * Piso salarial da categoria a partir das cláusulas realmente retornadas pela
+ * CCT consultada. O piso "chapado" de PISOS_FALLBACK só sai com
+ * { permitirFallback: true } — e quem pedir tem de avisar o advogado.
+ *
+ * Por quê: duas peças reais (Jonathan e Luciano) foram calculadas sobre
+ * R$ 1.699,23, que é exatamente PISOS_FALLBACK.porteiro_2025, quando o salário
+ * real dos dois era R$ 1.912,07. Dano moral, aviso, 13º, férias, FGTS e multas
+ * saíram todos ~11% abaixo, e a peça afirmava um salário que não era o do
+ * empregado — sem uma linha de alerta em lugar nenhum.
+ *
+ * @returns {number|{valor:number,origem:string,fonte?:string}|null}
+ *   número quando vem de cláusula (compatibilidade com quem já chamava);
+ *   null quando não há piso confiável e o fallback não foi autorizado.
+ */
+export function extrairPisoCct(dadosCct, funcao = '', { permitirFallback = false } = {}) {
+  if (!dadosCct?.clausulas?.length) {
+    if (!permitirFallback) return null;
+    return pisoDeFallback(dadosCct, funcao);
+  }
   const PADROES_PISO = /piso\s*salarial|sal[áa]rio\s*normativo|sal[áa]rio\s*base|sal[áa]rio\s*m[íi]nimo\s*(?:da\s*categoria|convencional)/i;
   for (const c of dadosCct.clausulas) {
     const texto = [c.ementa, c.texto, c.conteudo, c.clausula_titulo, c.clausula_ref].filter(Boolean).join(' ');
@@ -225,8 +244,13 @@ export function extrairPisoCct(dadosCct, funcao = '') {
       if (Number.isFinite(v) && v > 500 && v < 20000) return v;
     }
   }
-  const ano = dadosCct.meta?.ano_base ? String(dadosCct.meta.ano_base) : String(new Date().getFullYear());
-  const cat = dadosCct.categoria || categoriaCct({ funcao }, {});
+  if (!permitirFallback) return null;
+  return pisoDeFallback(dadosCct, funcao);
+}
+
+function pisoDeFallback(dadosCct, funcao = '') {
+  const ano = dadosCct?.meta?.ano_base ? String(dadosCct.meta.ano_base) : String(new Date().getFullYear());
+  const cat = dadosCct?.categoria || categoriaCct({ funcao }, {});
   const ehVig = /vigilante|vigil/i.test(funcao || '');
   const chave = ehVig ? `vigilante_${ano}` : `${cat}_${ano}`;
   if (PISOS_FALLBACK[chave]) return PISOS_FALLBACK[chave];
