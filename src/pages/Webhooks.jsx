@@ -12,6 +12,18 @@ const STATUS_CONFIG = {
   erro: { label: 'Erro', variant: 'destructive', icon: XCircle, color: 'text-red-600' },
 };
 
+// Todo evento de entrevista chega com evento_tipo="entrevista.salva" — nome
+// genérico igual pra todo mundo. Aqui puxamos o nome de quem gerou o evento
+// (vem em payload.data em formatos diferentes dependendo da origem) pra usar
+// como identificação principal na lista, em vez do evento_tipo repetido.
+const nomeDoEvento = (ev) => {
+  const d = ev?.payload?.data || {};
+  return (
+    d.RECL_NOME || d.recl_nome || d.claimant_name || d.nome || d.name ||
+    d.titulo || d.title || ev?.payload?.created_by || ''
+  ).toString().trim();
+};
+
 export default function Webhooks() {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,11 +104,11 @@ export default function Webhooks() {
                   <StatusIcon className={`h-5 w-5 ${cfg.color} flex-shrink-0`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm truncate">{ev.evento_tipo}</span>
+                      <span className="font-medium text-sm truncate">{nomeDoEvento(ev) || ev.evento_tipo}</span>
                       <Badge variant={cfg.variant} className="text-[10px]">{cfg.label}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
-                      {ev.origem} · {new Date(ev.created_date).toLocaleString('pt-BR')}
+                      {ev.evento_tipo} · {ev.origem} · {new Date(ev.created_date).toLocaleString('pt-BR')}
                     </p>
                   </div>
                   {ev.status === 'recebido' && (
@@ -120,13 +132,14 @@ export default function Webhooks() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Webhook className="h-5 w-5" />
-              {selecionado?.evento_tipo}
+              {nomeDoEvento(selecionado) || selecionado?.evento_tipo}
             </DialogTitle>
           </DialogHeader>
           {selecionado && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div><span className="text-muted-foreground">Origem:</span> {selecionado.origem}</div>
+                <div><span className="text-muted-foreground">Tipo:</span> {selecionado.evento_tipo}</div>
                 <div><span className="text-muted-foreground">Status:</span> {STATUS_CONFIG[selecionado.status]?.label}</div>
                 <div><span className="text-muted-foreground">ID do evento:</span> {selecionado.evento_id || '—'}</div>
                 <div><span className="text-muted-foreground">IP:</span> {selecionado.ip_origem || '—'}</div>
