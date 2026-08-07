@@ -395,6 +395,30 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18b) CONTRATO DE TRABALHO na numeração. Os parágrafos das modalidades
+  // (aqueles com {{DATA_ADMISSAO}} e {{SALARIO}}) não têm numeração, e agora que
+  // o contrato sempre aparece ele ficaria sem número entre parágrafos numerados
+  // — a outra metade do "fora da estrutura" apontado na revisão. Recebem o pPr
+  // do primeiro parágrafo numerado do corpo (mesma lista, mesma indentação).
+  let contratoNumerado = 0;
+  {
+    const ps = _paras(xml);
+    const pPrCorpo = _pPr((ps.find((p) => /<w:numPr>/.test(p.raw)) || {}).raw || '');
+    if (pPrCorpo) {
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const raw = ps[i].raw;
+        if (/<w:numPr>/.test(raw)) continue;
+        const t = _textoPara(raw);
+        if (!(t.includes('{{DATA_ADMISSAO}}') && t.includes('{{SALARIO}}'))) continue;
+        const novo = /<w:pPr>[\s\S]*?<\/w:pPr>/.test(raw)
+          ? raw.replace(/<w:pPr>[\s\S]*?<\/w:pPr>/, pPrCorpo)
+          : raw.replace(/^<w:p([^>]*)>/, `<w:p$1>${pPrCorpo}`);
+        xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+        contratoNumerado++;
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -438,5 +462,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     avosTokenizados,
     rolHorasAdicionado,
     rolNumerado,
+    contratoNumerado,
   };
 }
