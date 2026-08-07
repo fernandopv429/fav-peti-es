@@ -66,7 +66,7 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_SALDO_SALARIO', 'VALOR_MULTA_467',
   'VALOR_AVISO_PREVIO', 'VALOR_13', 'VALOR_FERIAS', 'VALOR_FGTS', 'VALOR_MULTA_40',
   'VALOR_FT', 'VALOR_DSR', 'VALOR_DANO_MORAL_10X', 'VALOR_CAUSA_TOTAL', 'DATA_PECA',
-  'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS',
+  'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS', 'FT_100',
   'VALOR_HE_PRORROGACAO', 'VALOR_HE_PRORROGACAO_REFLEXOS',
   'VALOR_ART71', 'VALOR_ART71_REFLEXOS',
   'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
@@ -237,6 +237,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   }
   // Chave com underscore: não é tag do template, só diagnóstico para a UI/gate.
   dados._itensSemToken = itensSemToken;
+  // O modelo-mestre pede {{FT_100}} numa única linha do rol (principal + reflexo
+  // de DSR). A tag não existia em lugar nenhum do código: com este modelo a
+  // linha sairia como "[A PREENCHER: FT_100]".
+  if (dados.VALOR_FT) {
+    dados.FT_100 = dados.VALOR_DSR ? `${dados.VALOR_FT} + ${dados.VALOR_DSR}` : dados.VALOR_FT;
+  }
   const valorCausa = brlComExtenso(round2(somaCausa));
   dados.VALOR_CAUSA_TOTAL = valorCausa;
   // Aliases — algumas versões do template usam tags diferentes para o mesmo valor
