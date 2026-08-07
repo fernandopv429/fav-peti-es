@@ -305,12 +305,17 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // valores do caso SINDEEPRES de origem — a peça de um vigilante saa pedindo
   // "2% por cláusula" onde a especialista pede 3% sobre o salário normativo.
   let percentuaisTokenizados = false;
-  const PERCENTUAIS = [
-    ['2% (dois por cento) por cláusula descumprida', '{{PERC_MULTA_CONV}}'],
-    ['50% conforme artigo 71, §4º, da CLT', '{{PERC_ART71}}'],
-  ];
-  for (const [de, para] of PERCENTUAIS) {
-    if (xml.includes(de)) { xml = xml.split(de).join(para); percentuaisTokenizados = true; }
+  // A multa convencional está num <w:t> único (replace literal). Já a frase do
+  // art. 71 vem fragmentada em vários runs no modelo — conferido no XML real —
+  // então exige a substituição tolerante a tags, senão falha em silêncio.
+  if (xml.includes('2% (dois por cento) por cláusula descumprida')) {
+    xml = xml.split('2% (dois por cento) por cláusula descumprida').join('{{PERC_MULTA_CONV}}');
+    percentuaisTokenizados = true;
+  }
+  if (!xml.includes('{{PERC_ART71}}') && /50%[\s\S]{0,80}artigo 71/.test(xml)) {
+    const antes = xml;
+    xml = _substituirFraseTagTolerant(xml, '50% conforme artigo 71, §4º, da CLT', '{{PERC_ART71}}');
+    if (xml !== antes) percentuaisTokenizados = true;
   }
 
   // 16) AVISO PRÉVIO: o modelo trazia a narrativa do caso de origem (redução do
