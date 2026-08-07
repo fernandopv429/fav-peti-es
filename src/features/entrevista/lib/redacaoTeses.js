@@ -43,9 +43,18 @@ function sanitizarValoresIA(texto) {
 // (base44/shared/redacao.js) depois desse bug aparecer numa geração real —
 // esta cópia do frontend (a que a tela de entrevista efetivamente usa)
 // tinha ficado sem o fix.
+function desescapar(s) {
+  return String(s)
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, ' ')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
 function desempacotarTexto(texto, campo) {
   const t = String(texto || '').trim();
-  if (!(t.startsWith('{') && t.endsWith('}'))) return t;
+  if (!(t.startsWith('{') && t.includes('"'))) return desescapar(t);
   try {
     const obj = JSON.parse(t);
     if (obj && typeof obj === 'object') {
@@ -54,8 +63,40 @@ function desempacotarTexto(texto, campo) {
       const str = Object.values(obj).find((v) => typeof v === 'string' && v.trim().length > 80);
       if (str) return str.trim();
     }
-  } catch (e) { /* não era JSON válido — mantém o texto */ }
-  return t;
+  } catch (e) { /* JSON inválido — cai no resgate por regex abaixo */ }
+  // RESGATE. O JSON.parse falha quando o modelo deixa aspas internas sem escape
+  // no meio do capítulo (ex.: cláusula `intitulada "PRAZOS E OUTRAS MULTAS"`).
+  // Sem este resgate o envelope INTEIRO ia para a peça: no caso Luciano,
+  // BLOCO_SUMULA_331 e BLOCO_MULTAS_CONVENCIONAIS saíram no .docx como
+  // '{ "BLOCO_X": "...\\n\\n..." }', com os \\n visíveis.
+  const fechado = /^\{\s*"[A-Za-z0-9_]+"\s*:\s*"([\s\S]*)"\s*\}$/.exec(t);
+  if (fechado) return desescapar(fechado[1]).trim();
+  const aberto = /^\{\s*"[A-Za-z0-9_]+"\s*:\s*"([\s\S]*)$/.exec(t);
+  if (aberto) return desescapar(aberto[1].replace(/"\s*\}?\s*$/, '')).trim();
+  return desescapar(t);
+}
+
+// Defeitos que NUNCA podem chegar ao .docx. Espelha PADROES_DEFEITO de
+// base44/shared/redacao.js — mudou lá, mudar aqui também.
+const PADROES_DEFEITO = [
+  [/\{\s*"(BLOCO_|PEDIDOS_)/, 'envelope JSON cru no texto do capítulo'],
+  [/\\n|\\r/, 'quebra de linha literal (\\n) no texto'],
+  [/```/, 'cerca de código markdown (```) no texto'],
+  [/\[A PREENCHER/i, 'marcador [A PREENCHER] não resolvido'],
+  [/\[CONFIRMAR:/i, 'pendência [CONFIRMAR: ...] não resolvida'],
+  [/\[(INSERIR|A COMPLETAR)/i, 'placeholder de redação não resolvido'],
+];
+
+export function problemasNosBlocos(blocos = {}) {
+  const out = [];
+  for (const [campo, valor] of Object.entries(blocos || {})) {
+    const txt = Array.isArray(valor) ? valor.join(' ') : String(valor == null ? '' : valor);
+    if (!txt) continue;
+    for (const [re, descricao] of PADROES_DEFEITO) {
+      if (re.test(txt)) out.push(`${campo}: ${descricao}`);
+    }
+  }
+  return out;
 }
 
 export const ESPECIALISTAS = [
