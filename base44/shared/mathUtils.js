@@ -61,11 +61,32 @@ export function brlComExtenso(valor) {
   return `${formatBRL(valor)} (${valorPorExtenso(valor)})`;
 }
 
+// 'YYYY-MM-DD' TEM de ser lido como data LOCAL. new Date('2025-12-07') é
+// interpretado como meia-noite UTC: rodando em UTC-3 (o navegador do
+// escritório), getDate() devolve 6. Foi exatamente o que aconteceu na peça do
+// Marcos — saldo de salário com 6 dias (R$ 429,64) em vez de 7 (R$ 501,25),
+// porque o .docx é montado no navegador enquanto o backend (UTC) acertava.
+function parseData(v) {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Data -> 'YYYY-MM-DD' no fuso LOCAL (toISOString() desfaria a correção acima).
+function isoLocal(d) {
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
 export function mesesContrato(admissao, rescisao) {
   if (!admissao || !rescisao) return null;
-  const a = new Date(admissao);
-  const r = new Date(rescisao);
-  if (isNaN(a.getTime()) || isNaN(r.getTime()) || r < a) return null;
+  const a = parseData(admissao);
+  const r = parseData(rescisao);
+  if (!a || !r || r < a) return null;
   let meses = 0;
   const inicioMs = new Date(a.getFullYear(), a.getMonth(), 1).getTime();
   const fimMs = new Date(r.getFullYear(), r.getMonth(), 1).getTime();
@@ -88,17 +109,17 @@ export function anosCompletos(admissao, rescisao) {
 
 export function projetarDataComAvisoPrevio(rescisao, diasAviso) {
   if (!rescisao || !diasAviso) return rescisao;
-  const r = new Date(rescisao);
-  if (isNaN(r.getTime())) return rescisao;
+  const r = parseData(rescisao);
+  if (!r) return rescisao;
   r.setDate(r.getDate() + diasAviso);
-  return r.toISOString().slice(0, 10);
+  return isoLocal(r);
 }
 
 export function avosEntreDatas(admissao, dataFinal, contarProjecaoUltimoMes) {
   if (!admissao || !dataFinal) return null;
-  const a = new Date(admissao);
-  const r = new Date(dataFinal);
-  if (isNaN(a.getTime()) || isNaN(r.getTime()) || r < a) return null;
+  const a = parseData(admissao);
+  const r = parseData(dataFinal);
+  if (!a || !r || r < a) return null;
   let avos = 0;
   const cursor = new Date(a.getFullYear(), a.getMonth(), 1);
   const ultimoMes = new Date(r.getFullYear(), r.getMonth(), 1);
@@ -124,8 +145,8 @@ export function avisoPrevio(salario, anos, { acordo = false } = {}) {
 
 export function saldoSalario(salario, dataRescisao) {
   if (!salario || !dataRescisao) return null;
-  const r = new Date(dataRescisao);
-  if (isNaN(r.getTime())) return null;
+  const r = parseData(dataRescisao);
+  if (!r) return null;
   const dias = r.getDate();
   return { dias, valor: round2((salario / 30) * dias) };
 }
