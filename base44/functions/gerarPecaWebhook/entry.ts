@@ -159,11 +159,31 @@ export default async function(req) {
         if (cl?.clausula_ref) caso.cct_clausula_multa = cl.clausula_ref;
       }
     }
-    // Piso salarial da CCT quando o salário não veio
-    if (!caso.salario && dadosCct) {
-      const piso = extrairPisoCct(dadosCct, caso.funcao);
-      if (piso) caso.salario = piso;
+    // SALÁRIO-BASE. É a entrada mais importante da peça: dano moral (10x),
+    // aviso, 13º, férias, FGTS, multas 467/477, desvio/acúmulo e hora normal
+    // derivam dele. Duas peças reais saíram calculadas sobre o piso "chapado"
+    // de PISOS_FALLBACK (R$ 1.699,23) quando o salário real era R$ 1.912,07 —
+    // ~11% a menos em tudo, sem aviso nenhum. Agora: piso só vale se vier de
+    // cláusula da CCT consultada, sempre com aviso; sem isso, é pendência.
+    const avisosDados = [];
+    if (!caso.salario) {
+      const piso = dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null;
+      if (piso) {
+        caso.salario = piso;
+        caso.salario_origem = 'piso da CCT consultada';
+        avisosDados.push(
+          `Salário não informado no evento: adotado o piso da CCT consultada (R$ ${Number(piso).toFixed(2).replace('.', ',')}). CONFIRMAR com holerite/CTPS antes de protocolar — todo o rol de pedidos depende deste valor.`
+        );
+      } else {
+        caso.salario_origem = 'ausente';
+        avisosDados.push(
+          'Salário não informado no evento e piso não localizado nas cláusulas da CCT: a peça está SEM base de cálculo. Preencher o salário antes de exportar.'
+        );
+      }
+    } else {
+      caso.salario_origem = 'informado no evento';
     }
+    const salarioConfiavel = caso.salario_origem === 'informado no evento';
     // Vigilância com folgas: VT/VA nas folgas são devidos (CCT) e não pagos
     const ehVig = /vigilante|vigil/i.test(caso.funcao || '');
     if (ehVig && caso.tem_ft) {
@@ -245,7 +265,7 @@ export default async function(req) {
     // 8b) Espelha em Petition para a peca aparecer em "Minhas Peticoes" e
     // entrar no fluxo de revisao que o app ja tem.
     const dialetoOk = ehDialetoEntrevista(petitionTemplate);
-    const avisos = [];
+    const avisos = [...avisosDados];
     if (!dialetoOk) {
       avisos.push(
         `O modelo "${petitionTemplate.name}" nao esta marcado como dialeto de entrevista ` +
@@ -304,9 +324,9 @@ export default async function(req) {
       template_used: templateId || undefined,
       generated_content: generatedContent,
       additional_facts: avisos.length ? avisos.join(' | ') : undefined,
-      // Sem dialeto confirmado ou com falha de redacao nao afirmamos que
-      // esta pronta: vai para revisao explicita.
-      status: (dialetoOk && !redacaoErro) ? 'concluida' : 'revisao_necessaria',
+      // Sem dialeto confirmado, com falha de redacao ou com salario nao
+      // confirmado nao afirmamos que esta pronta: vai para revisao explicita.
+      status: (dialetoOk && !redacaoErro && salarioConfiavel) ? 'concluida' : 'revisao_necessaria',
     };
     try {
       if (petitionIdExistente) {
