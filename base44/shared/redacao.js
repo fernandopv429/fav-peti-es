@@ -251,12 +251,23 @@ function desembrulhar(r) {
   return obj && typeof obj === 'object' ? obj : {};
 }
 
+// Desescapa sequências que só fazem sentido DENTRO de JSON. Sem isto, um
+// capítulo resgatado do envelope sai com "\\n" impresso como texto na peça.
+function desescapar(s) {
+  return String(s)
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, ' ')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
 // Último desembrulho: se o texto do capítulo ainda for um JSON cru
 // ('{ "BLOCO_X": "..." }'), extrai o valor de dentro em vez de deixar o
 // envelope vazar para a peça — foi exatamente o que aconteceu numa geração.
 function desempacotarTexto(texto, campo) {
   const t = String(texto || '').trim();
-  if (!(t.startsWith('{') && t.endsWith('}'))) return t;
+  if (!(t.startsWith('{') && t.includes('"'))) return desescapar(t);
   try {
     const obj = JSON.parse(t);
     if (obj && typeof obj === 'object') {
@@ -265,8 +276,43 @@ function desempacotarTexto(texto, campo) {
       const str = Object.values(obj).find((v) => typeof v === 'string' && v.trim().length > 80);
       if (str) return str.trim();
     }
-  } catch (e) { /* não era JSON válido — mantém o texto */ }
-  return t;
+  } catch (e) { /* JSON inválido — cai no resgate por regex abaixo */ }
+  // RESGATE. O JSON.parse acima falha quando o modelo deixa aspas internas sem
+  // escape no meio do capítulo (ex.: cláusula `intitulada "PRAZOS E OUTRAS
+  // MULTAS"`). Antes, esta função devolvia o texto cru e o envelope INTEIRO ia
+  // para a peça: foi o que aconteceu no caso Luciano, em que BLOCO_SUMULA_331 e
+  // BLOCO_MULTAS_CONVENCIONAIS saíram como '{ "BLOCO_X": "...\\n\\n..." }'
+  // dentro do .docx. Aqui extraímos o valor entre o primeiro `"campo":` e o
+  // fecho, e desescapamos as sequências.
+  const fechado = /^\{\s*"[A-Za-z0-9_]+"\s*:\s*"([\s\S]*)"\s*\}$/.exec(t);
+  if (fechado) return desescapar(fechado[1]).trim();
+  // Envelope truncado (o modelo estourou o limite de saída no meio do texto).
+  const aberto = /^\{\s*"[A-Za-z0-9_]+"\s*:\s*"([\s\S]*)$/.exec(t);
+  if (aberto) return desescapar(aberto[1].replace(/"\s*\}?\s*$/, '')).trim();
+  return desescapar(t);
+}
+
+// Defeitos que NUNCA podem chegar ao documento final. Quem chama usa isto para
+// mandar a peça para revisão explícita em vez de marcá-la como concluída.
+const PADROES_DEFEITO = [
+  [/\{\s*"(BLOCO_|PEDIDOS_)/, 'envelope JSON cru no texto do capítulo'],
+  [/\\n|\\r/, 'quebra de linha literal (\\n) no texto'],
+  [/```/, 'cerca de código markdown (```) no texto'],
+  [/\[A PREENCHER/i, 'marcador [A PREENCHER] não resolvido'],
+  [/\[CONFIRMAR:/i, 'pendência [CONFIRMAR: ...] não resolvida'],
+  [/\[(INSERIR|A COMPLETAR)/i, 'placeholder de redação não resolvido'],
+];
+
+export function problemasNosBlocos(blocos = {}) {
+  const out = [];
+  for (const [campo, valor] of Object.entries(blocos || {})) {
+    const txt = Array.isArray(valor) ? valor.join(' ') : String(valor == null ? '' : valor);
+    if (!txt) continue;
+    for (const [re, descricao] of PADROES_DEFEITO) {
+      if (re.test(txt)) out.push(`${campo}: ${descricao}`);
+    }
+  }
+  return out;
 }
 
 // Pega o valor do capítulo pedido; se o modelo nomeou a chave de outro jeito,
