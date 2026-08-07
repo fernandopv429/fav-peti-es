@@ -37,6 +37,27 @@ function sanitizarValoresIA(texto) {
     .trim();
 }
 
+// Último desembrulho: se o texto do capítulo ainda for um JSON cru
+// ('{ "BLOCO_X": "..." }'), extrai o valor de dentro em vez de deixar o
+// envelope vazar para a peça. Mesma correção já aplicada no backend
+// (base44/shared/redacao.js) depois desse bug aparecer numa geração real —
+// esta cópia do frontend (a que a tela de entrevista efetivamente usa)
+// tinha ficado sem o fix.
+function desempacotarTexto(texto, campo) {
+  const t = String(texto || '').trim();
+  if (!(t.startsWith('{') && t.endsWith('}'))) return t;
+  try {
+    const obj = JSON.parse(t);
+    if (obj && typeof obj === 'object') {
+      const direto = obj[campo];
+      if (typeof direto === 'string' && direto.trim()) return direto.trim();
+      const str = Object.values(obj).find((v) => typeof v === 'string' && v.trim().length > 80);
+      if (str) return str.trim();
+    }
+  } catch (e) { /* não era JSON válido — mantém o texto */ }
+  return t;
+}
+
 export const ESPECIALISTAS = [
   {
     numero: 'espinha',
@@ -284,10 +305,13 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
       description:
         'Lista de violações convencionais específicas e individualizadas cometidas pela reclamada, uma frase curta por item terminando em ";" (mesmo estilo de "Não remunera corretamente as horas extraordinárias, cláusula 16ª;"). Cite o número da cláusula da CCT APENAS quando ela estiver listada em CLÁUSULAS DA CCT (grounding) — nunca invente número. Sem cláusula conhecida, descreva a violação legal genérica sem citar cláusula (ex.: FGTS, DSR). Liste SOMENTE violações que correspondam às teses realmente ativas neste caso (periculosidade, 10 minutos, folgas/feriados 100%, desvio/acúmulo, vale-transporte/alimentação nas folgas, jornada extraordinária etc. — só as que se aplicam) — NÃO copie uma lista genérica fixa. Entre 3 e 10 itens. Sem valores em R$.',
     };
+    const clMultaTxt = c.cct_clausula_multa
+      ? `a cláusula ${c.cct_clausula_multa} da CCT (use o percentual e o critério exatos do texto dessa cláusula — nunca presuma 2%, 3% ou 20%)`
+      : 'a cláusula de penalidade da CCT (número desconhecido — não invente cláusula nem percentual)';
     tarefas.push(
       '### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\n' +
       'Papel: Você é advogado(a) trabalhista especialista em direito coletivo.\n' +
-      'Tarefa: Liste em um array de strings as violações convencionais específicas deste caso que fundamentam a multa de 2% por cláusula descumprida — cite a cláusula da CCT SOMENTE quando grounded em CLÁUSULAS DA CCT; sem cláusula conhecida, descreva sem citar número. Adapte às teses realmente ativas no caso (não reproduza uma lista padrão).'
+      `Tarefa: Liste em um array de strings as violações convencionais específicas deste caso que fundamentam a multa convencional prevista em ${clMultaTxt}. Cite o número da cláusula da CCT SOMENTE quando grounded em CLÁUSULAS DA CCT; sem cláusula conhecida, descreva sem citar número. NUNCA escreva um percentual fixo que não esteja no texto da cláusula grounded acima — sem certeza do percentual, omita o número. Adapte às teses realmente ativas no caso (não reproduza uma lista padrão).`
     );
   }
 
@@ -316,7 +340,8 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
 
     const blocos = {};
     for (const e of ativos) {
-      const texto = typeof obj[e.campo] === 'string' ? obj[e.campo].trim() : '';
+      const bruto = typeof obj[e.campo] === 'string' ? obj[e.campo].trim() : '';
+      const texto = bruto ? desempacotarTexto(bruto, e.campo) : '';
       if (texto) blocos[e.campo] = sanitizarValoresIA(texto);
     }
     if (multasAtivo && Array.isArray(obj.PEDIDOS_MULTAS)) {
