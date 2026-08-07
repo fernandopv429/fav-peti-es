@@ -336,7 +336,11 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     xml = xml.split('2% (dois por cento) por cláusula descumprida').join('{{PERC_MULTA_CONV}}');
     percentuaisTokenizados = true;
   }
-  if (!xml.includes('{{PERC_ART71}}') && /50%[\s\S]{0,80}artigo 71/.test(xml)) {
+  // Sem pré-teste de distância: a primeira versão exigia "50%" e "artigo 71" a
+  // menos de 80 caracteres um do outro e a substituição nunca rodava — no modelo
+  // real há centenas de caracteres de tags XML entre as duas palavras (a frase
+  // está partida em vários runs). Basta tentar e ver se mudou.
+  if (!xml.includes('{{PERC_ART71}}')) {
     const antes = xml;
     xml = _substituirFraseTagTolerant(xml, '50% conforme artigo 71, §4º, da CLT', '{{PERC_ART71}}');
     if (xml !== antes) percentuaisTokenizados = true;
