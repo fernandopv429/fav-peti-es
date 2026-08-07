@@ -140,11 +140,9 @@ export function mapearCasoDeWebhook(data) {
     const antes = d.periodo_antecedente ? String(d.periodo_antecedente).trim() : '';
     const depois = d.periodo_sucedente ? String(d.periodo_sucedente).trim() : '';
     if (antes && depois) {
-      caso.prorrogacao_jornada = antes === depois
-        ? `${antes} antes e ${depois} depois da jornada`
-        : `${antes} antes e ${depois} após a jornada`;
+      caso.prorrogacao_jornada = `${antes} antes e ${depois} depois`;
     } else if (antes || depois) {
-      caso.prorrogacao_jornada = `${antes || depois} ${antes ? 'antes' : 'após'} a jornada`;
+      caso.prorrogacao_jornada = `${antes || depois} ${antes ? 'antes' : 'depois'}`;
     }
   }
   if (d.intervalo_suprimido) {
