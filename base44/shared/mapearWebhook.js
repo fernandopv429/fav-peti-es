@@ -150,6 +150,13 @@ export function mapearCasoDeWebhook(data) {
   if (d.ft_pagamento && /pix|dinheiro/i.test(d.ft_pagamento)) {
     caso.tem_integracao_por_fora = true;
   }
+  // O valor pago "por fora" É o valor da FT quitada em PIX/dinheiro — é assim
+  // que a especialista redige ("gira em torno de R$ 130,00"). Sem esta linha o
+  // token VALOR_POR_FORA ficava vazio e as TRÊS peças saíram com
+  // "[A PREENCHER: VALOR_POR_FORA]" no corpo E no rol de pedidos.
+  if (caso.tem_integracao_por_fora && !caso.valor_por_fora && caso.val_ft) {
+    caso.valor_por_fora = caso.val_ft;
+  }
 
   // O formulário de entrevista tem UMA pergunta ("funções acumuladas") para
   // um conceito que a CCT trata como DOIS institutos distintos por categoria:
@@ -174,9 +181,52 @@ export function mapearCasoDeWebhook(data) {
 
   if (d.vale_transporte) caso.tem_vale_transporte = true;
   if (d.vale_alimentacao || d.vale_refeicao) caso.tem_auxilio_alimentacao = true;
+  // Valor diário do auxílio-alimentação, quando o formulário informa (antes só
+  // vinha da CCT ou do padrão de vigilância, e para SINDEEPRES/SIEMACO ficava
+  // vazio — origem do "[A PREENCHER: VALOR_AUX_ALIMENTACAO]").
+  const valAux = parseBRL(pick(d, 'VALOR_AUX_ALIMENTACAO', 'valor_aux_alimentacao', 'valor_vale_alimentacao', 'vale_alimentacao', 'vale_refeicao'));
+  if (valAux) caso.valor_aux_alimentacao = valAux;
+  const valCond = parseBRL(pick(d, 'VAL_CONDUCAO', 'val_conducao', 'valor_conducao', 'vale_transporte'));
+  if (valCond) caso.val_conducao = valCond;
+
+  // PRÊMIO DE ASSIDUIDADE. A verba é a DIFERENÇA entre o prometido e o pago
+  // (art. 457, §1º, CLT). Não havia mapeamento nenhum aqui, então a tese era
+  // inalcançável pelo fluxo do webhook: na peça do Jonathan a IA chegou a
+  // NARRAR o fato ("recebimento parcial da bonificação de assiduidade que lhe
+  // havia sido prometida") e não pediu a verba — a especialista pediu
+  // R$ 3.100,61 (prometido R$ 300, pago R$ 100).
+  const assidPrometido = parseBRL(pick(d, 'assiduidade_prometido', 'premio_assiduidade_prometido', 'assiduidade_valor_prometido'));
+  const assidPago = parseBRL(pick(d, 'assiduidade_pago', 'premio_assiduidade_pago', 'assiduidade_valor_pago'));
+  if (assidPrometido || assidPago || d.assiduidade || d.premio_assiduidade) {
+    caso.tem_assiduidade = true;
+    if (assidPrometido) caso.assiduidade_prometido = assidPrometido;
+    if (assidPago) caso.assiduidade_pago = assidPago;
+    const dif = assidPrometido ? assidPrometido - (assidPago || 0) : null;
+    if (dif && dif > 0) caso.assiduidade_diferenca = Number(dif.toFixed(2));
+  }
 
   if (d.doenca_acidente || d.tem_doenca) caso.tem_doenca = true;
-  if (d.gratificacao) caso.tem_gratificacao = true;
+
+  // GRATIFICAÇÃO DE FUNÇÃO é a tese do VIGILANTE-CONDUTOR (motoronda): 10%
+  // sobre o salário base, cláusula 3º da CCT de vigilância. Ligar a flag por um
+  // campo genérico do payload fez a peça do Jonathan — controlador de acesso,
+  // SINDEEPRES — pedir 10% "da cláusula 3º" (convenção de outra categoria)
+  // CUMULADO com acúmulo de função de 20% sobre o mesmo contrato: tese
+  // indevida + bis in idem. Revisado pela especialista como erro crítico.
+  if (d.gratificacao) {
+    const ehVigilante = /vigilante|vigil/i.test(caso.funcao || '');
+    const ehCondutor = /condutor|motorista|motoronda|moto\b|ve[íi]culo|dirig/i.test(
+      `${d.gratificacao} ${d.funcoes_acumuladas || ''} ${d.fatos_narrados || ''}`
+    );
+    if (ehVigilante && ehCondutor) {
+      caso.tem_gratificacao = true;
+      const v = parseBRL(d.gratificacao);
+      if (v) caso.gratificacao_valor = v;
+    } else {
+      // Registra sem gerar a tese, para o advogado decidir na revisão.
+      caso.gratificacao_ignorada = String(d.gratificacao).slice(0, 200);
+    }
+  }
 
   caso.entrevista_texto = d.fatos_narrados || '';
   caso.dano_fatos = d.fatos_narrados || '';
