@@ -312,6 +312,16 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const anos = meses == null ? null : Math.floor(meses / 12);
   const folgasMes = Number(caso.ft_qtd_media) || null;
   const isAcordo = caso.tipo_dispensa === 'acordo';
+  // Desvio, acúmulo e gratificação são ALTERNATIVOS sobre os mesmos fatos —
+  // regra já escrita nas diretrizes de redação, mas o cálculo somava os três.
+  // A peça do Jonathan pediu acúmulo de 20% E gratificação de 10% no mesmo
+  // contrato (bis in idem apontado pela especialista como erro crítico).
+  // Prioridade: desvio (mais específico) > acúmulo; gratificação de função só
+  // existe para vigilante-condutor (cláusula 3º da CCT de vigilância).
+  const ehVigilanteFuncao = /vigilante|vigil/i.test(caso.funcao || '');
+  const temDesvio = !!caso.tem_desvio;
+  const temAcumulo = !!caso.tem_acumulo && !temDesvio;
+  const temGratificacao = !!caso.tem_gratificacao && ehVigilanteFuncao;
 
   if (meses != null) {
     itens.push({ item: 'Duração do contrato', memoria: `${meses} mês(es) / ${anos} ano(s) completo(s)`, valor: null });
@@ -375,14 +385,14 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     if (dsr) itens.push({ item: 'Reflexo DSR sobre FT (1/6)', memoria: 'Súm. 172 TST', valor: dsr });
   }
 
-  if (caso.tem_acumulo && salario && meses) {
+  if (temAcumulo && salario && meses) {
     const cl = buscarClausulaCct(dadosCct, /ac[uú]mulo de fun/i);
     const pct = cl?.percentual ?? 0.2;
     const clTxt = cl?.clausula ? ` (${cl.clausula})` : '';
     itens.push({ item: `Acúmulo de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses${clTxt}`, valor: round2(pct * salario * meses) });
   }
 
-  if (caso.tem_gratificacao && meses) {
+  if (temGratificacao && meses) {
     const gratVal = Number(caso.gratificacao_valor);
     if (gratVal > 0) {
       itens.push({ item: 'Gratificação/bônus de função', memoria: `${formatBRL(gratVal)}/mês × ${meses} meses`, valor: round2(gratVal * meses) });
@@ -394,7 +404,7 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     }
   }
 
-  if (caso.tem_desvio && salario && meses) {
+  if (temDesvio && salario && meses) {
     const cl = buscarClausulaCct(dadosCct, /desvio de fun/i);
     const pct = cl?.percentual ?? 0.5;
     const clTxt = cl?.clausula || 'cláusula 64ª';
@@ -430,7 +440,7 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // conta inteira na memória. Antes, todas saíam "a apurar em liquidação".
   const horaNormal = salario ? round2(salario / PARAMS_HORAS.divisor_mensal) : null;
   if (horaNormal && meses) {
-    const ehVigilante = /vigilante|vigil/i.test(caso.funcao || '');
+    const ehVigilante = ehVigilanteFuncao;
     const adicConv = ehVigilante
       ? PARAMS_HORAS.adicional_convencional_vigilancia
       : PARAMS_HORAS.adicional_convencional_demais;
