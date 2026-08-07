@@ -182,6 +182,19 @@ function jornadaCruzaNoturno(jornadaTxt) {
   return fim < inicio; // turno que atravessa a meia-noite passa pela janela
 }
 
+// Período aquisitivo de férias vigente na rescisão: começa no último
+// aniversário de admissão. Ex.: admissão 14/04/2025 e rescisão 07/12/2025 →
+// "2025/2026"; admissão 12/09/2025 e rescisão 16/03/2026 → também "2025/2026".
+// Confere com as três peças de referência da especialista.
+function periodoAquisitivo(caso = {}) {
+  const a = /^(\d{4})-(\d{2})-(\d{2})/.exec(caso.data_admissao || '');
+  const r = /^(\d{4})-(\d{2})-(\d{2})/.exec(caso.data_rescisao || '');
+  if (!a || !r) return '';
+  let ano = Number(r[1]);
+  if (`${r[2]}-${r[3]}` < `${a[2]}-${a[3]}`) ano -= 1; // rescisão antes do aniversário
+  return `${ano}/${ano + 1}`;
+}
+
 function hojeExtenso() {
   const d = new Date();
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
@@ -374,9 +387,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // no texto, evitando [A PREENCHER: CCT_CLAUSULA_MULTA] no documento final.
   dados.CCT_CLAUSULA_MULTA = caso.cct_clausula_multa || '';
 
-  // 11) Verbas rescisórias — períodos
-  dados.PERIODO_FERIAS_PROP = caso.periodo_ferias_prop || '';
-  dados.PERIODO_13 = caso.periodo_13 || '';
+  // 11) Verbas rescisórias — períodos. Antes só vinham do caso (que nunca os
+  // traz pelo webhook) e ficavam em branco; o modelo, por isso, mantinha fixos
+  // os períodos do caso de origem ("2025/2026 – 11/12", "de 2025 – 12/12"), que
+  // a revisora marcou como incorretos. Agora são deduzidos das datas.
+  dados.PERIODO_FERIAS_PROP = caso.periodo_ferias_prop || periodoAquisitivo(caso);
+  dados.PERIODO_13 = caso.periodo_13 || (/^(\d{4})/.exec(caso.data_rescisao || '') ? `de ${/^(\d{4})/.exec(caso.data_rescisao)[1]}` : '');
   dados.PERIODO_FERIAS_VENCIDAS = caso.periodo_ferias_vencidas || '';
 
   // 12) Data da peça
