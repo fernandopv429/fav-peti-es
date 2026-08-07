@@ -98,8 +98,12 @@ const MOTIVO_SAIDA = {
 
 const flag = (v) => !!v;
 const soDigitos = (s) => (s || '').replace(/\D/g, '');
-// 0 numérico vira vazio (evita "R$ 0,00" no template quando o valor não foi extraído)
-const valorOuTexto = (v) => (v == null || v === '' || v === 0 ? '' : typeof v === 'number' ? formatBRL(v) : String(v));
+// 0/ausente vira undefined (nunca string vazia): o nullGetter do
+// docxtemplater (preencherDocxTemplate.js) só detecta valor faltando quando
+// é undefined/null, nunca quando é ''. Com '' o tag some em silêncio, deixando
+// parênteses/frases vazias na peça final (ex.: "por fora ()"); com undefined,
+// vira o marcador visível [A PREENCHER: TAG] que o advogado precisa ver.
+const valorOuTexto = (v) => (v == null || v === '' || v === 0 ? undefined : typeof v === 'number' ? formatBRL(v) : String(v));
 
 // Correções de grafia de municípios recorrentes (erros de digitação/OCR do template e da IA)
 const CORRECOES_MUNICIPIO = {
