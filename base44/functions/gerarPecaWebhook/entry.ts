@@ -191,7 +191,7 @@ export default async function(req) {
       caso.tem_auxilio_alimentacao = true;
       if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 42; // padrão Vigilância (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
     }
-    // Demais categorias (SINDEEPRES/SIEMACO): sem valor a peça saa com
+    // Demais categorias (SINDEEPRES/SIEMACO): sem valor a peça saía com
     // "[A PREENCHER: VALOR_AUX_ALIMENTACAO]" no corpo E no rol — aconteceu nas
     // peças do Jonathan e do Luciano. R$ 23,30 é o valor das duas peças reais da
     // especialista (CCT 2025); fica com aviso porque envelhece com a convenção.
