@@ -191,6 +191,17 @@ export default async function(req) {
       caso.tem_auxilio_alimentacao = true;
       if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 42; // padrão Vigilância (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
     }
+    // Demais categorias (SINDEEPRES/SIEMACO): sem valor a peça saa com
+    // "[A PREENCHER: VALOR_AUX_ALIMENTACAO]" no corpo E no rol — aconteceu nas
+    // peças do Jonathan e do Luciano. R$ 23,30 é o valor das duas peças reais da
+    // especialista (CCT 2025); fica com aviso porque envelhece com a convenção.
+    if (!ehVig && caso.tem_auxilio_alimentacao && !caso.valor_aux_alimentacao) {
+      caso.valor_aux_alimentacao = 23.30;
+      avisosDados.push('Auxílio-alimentação: valor não informado e não localizado na CCT — adotado R$ 23,30 (padrão SINDEEPRES/SIEMACO das peças de referência). CONFERIR na CCT vigente.');
+    }
+    if (caso.gratificacao_ignorada) {
+      avisosDados.push(`Gratificação de função NÃO foi pedida: a tese é do vigilante-condutor (cl. 3º da CCT de vigilância) e a função aqui é "${caso.funcao || 'não informada'}". O evento mencionava: "${caso.gratificacao_ignorada}". Revisar se cabe outra verba.`);
+    }
 
     // 5) Cálculo determinístico das verbas (usa a CCT já consultada para
     // corrigir cláusula/percentual de desvio/acúmulo/gratificação por categoria)
