@@ -106,7 +106,7 @@ function _numIdDecimalLivre(zip, xmlDoc) {
 }
 
 // Converte os itens do rol de "• texto" para parágrafos NUMERADOS. A revisora
-// apontou "pedidos incompletos, fora da estrutura": o rol saa com bullet
+// apontou "pedidos incompletos, fora da estrutura": o rol saía com bullet
 // literal enquanto a peça dela numera cada pedido.
 function _numerarRol(xml, numId) {
   const ps = _paras(xml);
@@ -302,7 +302,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // 15) Percentuais que variam por categoria e o código já calcula
   // (dadosTemplate: PERC_MULTA_CONV = 3% vigilância / 20% demais; PERC_ART71 =
   // 60% cl. 12º vigilância / 50% art. 71 §4º). Estavam FIXOS no modelo com os
-  // valores do caso SINDEEPRES de origem — a peça de um vigilante saa pedindo
+  // valores do caso SINDEEPRES de origem — a peça de um vigilante saía pedindo
   // "2% por cláusula" onde a especialista pede 3% sobre o salário normativo.
   let percentuaisTokenizados = false;
   // A multa convencional está num <w:t> único (replace literal). Já a frase do
@@ -342,7 +342,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   }
 
   // 18) ROL: entram as verbas por hora que passaram a ser estimadas (antes
-  // saam todas como "a apurar em liquidação", sem valor). Cada linha é
+  // saíam todas como "a apurar em liquidação", sem valor). Cada linha é
   // condicional ao próprio valor, com principal + reflexos discriminados.
   const ROL_HORAS = [
     ['VALOR_HE_PRORROGACAO', 'horas extras pela prorrogação da jornada'],
