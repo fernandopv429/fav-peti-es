@@ -146,7 +146,12 @@ export const ESPECIALISTAS = [
   { numero: 'espinha', nome: 'Espinha da rescisão', campo: 'BLOCO_ESPINHA_RESCISAO', ativo: () => true,
     instrucao: 'Escreva o capítulo COMPLETO da modalidade de rescisão aplicável (conforme tipo_dispensa), em prosa jurídica fluida e SUBSTANCIAL: (1) FATOS — narre a situação que configura a modalidade; (2) FUNDAMENTO LEGAL/NORMATIVO — dispositivos da CLT (art. 482, 483, 484-A, 165 etc.); (3) JURISPRUDÊNCIA — quando relevante; (4) PEDIDO/CONCLUSÃO — requerimento com os reflexos cabíveis. NÃO escreva jornada, dano moral nem verbas calculadas.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em teses rescisórias. Redija o capítulo COMPLETO em prosa jurídica fluida e argumentativa.' },
-  { numero: 'jornada', nome: 'Jornada e horas extras', campo: 'BLOCO_JORNADA', ativo: (d, c) => !!(d.escala_12x36 || d.escala_4x2 || c.jornada_horario || d.folgas_trabalhadas),
+  // jornada e sumula331 DESATIVADOS (revisão da especialista, ago/2026): o
+  // modelo já tem o texto padrão do escritório para os dois. A jornada dela tem
+  // 54 palavras e foi aprovada; a IA entregava 988 ("fora da estrutura"). O
+  // capítulo da Súmula 331 é idêntico nas três peças de referência. Espelha
+  // src/features/entrevista/lib/redacaoTeses.js.
+  { numero: 'jornada', nome: 'Jornada e horas extras', campo: 'BLOCO_JORNADA', ativo: () => false,
     instrucao: 'Escreva o capítulo COMPLETO de "DA JORNADA DE TRABALHO / DAS HORAS EXTRAS": (1) narre horário/escala efetivos e a prorrogação habitual sem contraprestação; (2) fundamente horas extras excedentes da 8ª diária/44ª semanal (art. 59 CLT; adicional convencional real da CCT — nunca presuma; na falta use [adicional conforme CCT]; Súmula 85); (3) jurisprudência; (4) pedido de diferenças de horas extras COM reflexos (DSR, aviso, férias+1/3, 13º, FGTS+40%) de forma qualitativa, SEM R$. NÃO escreva descaracterização da escala, art. 71, noturno, 10 minutos, periculosidade nem DSR autônomo (seções fixas do template).',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em jornada e horas extras. Redija o capítulo COMPLETO em prosa argumentativa.' },
   { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: (d, c) => temDanoMoralConcreto(c),
@@ -155,7 +160,7 @@ export const ESPECIALISTAS = [
   { numero: 'enquadramento', nome: 'Enquadramento funcional', campo: 'BLOCO_ENQUADRAMENTO', ativo: (d) => !!(d.desvio_funcao || d.acumulo_funcao || d.gratificacao_funcao),
     instrucao: 'Escreva o capítulo COMPLETO de enquadramento funcional em prosa SUBSTANCIAL: (1) FATOS — atividades que configuram desvio/acúmulo/gratificação; (2) FUNDAMENTO — CLT e multa/adicional convencional da CCT; (3) JURISPRUDÊNCIA; (4) PEDIDO — adicional/multa com reflexos. Desvio/acúmulo/gratificação são ALTERNATIVOS — nunca cumule desvio com acúmulo (bis in idem). NÃO trate jornada/dano/rescisão.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em desvio, acúmulo e gratificação. Redija o capítulo COMPLETO em prosa argumentativa.' },
-  { numero: 'sumula331', nome: 'Responsabilidade subsidiária (Súmula 331)', campo: 'BLOCO_SUMULA_331', ativo: (d) => !!d.tem_tomadora,
+  { numero: 'sumula331', nome: 'Responsabilidade subsidiária (Súmula 331)', campo: 'BLOCO_SUMULA_331', ativo: () => false,
     instrucao: 'Escreva o capítulo COMPLETO de responsabilidade subsidiária da 2ª reclamada (tomadora): (1) FATOS — terceirização e inserção na atividade-fim; (2) FUNDAMENTO — Súmula 331 TST e arts. 4º/5º DL 200/1967; (3) JURISPRUDÊNCIA; (4) PEDIDO — condenação subsidiária. USE SEMPRE "subsidiariamente" — nunca "solidária". NÃO trate outros tópicos.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em terceirização e Súmula 331. Redija o capítulo COMPLETO em prosa argumentativa.' },
   { numero: 'insalubridade', nome: 'Insalubridade / ambiente de trabalho', campo: 'BLOCO_INSALUBRIDADE', ativo: (d) => !!d.insalubridade,
