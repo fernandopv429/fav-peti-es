@@ -225,7 +225,14 @@ function textoCorridoDoDocx(zip) {
   return f.asText().replace(/<[^>]+>/g, '');
 }
 
-export function conferirDocumentoFinal(zip) {
+// Valores que existem no `dados` mas cuja ausência no texto NÃO caracteriza
+// pedido não formulado: agregados e valores unitários do corpo da peça.
+const VALORES_FORA_DO_ROL = new Set([
+  'VALOR_CAUSA', 'VALOR_CAUSA_TOTAL', 'VALOR_TOTAL_PEDIDOS',
+  'VALOR_HONORARIOS', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
+]);
+
+export function conferirDocumentoFinal(zip, dados = {}) {
   const texto = textoCorridoDoDocx(zip);
   const achados = [];
   for (const [re, descricao] of PADROES_BLOQUEIO) {
@@ -240,6 +247,22 @@ export function conferirDocumentoFinal(zip) {
   const naoSubstituidos = Object.keys(MARCADORES_COLCHETES).filter((k) => texto.includes(`[${k}]`));
   if (naoSubstituidos.length) {
     achados.push(`marcador do modelo sem valor (${naoSubstituidos.length}×): ${naoSubstituidos.slice(0, 5).join(' · ')}`);
+  }
+  // INVARIANTE: valor da causa = soma do rol de pedidos. Toda verba que entrou
+  // na soma TEM de aparecer impressa. A peça do Jonathan cobrou R$ 5.300,66 na
+  // alçada — saldo de salário (R$ 623,05), multa do art. 467 (R$ 2.978,38) e
+  // multa do art. 477 (R$ 1.699,23) — sem que constassem do rol: valores
+  // calculados, somados e nunca impressos pelo modelo. Isto barra a repetição.
+  const norm = texto.replace(/ /g, ' ');
+  const naoImpressos = Object.entries(dados || {})
+    .filter(([k, v]) => /^VALOR_/.test(k) && !VALORES_FORA_DO_ROL.has(k)
+      && typeof v === 'string' && /\d,\d{2}/.test(v))
+    .filter(([, v]) => !norm.includes(String(v).replace(/ /g, ' ').replace(/^R\$\s*/, '')))
+    .map(([k, v]) => `${k} = ${v}`);
+  if (naoImpressos.length) {
+    achados.push(
+      `verba somada no valor da causa e AUSENTE do rol de pedidos (${naoImpressos.length}): ${naoImpressos.slice(0, 6).join(' · ')}`
+    );
   }
   return achados;
 }
@@ -287,7 +310,7 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
   else aplicarGeneroMasc(outZip);
   // Conferência final: peça com defeito não é gerada.
   if (!permitirPendencias) {
-    const achados = conferirDocumentoFinal(outZip);
+    const achados = conferirDocumentoFinal(outZip, dados);
     if (achados.length) {
       const err = new Error(
         `A peça não foi exportada porque ainda tem ${achados.length} problema(s) que não podem ir para o processo:\n\n• ${achados.join('\n• ')}\n\nCorrija os dados do caso (ou o modelo .docx) e exporte novamente.`
