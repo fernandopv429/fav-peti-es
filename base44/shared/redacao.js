@@ -72,7 +72,7 @@ REGRAS CRÍTICAS (erros já cometidos — NÃO repita):
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
-// /\s{2,}/ engolia também os \n\n e todo capítulo da IA saa como um bloco
+// /\s{2,}/ engolia também os \n\n e todo capítulo da IA saía como um bloco
 // único de texto — as peças geradas ficavam com parágrafos de 30 linhas,
 // enquanto as da especialista têm parágrafos curtos. O docxtemplater já está
 // com linebreaks: true, então a quebra preservada aqui chega ao .docx.
