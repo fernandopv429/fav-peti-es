@@ -79,6 +79,22 @@ export default async function(req) {
       ip_origem: String(ipOrigem).slice(0, 64),
     });
 
+    // Dispara a geração da peça direto daqui em vez de depender só do
+    // gatilho de workflow por entidade (WebhookEvento.create -> gerarPecaWebhook),
+    // que na prática tem disparado com atraso bem inconsistente (de ~1min a
+    // quase 1h). Erro aqui não derruba a resposta do webhook — o evento já
+    // foi recebido e persistido; só marcamos o próprio registro como erro.
+    if (String(eventoTipo) === "entrevista.salva") {
+      try {
+        await base44.asServiceRole.functions.invoke("gerarPecaWebhook", { evento_id: registro.id });
+      } catch (e) {
+        await base44.asServiceRole.entities.WebhookEvento.update(registro.id, {
+          status: "erro",
+          erro_mensagem: `Falha ao disparar gerarPecaWebhook: ${e?.message || e}`,
+        }).catch(() => {});
+      }
+    }
+
     return Response.json({
       ok: true,
       recebido: true,
