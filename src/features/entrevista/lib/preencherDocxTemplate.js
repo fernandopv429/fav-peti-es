@@ -144,6 +144,15 @@ function corrigirTextoFinal(zip) {
     return open + corrigido + close;
   });
   // 2) Correções de redação (tolerante a tags entre palavras)
+  // A troca da Súmula 425 pelo art. 791-A tem de levar a PREPOSIÇÃO junto. O
+  // modelo diz "nos termos DA Súmula 425 do Tribunal Superior do Trabalho" e a
+  // substituição só do miolo produzia "nos termos da artigo 791-A da CLT" — o erro
+  // de concordância que saiu nas TRÊS peças e foi apontado na revisão e na
+  // auditoria. As formas com preposição vêm primeiro; a genérica é a rede.
+  xml = substituirFraseTagTolerant(xml, 'da Súmula 425 do Tribunal Superior do Trabalho', 'do artigo 791-A da CLT');
+  xml = substituirFraseTagTolerant(xml, 'na Súmula 425 do Tribunal Superior do Trabalho', 'no artigo 791-A da CLT');
+  xml = substituirFraseTagTolerant(xml, 'da Súmula 425 do C. TST', 'do artigo 791-A da CLT');
+  xml = substituirFraseTagTolerant(xml, 'da Súmula 425 do TST', 'do artigo 791-A da CLT');
   xml = substituirFraseTagTolerant(xml, 'Súmula 425 do Tribunal Superior do Trabalho', 'artigo 791-A da CLT');
   xml = substituirFraseTagTolerant(xml, 'Súmula 425 TST', 'artigo 791-A da CLT');
   xml = substituirFraseTagTolerant(xml, 'Itapecerica da Terra', 'Itapecerica da Serra');
