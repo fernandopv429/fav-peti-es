@@ -218,30 +218,18 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     if (ini >= 0 && fim >= 0) xml = _envolver(xml, ps[ini].start, ps[fim].end, 'BLOCO_ESPINHA_RESCISAO', _pPr(ps[ini].raw));
   }
 
-  // 8) SÚMULA 331: envolve o CONTEÚDO do wrapper {{#tem_tomadora}}…{{/tem_tomadora}}
-  // que contém o parágrafo “respondendo subsidiariamente… Súmula 331” (fragmentado
-  // em 33 runs — por isso envolvemos por parágrafo, sem tocar no texto interno).
-  if (!xml.includes('BLOCO_SUMULA_331')) {
-    const ps = _paras(xml);
-    const idxSub = ps.findIndex((p) => _textoPara(p.raw).includes('respondendo subsidiariamente'));
-    if (idxSub >= 0) {
-      let ini = -1; for (let i = idxSub; i >= 0; i--) { if (_textoPara(ps[i].raw).trim() === '{{#tem_tomadora}}') { ini = i; break; } }
-      let fim = -1; for (let i = idxSub; i < ps.length; i++) { if (_textoPara(ps[i].raw).trim() === '{{/tem_tomadora}}') { fim = i; break; } }
-      if (ini >= 0 && fim >= 0) xml = _envolver(xml, ps[ini].end, ps[fim].start, 'BLOCO_SUMULA_331', _pPr(ps[idxSub].raw));
-    }
-  }
-
-  // 9) JORNADA (narrativa fática): envolve APENAS os parágrafos da seção "DA
-  // JORNADA DE TRABALHO" (do "Para elucidação dos direitos…" até "Cumpre
-  // ressaltar…", antes do título "DAS HORAS EXTRAS"). A descaracterização da
-  // escala (com ementas reais), art. 71, adicional noturno, 10 minutos,
-  // periculosidade e DSR permanecem DETERMINÍSTICOS — não são tocados.
-  if (!xml.includes('BLOCO_JORNADA')) {
-    const ps = _paras(xml);
-    const ini = ps.findIndex((p) => _textoPara(p.raw).includes('Para elucidação dos direitos aqui pleiteados'));
-    const fim = ini < 0 ? -1 : ps.findIndex((p, i) => i >= ini && _textoPara(p.raw).includes('Cumpre ressaltar que o obreiro pode ter feito outras escalas'));
-    if (ini >= 0 && fim >= 0) xml = _envolver(xml, ps[ini].start, ps[fim].end, 'BLOCO_JORNADA', _pPr(ps[ini].raw));
-  }
+  // 8) SÚMULA 331 e 9) JORNADA voltam a ser 100% DETERMINÍSTICAS.
+  // Estas duas etapas antes ABRIAM os capítulos à redação da IA. Decisão
+  // revertida com a revisão da especialista: o modelo já tem o texto padrão do
+  // escritório para os dois, e o da jornada é exatamente o parágrafo curto que
+  // ela aprova (54 palavras) — a IA o substituía por 988 palavras "fora da
+  // estrutura". O texto da Súmula 331 é idêntico nas três peças de referência,
+  // ou seja, não varia com o caso. Aqui as tags são REMOVIDAS de modelos que já
+  // as tenham, deixando a prosa determinística solta.
+  const jornadaDesativada = _desativarBloco(xml, 'BLOCO_JORNADA');
+  xml = jornadaDesativada.xml;
+  const sumula331Desativada = _desativarBloco(xml, 'BLOCO_SUMULA_331');
+  xml = sumula331Desativada.xml;
 
   // 10) GÊNERO: troca "o autor" fixo do template por "o reclamante" — a flexão
   // de exportação (preencherDocxTemplate.aplicarGenero) já converte "o
@@ -294,6 +282,96 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     honorariosCorrigido = true;
   }
 
+  // 14) CONTRATO DE TRABALHO sempre presente. O parágrafo determinístico com o
+  // salário ({{SALARIO}}) está dentro de {{^BLOCO_ESPINHA_RESCISAO}}, ou seja,
+  // só aparece quando a IA NÃO escreve. Quando escrevia, o resumo do contrato
+  // desaparecia inteiro — "fora da estrutura e não foi incluído o salário do
+  // reclamante" na revisão. Removendo o {{^…}} e o seu fechamento, o contrato
+  // sempre sai e a tese da IA vira capítulo próprio, logo acima.
+  let contratoSempreVisivel = false;
+  if (xml.includes('{{^BLOCO_ESPINHA_RESCISAO}}')) {
+    const r = _removerParagrafosTag(
+      xml,
+      ['{{^BLOCO_ESPINHA_RESCISAO}}', '{{/BLOCO_ESPINHA_RESCISAO}}'],
+      { apenasUltimo: '{{/BLOCO_ESPINHA_RESCISAO}}' }
+    );
+    xml = r.xml;
+    contratoSempreVisivel = r.removidos > 0;
+  }
+
+  // 15) Percentuais que variam por categoria e o código já calcula
+  // (dadosTemplate: PERC_MULTA_CONV = 3% vigilância / 20% demais; PERC_ART71 =
+  // 60% cl. 12º vigilância / 50% art. 71 §4º). Estavam FIXOS no modelo com os
+  // valores do caso SINDEEPRES de origem — a peça de um vigilante saa pedindo
+  // "2% por cláusula" onde a especialista pede 3% sobre o salário normativo.
+  let percentuaisTokenizados = false;
+  const PERCENTUAIS = [
+    ['2% (dois por cento) por cláusula descumprida', '{{PERC_MULTA_CONV}}'],
+    ['50% conforme artigo 71, §4º, da CLT', '{{PERC_ART71}}'],
+  ];
+  for (const [de, para] of PERCENTUAIS) {
+    if (xml.includes(de)) { xml = xml.split(de).join(para); percentuaisTokenizados = true; }
+  }
+
+  // 16) AVISO PRÉVIO: o modelo trazia a narrativa do caso de origem (redução do
+  // art. 488 da CLT, "reduzindo o aviso prévio para 23 dias"), aplicada a
+  // qualquer modalidade — inclusive dispensa sem justa causa, onde não cabe.
+  // Fica a redução fora e os dias passam a vir de {{DIAS_AVISO_PREVIO}}.
+  let avisoCorrigido = false;
+  const AVISO_23 = ', não tendo no período de 30 dias anteriores a sua demissão, saído 2 horas mais cedo e nem mesmo ter deixado de comparecer ao trabalho por 7 dias seguidos, reduzindo o aviso prévio para 23 dias, como prevê a legislação trabalhista,';
+  if (xml.includes(AVISO_23)) {
+    xml = xml.split(AVISO_23).join(', fazendo jus ao aviso prévio indenizado de {{DIAS_AVISO_PREVIO}} dias, nos termos da Lei 12.506/11,');
+    avisoCorrigido = true;
+  }
+
+  // 17) VERBAS RESCISÓRIAS: avos e períodos estavam fixos com os do caso de
+  // origem ("2025/2026 – 11/12" e "de 2025 – 12/12") e contradiziam o próprio
+  // rol da peça. O código já calcula AVOS_FERIAS_FRACAO/AVOS_13_FRACAO.
+  let avosTokenizados = false;
+  const AVOS = [
+    ['Férias proporcionais + 1/3 2025/2026 – 11/12;', 'Férias proporcionais + 1/3 {{PERIODO_FERIAS_PROP}} – {{AVOS_FERIAS_FRACAO}};'],
+    ['13º salário proporcional de 2025 – 12/12;', '13º salário proporcional {{PERIODO_13}} – {{AVOS_13_FRACAO}};'],
+  ];
+  for (const [de, para] of AVOS) {
+    if (xml.includes(de)) { xml = xml.split(de).join(para); avosTokenizados = true; }
+  }
+
+  // 18) ROL: entram as verbas por hora que passaram a ser estimadas (antes
+  // saam todas como "a apurar em liquidação", sem valor). Cada linha é
+  // condicional ao próprio valor, com principal + reflexos discriminados.
+  const ROL_HORAS = [
+    ['VALOR_HE_PRORROGACAO', 'horas extras pela prorrogação da jornada'],
+    ['VALOR_ART71', 'intervalo intrajornada suprimido (art. 71 da CLT)'],
+    ['VALOR_NOTURNO', 'adicional noturno e hora noturna reduzida'],
+    ['VALOR_DEZ_MINUTOS', '10 (dez) minutos de descanso a cada hora trabalhada'],
+    ['VALOR_PERICULOSIDADE_HE', 'adicional de periculosidade sobre as horas extras'],
+  ];
+  let rolHorasAdicionado = false;
+  if (!xml.includes('{{VALOR_ART71}}')) {
+    const ps = _paras(xml);
+    const ancora = ps.findIndex((p) => _textoPara(p.raw).includes('{{VALOR_DESVIO}}'));
+    if (ancora >= 0) {
+      const pPr = _pPr(ps[ancora].raw);
+      const novas = ROL_HORAS.map(([tag, rotulo]) =>
+        _paraTx(`{{#${tag}}}`) +
+        _paraTx(`• ${rotulo}: {{${tag}}} + reflexos de {{${tag}_REFLEXOS}};`, pPr) +
+        _paraTx(`{{/${tag}}}`)
+      ).join('');
+      xml = xml.slice(0, ps[ancora].end) + novas + xml.slice(ps[ancora].end);
+      rolHorasAdicionado = true;
+    }
+  }
+
+  // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
+  // como na peça da especialista ("pedidos incompletos, fora da estrutura").
+  let rolNumerado = 0;
+  const numIdRol = _numIdDecimalLivre(zip, xml);
+  if (numIdRol) {
+    const r = _numerarRol(xml, numIdRol);
+    xml = r.xml;
+    rolNumerado = r.alterados;
+  }
+
   zip.file('word/document.xml', xml);
   const blob = zip.generate({
     type: 'blob',
@@ -319,5 +397,13 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     emailPreambuloAdicionado,
     rolValoresUnitariosRemovidos,
     honorariosCorrigido,
+    jornadaDeterministica: jornadaDesativada.removidos > 0,
+    sumula331Deterministica: sumula331Desativada.removidos > 0,
+    contratoSempreVisivel,
+    percentuaisTokenizados,
+    avisoCorrigido,
+    avosTokenizados,
+    rolHorasAdicionado,
+    rolNumerado,
   };
 }
