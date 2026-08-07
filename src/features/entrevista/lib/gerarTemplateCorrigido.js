@@ -122,9 +122,18 @@ function _numerarRol(xml, numId) {
   const ps = _paras(xml);
   const idxInicio = ps.findIndex((p) => _textoPara(p.raw).includes('passa a expor seus pedidos'));
   if (idxInicio < 0) return { xml, alterados: 0 };
-  const pPrNovo =
-    `<w:pPr><w:pStyle w:val="PargrafodaLista"/>` +
-    `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>`;
+  // A indentação TEM de vir de um parágrafo que já renderiza certo. Montar um
+  // pPr do zero (só pStyle + numPr) deixava o recuo por conta da definição da
+  // lista nova e o rol saiu numa coluna estreita no canto da página — conferido
+  // renderizando o modelo. Então clonamos o pPr do parágrafo numerado que abre o
+  // rol ("Assim, o reclamante passa a expor seus pedidos:") e só trocamos o
+  // numId, para o rol ter contador próprio começando em 1 — como na peça da
+  // especialista, em que o corpo usa uma lista e o rol usa outra.
+  const pPrAbertura = _pPr(ps[idxInicio].raw);
+  const pPrNovo = /<w:numId\s+w:val="\d+"\s*\/>/.test(pPrAbertura)
+    ? pPrAbertura.replace(/<w:numId\s+w:val="\d+"\s*\/>/, `<w:numId w:val="${numId}"/>`)
+    : `<w:pPr><w:pStyle w:val="PargrafodaLista"/>` +
+      `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>`;
   // O bullet costuma vir DEPOIS de uma tag de seção no mesmo parágrafo
   // ("{{#tem_tomadora}}• responsabilidade subsidiária…"): 19 dos itens do rol
   // são assim. Exigir o bullet no início do texto deixava todos esses de fora.
