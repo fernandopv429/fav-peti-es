@@ -3,7 +3,7 @@ import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct } from '../../shared/consultas.js';
-import { computeFlags, redigirTesesIA } from '../../shared/redacao.js';
+import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
 // ============================================================
 // Geração automática de petição a partir de um WebhookEvento
@@ -193,6 +193,20 @@ export default async function(req) {
       especialistasUsados = res.especialistasUsados || [];
       redacaoErro = res.erro || null;
       if (!Object.keys(blocos).length && !redacaoErro) redacaoErro = 'IA retornou 0 blocos (obj vazio ou sem campos esperados)';
+      // Capítulo com envelope JSON cru, \n literal ou placeholder não resolvido
+      // JAMAIS pode sair como peça pronta — já foi protocolado com
+      // '{ "BLOCO_SUMULA_331": "..." }' impresso no meio do texto. Aqui o
+      // capítulo defeituoso é DESCARTADO (o template tem fallback determinístico
+      // para cada BLOCO_*) e a peça vai para revisão com o motivo registrado.
+      const defeitos = problemasNosBlocos(blocos);
+      if (defeitos.length) {
+        for (const d of defeitos) {
+          const campo = String(d).split(':')[0];
+          if (campo && campo in blocos) delete blocos[campo];
+        }
+        redacaoErro = [redacaoErro, `capítulos descartados por defeito — ${defeitos.join(' | ')}`]
+          .filter(Boolean).join(' | ');
+      }
     } catch (e) {
       redacaoErro = e?.message || 'erro redação';
     }
