@@ -199,9 +199,54 @@ function substituirColchetesNoXml(xml, dados) {
   return out;
 }
 
+// ============================================================
+// CONFERÊNCIA FINAL — o último ponto por onde toda peça passa.
+// Motivo: peças reais saíram do sistema com '[A PREENCHER: VALOR_POR_FORA]'
+// no corpo E no rol de pedidos, e com o envelope JSON de um capítulo da IA
+// ('{ "BLOCO_SUMULA_331": "...\\n\\n..." }') impresso no meio do texto. Nada
+// no fluxo barrava a exportação. Agora barra: o preview continua mostrando os
+// marcadores (é assim que o advogado enxerga o que falta), mas o .docx só sai
+// limpo — ou com { permitirPendencias: true } explicitamente.
+// ============================================================
+const PADROES_BLOQUEIO = [
+  [/\[A PREENCHER[^\]]*\]/g, 'campo não preenchido'],
+  [/\[CONFIRMAR:[^\]]*\]/g, 'pendência [CONFIRMAR: ...] deixada pela IA'],
+  [/\{\s*"(?:BLOCO_|PEDIDOS_)[A-Z_0-9]*"/g, 'envelope JSON cru de capítulo da IA'],
+  [/\\n|\\r/g, 'quebra de linha literal (\\n) vinda do JSON da IA'],
+  [/\{\{[#/^]?[A-Za-z_0-9]+\}\}/g, 'tag do modelo não substituída'],
+  [/```/g, 'cerca de código markdown (```)'],
+];
+
+// Texto corrido do documento: remove as tags XML para que uma frase quebrada
+// em vários <w:r>/<w:t> (o Word fragmenta por revisão/corretor) seja encontrada.
+function textoCorridoDoDocx(zip) {
+  const f = zip.file('word/document.xml');
+  if (!f) return '';
+  return f.asText().replace(/<[^>]+>/g, '');
+}
+
+export function conferirDocumentoFinal(zip) {
+  const texto = textoCorridoDoDocx(zip);
+  const achados = [];
+  for (const [re, descricao] of PADROES_BLOQUEIO) {
+    const ms = texto.match(re);
+    if (ms && ms.length) {
+      const amostra = [...new Set(ms)].slice(0, 5).join(' · ');
+      achados.push(`${descricao} (${ms.length}×): ${amostra}`);
+    }
+  }
+  // [MARCADORES] do modelo antigo que não receberam valor (a tabela
+  // MARCADORES_COLCHETES dá a lista exata, sem falso positivo em "[...]").
+  const naoSubstituidos = Object.keys(MARCADORES_COLCHETES).filter((k) => texto.includes(`[${k}]`));
+  if (naoSubstituidos.length) {
+    achados.push(`marcador do modelo sem valor (${naoSubstituidos.length}×): ${naoSubstituidos.slice(0, 5).join(' · ')}`);
+  }
+  return achados;
+}
+
 // Preenche um TEMPLATE .docx (marcado com {{campos}}/{{#flags}} OU [MARCADORES])
 // usando docxtemplater + substituição direta de colchetes. Preserva 100% da formatação.
-export function preencherDocxTemplate(arrayBuffer, dados) {
+export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias = false } = {}) {
   const zip = new PizZip(arrayBuffer);
 
   // Substituição direta de [MARCADORES] no XML antes do docxtemplater
@@ -240,6 +285,17 @@ export function preencherDocxTemplate(arrayBuffer, dados) {
   const generoRecl = (dados?.RECL_GENERO || '').toUpperCase();
   if (generoRecl === 'F') aplicarGenero(outZip);
   else aplicarGeneroMasc(outZip);
+  // Conferência final: peça com defeito não é gerada.
+  if (!permitirPendencias) {
+    const achados = conferirDocumentoFinal(outZip);
+    if (achados.length) {
+      const err = new Error(
+        `A peça não foi exportada porque ainda tem ${achados.length} problema(s) que não podem ir para o processo:\n\n• ${achados.join('\n• ')}\n\nCorrija os dados do caso (ou o modelo .docx) e exporte novamente.`
+      );
+      err.achados = achados;
+      throw err;
+    }
+  }
   return outZip.generate({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -248,11 +304,11 @@ export function preencherDocxTemplate(arrayBuffer, dados) {
 }
 
 // Busca o template hospedado, preenche com os dados e dispara o download do .docx.
-export async function exportarDocxTemplate(templateUrl, dados, titulo) {
+export async function exportarDocxTemplate(templateUrl, dados, titulo, opcoes = {}) {
   const resp = await fetch(templateUrl);
   if (!resp.ok) throw new Error(`Não foi possível carregar o template (HTTP ${resp.status}).`);
   const buf = await resp.arrayBuffer();
-  const blob = preencherDocxTemplate(buf, dados);
+  const blob = preencherDocxTemplate(buf, dados, opcoes);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
