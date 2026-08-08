@@ -406,11 +406,28 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     setMessages((m) => m.map((msg, i) => (i === msgIndex ? { ...msg, status: 'rejeitado' } : msg)));
   };
 
+  // Relê o modelo oficial NA HORA de exportar. O template era carregado uma vez,
+  // na montagem da tela: quem trocasse o .docx com a aba aberta continuava
+  // exportando o arquivo antigo até recarregar a página — e a peça saa idêntica,
+  // sem nenhum sinal de que o modelo novo não tinha sido usado.
+  const resolverTemplateAtual = async () => {
+    try {
+      const lista = await base44.entities.PetitionTemplate.filter({ is_active: true });
+      const t = (lista || []).find((x) => Array.isArray(x.tags) && x.tags.includes('blocos') && x.modelo_docx_url);
+      if (t?.modelo_docx_url) {
+        setTemplatePadrao({ url: t.modelo_docx_url, nome: t.modelo_docx_name || t.name });
+        return t.modelo_docx_url;
+      }
+    } catch { /* sem rede: segue com o que já está em memória */ }
+    return templateUrl;
+  };
+
   const exportar = async () => {
     if (!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting) return;
     setExporting(true);
     try {
-      await exportarDocxTemplate(templateUrl, ultimaGeracao.dados, 'Petição inicial');
+      const urlAtual = await resolverTemplateAtual();
+      await exportarDocxTemplate(urlAtual, ultimaGeracao.dados, 'Petição inicial');
     } catch (err) {
       // A conferência final (preencherDocxTemplate) aponta campo não preenchido,
       // tag não substituída, envelope de JSON etc. Ela AVISA, mas não decide: o
@@ -421,7 +438,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         const seguir = window.confirm(`${err.message}\n\nBaixar assim mesmo, com as pendências acima?`);
         if (seguir) {
           await exportarDocxTemplate(
-            templateUrl,
+            await resolverTemplateAtual(),
             ultimaGeracao.dados,
             'Petição inicial (COM PENDÊNCIAS - revisar)',
             { permitirPendencias: true },
