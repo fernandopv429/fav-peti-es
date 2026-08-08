@@ -257,7 +257,11 @@ function resumoCaso(caso) {
 
 function municipiosDoCaso(caso) {
   const out = [];
-  if (caso.comarca) out.push(caso.comarca);
+  // caso.comarca NÃO EXISTE: o campo gravado é `comarca_uf` ("Cidade/UF" ou só
+  // a UF). A lista saa vazia quando o endereço de prestação não casava com o
+  // regex abaixo, e a orientação do TRT-2 não entrava no prompt.
+  const daComarca = String(caso.comarca_uf || caso.comarca || '').split('/')[0].trim();
+  if (daComarca.length > 2) out.push(daComarca);
   const m = /([A-Za-zÀ-ÿ\s'.-]+?)\s*[-/]\s*[A-Z]{2}\b/.exec(caso.local_prestacao || '');
   if (m) out.push(m[1].trim());
   return out;
@@ -295,8 +299,14 @@ export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAt
     '- CAUSA DE PEDIR ALINHADA: No tópico da Competência, utilize EXCLUSIVAMENTE o endereço de prestação de serviços da Tomadora (local_prestacao), justificando o foro adequado. NUNCA utilize o endereço residencial do autor para este fim.',
     '- Cite SOMENTE as cláusulas listadas em CLÁUSULAS DA CCT. Nunca invente número de cláusula.',
     '- Escreva APENAS os capítulos solicitados abaixo. NÃO escreva endereçamento, qualificação das partes, valor da causa, honorários, data ou fecho — o sistema gera isso.',
-    '- ESTRUTURA FIXA — quatro blocos legais por capítulo, nesta ordem: (1) FATOS — narre o que ocorreu no caso concreto em prosa articulada (sem bullets mecânicos); (2) FUNDAMENTO LEGAL/NORMATIVO — cite dispositivos da CLT, Súmulas do TST e cláusulas da CCT integrados ao texto (não como lista solta); (3) JURISPRUDÊNCIA — trate, quando relevante, a interpretação que ampara a tese; (4) PEDIDO/CONCLUSÃO — formule o requerimento com os reflexos (DSR, aviso prévio, férias+1/3, 13º, FGTS+40%).',
-    '- REDAÇÃO NATURAL: escreva em parágrafos jurídicos coesos e fluídos, como um advogado experiente em uma petição — NÃO use o padrão rígido "fato → artigo → Súmula → impugnação → pedido" repetido mecanicamente em cada capítulo. Varie a construção das frases, encadeie os argumentos e evite listas/colchetes e linguagem robótica; o texto deve soar natural, não enlatado. Cada capítulo deve ser SUBSTANCIAL e COMPLETO: narrativa fática desenvolvida, fundamentação legal ampla e jurisprudência articulada — NÃO entregue resumos, frases curtas, bullet points soltos nem um único parágrafo por capítulo; desenvolva cada um dos quatro blocos (fatos, fundamento, jurisprudência, pedido) em vários parágrafos.',
+    // Esta regra MANDAVA o oposto do padrão do escritório. O modelo de
+    // referência "PADRÃO OURO" (entidade ModeloReferencia) diz: "capítulos curtos
+    // e objetivos — 2 a 6 parágrafos por tópico, SEM subdivisão numerada em
+    // FATOS/FUNDAMENTO/JURISPRUDÊNCIA/PEDIDO, prosa corrida e direta". A IA
+    // obedecia ao prompt e imprimia "1. DOS FATOS", "2. FUNDAMENTO LEGAL" como
+    // subtítulos — foi o que a revisão apontou como "fora da estrutura".
+    '- SEM SUBTÍTULOS E SEM SUBDIVISÃO NUMERADA: o capítulo é PROSA CORRIDA de 2 a 6 parágrafos. Cubra, nessa ordem e SEM rotular, os fatos do caso, o fundamento (dispositivos da CLT, Súmulas do TST e cláusulas da CCT citados em linha, integrados à frase e sem transcrever ementas longas) e o pedido com os reflexos (DSR, aviso prévio, férias+1/3, 13º, FGTS+40%). NUNCA escreva "1. DOS FATOS", "2. FUNDAMENTO LEGAL", "3. JURISPRUDÊNCIA" nem qualquer título dentro do capítulo — o padrão do escritório proíbe expressamente essa subdivisão.',
+    '- REDAÇÃO NATURAL: escreva em parágrafos jurídicos coesos e fluídos, como um advogado experiente em uma petição — NÃO use o padrão rígido "fato → artigo → Súmula → impugnação → pedido" repetido mecanicamente em cada capítulo. Varie a construção das frases, encadeie os argumentos e evite listas/colchetes e linguagem robótica; o texto deve soar natural, não enlatado. Cada capítulo deve ser SUBSTANCIAL e COMPLETO: narrativa fática desenvolvida, fundamentação legal ampla e jurisprudência articulada — NÃO entregue resumos, frases curtas, bullet points soltos nem um único parágrafo por capítulo; desenvolva o capítulo em 2 a 6 parágrafos, conforme o padrão do escritório.',
     '- Mantenha a impugnação da defesa (Súmula 338) e os reflexos quando cabíveis, mas inseridos organicamente no bloco de pedido, não como etapa idêntica obrigatória em todos os capítulos.',
     '- Cada capítulo NÃO deve invadir o tópico de outro. Respeite o escopo indicado em cada um.',
     '- CONCORDÂNCIA DE GÊNERO (STRICT): o campo recl_genero indica "M" (masculino) ou "F" (feminino). Aplique concordância PERFEITA em TODO o texto. Se MASCULINO, é PROIBIDO o uso de "a reclamante", "a obreira", "foi contratada", "foi prejudicada", "rendê-la" ou qualquer flexão feminina — use "o reclamante", "foi contratado", "foi prejudicado", "rendê-lo". Se FEMININO, o inverso. Use "reclamante" como substantivo (nunca "autor") e flexione adjetivos e particípios adequadamente. Não troque o gênero de "reclamada" (a empresa). Verifique todo o texto gerado antes de entregar o output.',
