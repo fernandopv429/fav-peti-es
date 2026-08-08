@@ -304,9 +304,10 @@ function substituirColchetesNoXml(xml, dados) {
 // Motivo: peças reais saíram do sistema com '[A PREENCHER: VALOR_POR_FORA]'
 // no corpo E no rol de pedidos, e com o envelope JSON de um capítulo da IA
 // ('{ "BLOCO_SUMULA_331": "...\\n\\n..." }') impresso no meio do texto. Nada
-// no fluxo barrava a exportação. Agora barra: o preview continua mostrando os
-// marcadores (é assim que o advogado enxerga o que falta), mas o .docx só sai
-// limpo — ou com { permitirPendencias: true } explicitamente.
+// no fluxo avisava. Agora avisa — mas NÃO decide: quem chama recebe a lista em
+// err.achados e pergunta ao advogado se quer baixar assim mesmo
+// ({ permitirPendencias: true }). Travar o download seria pior que o problema:
+// a minuta com pendência ainda é útil para trabalhar em cima dela.
 // ============================================================
 const PADROES_BLOQUEIO = [
   [/\[A PREENCHER[^\]]*\]/g, 'campo não preenchido'],
@@ -418,7 +419,7 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
     const achados = conferirDocumentoFinal(outZip, dados);
     if (achados.length) {
       const err = new Error(
-        `A peça não foi exportada porque ainda tem ${achados.length} problema(s) que não podem ir para o processo:\n\n• ${achados.join('\n• ')}\n\nCorrija os dados do caso (ou o modelo .docx) e exporte novamente.`
+        `Esta peça tem ${achados.length} pendência(s) que não deveriam ir para o processo:\n\n• ${achados.join('\n• ')}`
       );
       err.achados = achados;
       throw err;
