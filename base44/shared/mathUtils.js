@@ -201,7 +201,7 @@ export function temDanoMoralConcreto(caso = {}) {
 // ("CLÁUSULA SEPTAGÉSIMA PRIMEIRA") e, pior, às vezes partido entre clausula_ref
 // e clausula_titulo (ref="CLÁUSULA SEPTAGÉSIMA", titulo="PRIMEIRA - PENAS
 // COMINATÓRIAS..."). Como a extração só procurava dígitos, o número nunca era
-// encontrado e a peça saa citando "a cláusula de penalidade" sem identificá-la —
+// encontrado e a peça saía citando "a cláusula de penalidade" sem identificá-la —
 // exatamente o "sem as cláusulas da CCT" apontado na revisão.
 const ORD_UNIDADE = {
   primeira: 1, segunda: 2, terceira: 3, quarta: 4, quinta: 5,
@@ -214,7 +214,7 @@ const ORD_DEZENA = {
 };
 
 export function numeroDaClausula(texto) {
-  const t = String(texto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const t = String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const digito = /cl[aá]usula\s*(\d{1,3})/.exec(t) || /^\s*(\d{1,3})\s*[ª°.\-]/.exec(t);
   if (digito) return Number(digito[1]);
   let total = 0;
@@ -240,7 +240,7 @@ function buscarClausulaCct(dadosCct, regexTema) {
     // percentual costuma ficar em parágrafo separado da definição do tema —
     // por isso a busca do percentual é na cláusula INTEIRA, não numa janela
     // estreita ao redor do termo buscado.
-    // Le o número de ref + titulo juntos: a API parte "SEPTAGÉSIMA PRIMEIRA"
+    // Lê o número de ref + titulo juntos: a API parte "SEPTAGÉSIMA PRIMEIRA"
     // entre os dois campos, e só a junção dá o 71º correto.
     const refNum = numeroDaClausula(`${c.clausula_ref || ''} ${c.clausula_titulo || ''}`)
       || numeroDaClausula(texto);
