@@ -138,7 +138,10 @@ export function perguntasCct(caso = {}, attrs = {}) {
 function municipioDeLocal(local) {
   if (!local) return '';
   const s = String(local).replace(/\d{5}-?\d{3}/g, '').trim();
-  const m = s.match(/([A-ZÀ-Ý][A-ZÀ-Ý\s'.-]*?)\s*-\s*([A-Z]{2})\b/i);
+  // Aceita "Cidade/UF" além de "Cidade - UF": os endereços montados pelo
+  // mapeamento usam a barra, então o regex antigo (só hífen) devolvia vazio e a
+  // consulta de CCT ia sem município nenhum.
+  const m = s.match(/([A-ZÀ-Ý][A-ZÀ-Ý\s'.-]*?)\s*[-/]\s*([A-Z]{2})\b/i);
   return m ? m[1].trim().replace(/[.,;]+$/, '') : '';
 }
 
@@ -147,7 +150,12 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   if (!apiKey) return null;
   const categoria = config.cct_categoria || categoriaCct(caso, attrs);
   const data_fato = caso?.data_rescisao || caso?.data_admissao || undefined;
-  const municipio = municipioDeLocal(caso?.local_prestacao) || caso?.comarca || undefined;
+  // caso.comarca não existe no contrato do caso — o campo é comarca_uf
+  // ("Cidade/UF"), de onde tiramos só a cidade.
+  const daComarca = String(caso?.comarca_uf || caso?.comarca || '').split('/')[0].trim();
+  const municipio = municipioDeLocal(caso?.local_prestacao)
+    || (daComarca.length > 2 ? daComarca : '')
+    || undefined;
   const uf = undefined;
   const perguntas = perguntasCct(caso, attrs);
 
