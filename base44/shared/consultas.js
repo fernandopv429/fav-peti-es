@@ -151,25 +151,42 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   const uf = undefined;
   const perguntas = perguntasCct(caso, attrs);
 
+  const consultar = async (body) => {
+    let res;
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      res = await fetch('https://ccts.nexusdevhub.com/consultar-cct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify(body),
+      });
+      if (res.status !== 429 && res.status < 500) break;
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data?.resultados || [];
+  };
+
+  let semMunicipio = false;
   const buscas = await Promise.all(perguntas.map(async (pergunta) => {
     const body = { pergunta, limite: 3 };
     if (categoria) body.categoria = categoria;
     if (municipio) body.municipio = municipio;
     if (data_fato) body.data_fato = data_fato;
     try {
-      let res;
-      for (let attempt = 0; attempt <= 2; attempt++) {
-        res = await fetch('https://ccts.nexusdevhub.com/consultar-cct', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-          body: JSON.stringify(body),
-        });
-        if (res.status !== 429 && res.status < 500) break;
-        await new Promise((r) => setTimeout(r, 800));
+      let resultados = await consultar(body);
+      // O filtro de município zera a busca quando a CCT cadastrada tem base
+      // territorial mais estreita que o caso — conferido contra a API: a de
+      // asseio é municipal de SP capital e devolve 0 para "Guarulhos", ainda que
+      // a categoria esteja certa. Sem cláusula nenhuma a peça sai sem citar
+      // número de cláusula. Então, quando o filtro zera, refazemos sem ele e
+      // sinalizamos, para o advogado conferir a abrangência antes de protocolar.
+      if (!resultados.length && municipio) {
+        const { municipio: _fora, ...semMun } = body;
+        resultados = await consultar(semMun);
+        if (resultados.length) semMunicipio = true;
       }
-      if (!res.ok) return { pergunta, resultados: [] };
-      const data = await res.json();
-      return { pergunta, resultados: data?.resultados || [] };
+      return { pergunta, resultados };
     } catch (e) {
       return { pergunta, resultados: [] };
     }
@@ -204,6 +221,9 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
     categoria,
     data_fato,
     municipio,
+    // true = as cláusulas vieram de uma busca SEM o filtro de município, ou
+    // seja, a abrangência territorial da CCT precisa ser conferida.
+    municipio_nao_filtrado: semMunicipio,
     uf,
     perguntas,
     clausulas,
