@@ -378,7 +378,6 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     Object.assign(dados, blocos);
     if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
     // Preview do template preenchido
-    // Cada evento traz o seu modelo — usa o do caso, não o padrão global.
     // Preview tem de usar o MESMO modelo da exportação: o vigente do cadastro
     // vem primeiro; a URL congelada no caso só serve de reserva. Sem isto, o
     // advogado revisava um documento e baixava outro.
