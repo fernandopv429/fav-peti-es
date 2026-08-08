@@ -395,6 +395,24 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18a) LISTA DAS MULTAS CONVENCIONAIS, um item por parágrafo. As três tags do
+  // loop estão no MESMO parágrafo ("{{#pedidos_multas}}{{.}}{{/pedidos_multas}}"),
+  // e aí o docxtemplater repete inline: as infrações saem todas emendadas num
+  // parágrafo único separadas por ";" — foi como saiu na peça revisada. Com as
+  // tags em parágrafos separados, o paragraphLoop repete o parágrafo do meio e
+  // cada infração vira um item numerado.
+  let multasEmItens = false;
+  {
+    const ps = _paras(xml);
+    const i = ps.findIndex((p) => _textoPara(p.raw).trim() === '{{#pedidos_multas}}{{.}}{{/pedidos_multas}}');
+    if (i >= 0) {
+      const pPr = _pPr(ps[i].raw);
+      const novo = _paraTx('{{#pedidos_multas}}') + _paraTx('{{.}}', pPr) + _paraTx('{{/pedidos_multas}}');
+      xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+      multasEmItens = true;
+    }
+  }
+
   // 18b) CONTRATO DE TRABALHO na numeração. Os parágrafos das modalidades
   // (aqueles com {{DATA_ADMISSAO}} e {{SALARIO}}) não têm numeração, e agora que
   // o contrato sempre aparece ele ficaria sem número entre parágrafos numerados
@@ -463,5 +481,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     rolHorasAdicionado,
     rolNumerado,
     contratoNumerado,
+    multasEmItens,
   };
 }
