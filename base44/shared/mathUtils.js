@@ -197,6 +197,36 @@ export function temDanoMoralConcreto(caso = {}) {
 // evita citar um número/percentual fixo quando a convenção da categoria do
 // caso (vigilância/asseio/terceirizados) numera ou percentualiza diferente.
 // Sem cláusula encontrada, quem chama usa o padrão anterior (fallback).
+// Ordinais por extenso das CCTs. A API devolve o número da cláusula ESCRITO
+// ("CLÁUSULA SEPTAGÉSIMA PRIMEIRA") e, pior, às vezes partido entre clausula_ref
+// e clausula_titulo (ref="CLÁUSULA SEPTAGÉSIMA", titulo="PRIMEIRA - PENAS
+// COMINATÓRIAS..."). Como a extração só procurava dígitos, o número nunca era
+// encontrado e a peça saa citando "a cláusula de penalidade" sem identificá-la —
+// exatamente o "sem as cláusulas da CCT" apontado na revisão.
+const ORD_UNIDADE = {
+  primeira: 1, segunda: 2, terceira: 3, quarta: 4, quinta: 5,
+  sexta: 6, setima: 7, oitava: 8, nona: 9,
+};
+const ORD_DEZENA = {
+  decima: 10, vigesima: 20, trigesima: 30, quadragesima: 40, quinquagesima: 50,
+  qinquagesima: 50, sexagesima: 60, septuagesima: 70, septagesima: 70,
+  setuagesima: 70, octogesima: 80, octagesima: 80, nonagesima: 90, centesima: 100,
+};
+
+export function numeroDaClausula(texto) {
+  const t = String(texto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const digito = /cl[aá]usula\s*(\d{1,3})/.exec(t) || /^\s*(\d{1,3})\s*[ª°.\-]/.exec(t);
+  if (digito) return Number(digito[1]);
+  let total = 0;
+  for (const [nome, valor] of Object.entries(ORD_DEZENA)) {
+    if (new RegExp(`\\b${nome}\\b`).test(t)) { total += valor; break; }
+  }
+  for (const [nome, valor] of Object.entries(ORD_UNIDADE)) {
+    if (new RegExp(`\\b${nome}\\b`).test(t)) { total += valor; break; }
+  }
+  return total > 0 && total <= 200 ? total : null;
+}
+
 function buscarClausulaCct(dadosCct, regexTema) {
   if (!dadosCct?.clausulas?.length) return null;
   for (const c of dadosCct.clausulas) {
@@ -210,11 +240,15 @@ function buscarClausulaCct(dadosCct, regexTema) {
     // percentual costuma ficar em parágrafo separado da definição do tema —
     // por isso a busca do percentual é na cláusula INTEIRA, não numa janela
     // estreita ao redor do termo buscado.
-    const refNum = (c.clausula_ref || '').match(/\d+/)?.[0] || texto.match(/cl[áa]usula\s*(\d+)/i)?.[1];
+    // Le o número de ref + titulo juntos: a API parte "SEPTAGÉSIMA PRIMEIRA"
+    // entre os dois campos, e só a junção dá o 71º correto.
+    const refNum = numeroDaClausula(`${c.clausula_ref || ''} ${c.clausula_titulo || ''}`)
+      || numeroDaClausula(texto);
     const pctMatch = texto.match(/(\d{1,3})\s*%/);
     const pct = pctMatch ? Number(pctMatch[1]) : null;
     return {
       clausula: refNum ? `cláusula ${refNum}ª` : (c.clausula_ref || null),
+      numero: refNum || null,
       percentual: (pct && pct >= 5 && pct <= 100) ? pct / 100 : null,
     };
   }
