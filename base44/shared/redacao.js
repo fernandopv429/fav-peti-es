@@ -208,7 +208,13 @@ function resumoCaso(caso) {
 
 function municipiosDoCaso(caso) {
   const out = [];
-  if (caso.comarca) out.push(caso.comarca);
+  // caso.comarca NÃO EXISTE: o mapeamento do webhook grava `comarca_uf`
+  // ("Cidade/UF" ou só a UF). A lista saa vazia sempre que o endereço de
+  // prestação não casasse com o regex abaixo, e a orientação de competir ao
+  // TRT-2 — a trava que existe para não mandar processo de São Paulo para
+  // Campinas — simplesmente não entrava no prompt.
+  const daComarca = String(caso.comarca_uf || caso.comarca || '').split('/')[0].trim();
+  if (daComarca.length > 2) out.push(daComarca);
   const m = /([A-Za-zÀ-ÿ\s'.-]+?)\s*[-/]\s*[A-Z]{2}\b/.exec(caso.local_prestacao || '');
   if (m) out.push(m[1].trim());
   return out;
@@ -230,7 +236,13 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
     '- CAUSA DE PEDIR ALINHADA: use EXCLUSIVAMENTE o endereço de prestação da Tomadora (local_prestacao) na Competência; NUNCA o residencial do autor.',
     '- Cite SOMENTE cláusulas listadas em CLÁUSULAS DA CCT. Nunca invente número.',
     '- Escreva APENAS os capítulos solicitados. NÃO escreva endereçamento, qualificação, valor da causa, honorários, data ou fecho.',
-    '- ESTRUTURA FIXA — quatro blocos por capítulo: (1) FATOS; (2) FUNDAMENTO LEGAL/NORMATIVO; (3) JURISPRUDÊNCIA; (4) PEDIDO/CONCLUSÃO.',
+    // Esta regra MANDAVA o oposto do padrão do escritório. O modelo de
+    // referência "PADRÃO OURO" (entidade ModeloReferencia) diz: "capítulos curtos
+    // e objetivos — 2 a 6 parágrafos por tópico, SEM subdivisão numerada em
+    // FATOS/FUNDAMENTO/JURISPRUDÊNCIA/PEDIDO, prosa corrida e direta". A IA
+    // obedecia ao prompt e imprimia "1. DOS FATOS", "2. FUNDAMENTO LEGAL" como
+    // subtítulos — foi o que a revisão apontou como "fora da estrutura".
+    '- SEM SUBTÍTULOS E SEM SUBDIVISÃO NUMERADA: o capítulo é PROSA CORRIDA de 2 a 6 parágrafos. Cubra, nessa ordem e SEM rotular, os fatos do caso, o fundamento (CLT, Súmulas e cláusula da CCT citados em linha, sem transcrever ementas longas) e o pedido com os reflexos. NUNCA escreva "1. DOS FATOS", "2. FUNDAMENTO LEGAL", "3. JURISPRUDÊNCIA" nem qualquer título dentro do capítulo — o padrão do escritório proíbe expressamente essa subdivisão.',
     '- REDAÇÃO NATURAL: parágrafos jurídicos coesos e fluídos, não enlatados; cada capítulo SUBSTANCIAL e COMPLETO.',
     '- CONCORDÂNCIA DE GÊNERO (STRICT): recl_genero "M" ou "F" — concordância PERFEITA em todo o texto. M → "o reclamante" (proibido feminino); F → o inverso. "reclamada" (empresa) nunca troca. "seu advogado" sempre masculino.',
     '',
