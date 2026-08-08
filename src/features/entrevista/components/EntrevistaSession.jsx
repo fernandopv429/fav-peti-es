@@ -379,7 +379,10 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
     // Preview do template preenchido
     // Cada evento traz o seu modelo — usa o do caso, não o padrão global.
-    const urlCaso = aj.modelo_docx_url || config?.template_docx_url || '';
+    // Preview tem de usar o MESMO modelo da exportação: o vigente do cadastro
+    // vem primeiro; a URL congelada no caso só serve de reserva. Sem isto, o
+    // advogado revisava um documento e baixava outro.
+    const urlCaso = templatePadrao?.url || aj.modelo_docx_url || config?.template_docx_url || '';
     setTemplateCaso(aj.modelo_docx_url ? { url: aj.modelo_docx_url, nome: aj.template_nome || 'modelo do evento' } : null);
     let html = '';
     if (urlCaso) {
