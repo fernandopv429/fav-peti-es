@@ -109,12 +109,25 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   // Template do caso aberto pela fila de webhooks (vem no evento). Quando
   // ausente, cai no template padrão configurado.
   const [templateCaso, setTemplateCaso] = useState(null);
-  const templateUrl = templateCaso?.url || config?.template_docx_url || '';
-  const templateNome = templateCaso?.nome || config?.template_docx_nome || '';
+  // MODELO VIGENTE, direto do cadastro (PetitionTemplate ativo com a tag
+  // "blocos") — a MESMA fonte que o webhook usa para gerar. Havia três lugares
+  // guardando URL de modelo e eles discordavam: o cadastro (atualizado), o
+  // IntegracaoConfig.template_docx_url (parado num arquivo antigo) e a URL
+  // congelada dentro de cada caso. A exportação só olhava os dois últimos, então
+  // trocar o modelo em "Modelos de Petição" não mudava nada na peça baixada.
+  const [templatePadrao, setTemplatePadrao] = useState(null);
+  const templateUrl = templatePadrao?.url || templateCaso?.url || config?.template_docx_url || '';
+  const templateNome = templatePadrao?.nome || templateCaso?.nome || config?.template_docx_nome || '';
   const temTemplate = !!templateUrl;
 
   useEffect(() => {
     base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
+    base44.entities.PetitionTemplate.filter({ is_active: true })
+      .then((lista) => {
+        const t = (lista || []).find((x) => Array.isArray(x.tags) && x.tags.includes('blocos') && x.modelo_docx_url);
+        if (t) setTemplatePadrao({ url: t.modelo_docx_url, nome: t.modelo_docx_name || t.name });
+      })
+      .catch(() => {});
   }, []);
 
   const atualizarFilaCount = () => {
