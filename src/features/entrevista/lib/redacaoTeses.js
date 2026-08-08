@@ -258,7 +258,7 @@ function resumoCaso(caso) {
 function municipiosDoCaso(caso) {
   const out = [];
   // caso.comarca NÃO EXISTE: o campo gravado é `comarca_uf` ("Cidade/UF" ou só
-  // a UF). A lista saa vazia quando o endereço de prestação não casava com o
+  // a UF). A lista saía vazia quando o endereço de prestação não casava com o
   // regex abaixo, e a orientação do TRT-2 não entrava no prompt.
   const daComarca = String(caso.comarca_uf || caso.comarca || '').split('/')[0].trim();
   if (daComarca.length > 2) out.push(daComarca);

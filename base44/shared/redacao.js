@@ -209,7 +209,7 @@ function resumoCaso(caso) {
 function municipiosDoCaso(caso) {
   const out = [];
   // caso.comarca NÃO EXISTE: o mapeamento do webhook grava `comarca_uf`
-  // ("Cidade/UF" ou só a UF). A lista saa vazia sempre que o endereço de
+  // ("Cidade/UF" ou só a UF). A lista saía vazia sempre que o endereço de
   // prestação não casasse com o regex abaixo, e a orientação de competir ao
   // TRT-2 — a trava que existe para não mandar processo de São Paulo para
   // Campinas — simplesmente não entrava no prompt.
