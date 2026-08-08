@@ -63,13 +63,25 @@ export default function ModelosReferencia() {
     invalidateRuntimeCache('config-integracoes'); // muda a geração na hora (sem esperar o TTL)
   };
 
+  // Modelo OFICIAL = o cadastrado com a tag "blocos", que é o que o webhook usa
+  // para gerar e o que a exportação passou a usar. O IntegracaoConfig.
+  // template_docx_url é apenas uma referência paralela, que ficou apontando para
+  // um arquivo antigo — resolver o modelo por ele fazia o botão de troca sumir
+  // (o find não casava com nenhum cadastro) e o "Baixar corrigido" corrigir o
+  // arquivo errado.
+  const templateOficial =
+    peticoesDocx.find((t) => Array.isArray(t.tags) && t.tags.includes('blocos') && t.modelo_docx_url)
+    || peticoesDocx.find((t) => t.modelo_docx_url === config?.template_docx_url)
+    || peticoesDocx[0]
+    || null;
+
   const baixarCorrigido = async () => {
-    if (!config?.template_docx_url) return;
+    if (!templateOficial?.modelo_docx_url) return;
     setCorrigindo(true);
     setErro(null);
     setMsg(null);
     try {
-      const r = await baixarTemplateCorrigido(config.template_docx_url, 'MODELO_PRINCIPAL_template_corrigido.docx');
+      const r = await baixarTemplateCorrigido(templateOficial.modelo_docx_url, 'MODELO_PRINCIPAL_template_corrigido.docx');
       const itens = [
         r.saldoAdicionado && 'saldo de salário',
         r.multa467Adicionada && 'multa art. 467',
@@ -79,6 +91,16 @@ export default function ModelosReferencia() {
         r.emailPreambuloAdicionado && 'e-mail no preâmbulo',
         r.rolValoresUnitariosRemovidos && 'rol sem valores unitários',
         r.honorariosCorrigido && 'R$ 10.012,79 → tag dinâmica',
+        r.jornadaDeterministica && 'jornada volta a ser determinística',
+        r.sumula331Deterministica && 'Súmula 331 determinística',
+        r.contratoSempreVisivel && 'contrato sempre visível (com o salário)',
+        r.contratoNumerado && 'contrato na numeração',
+        r.percentuaisTokenizados && 'percentuais por categoria (multa e art. 71)',
+        r.avisoCorrigido && 'aviso prévio sem os "23 dias" fixos',
+        r.avosTokenizados && 'avos de 13º/férias dinâmicos',
+        r.rolHorasAdicionado && 'verbas por hora no rol',
+        r.rolNumerado && `rol numerado (${r.rolNumerado} itens)`,
+        r.multasEmItens && 'multas convencionais item a item',
       ].filter(Boolean);
       setMsg(`Template corrigido baixado${itens.length ? ` (adicionado: ${itens.join(', ')})` : ' — já estava atualizado'}. Envie-o em “Trocar template” para torná-lo oficial.`);
     } catch (err) {
@@ -282,7 +304,7 @@ export default function ModelosReferencia() {
             </p>
             {peticoesDocx.length ? (
               <select
-                value={peticoesDocx.find((t) => t.modelo_docx_url === config.template_docx_url)?.id || ''}
+                value={templateOficial?.id || ''}
                 onChange={(e) => {
                   const t = peticoesDocx.find((x) => x.id === e.target.value);
                   if (t) salvarConfig({ template_docx_url: t.modelo_docx_url, template_docx_nome: t.modelo_docx_name || t.name });
@@ -300,7 +322,7 @@ export default function ModelosReferencia() {
               </p>
             )}
             <TemplateAtualizarDocx
-              template={peticoesDocx.find((t) => t.modelo_docx_url === config.template_docx_url)}
+              template={templateOficial}
               onAtualizado={async ({ url, nome }) => {
                 await salvarConfig({ template_docx_url: url, template_docx_nome: nome });
                 await load();
@@ -308,7 +330,7 @@ export default function ModelosReferencia() {
               }}
             />
             <div className="flex items-center gap-3 flex-wrap mt-3">
-              {config.template_docx_url && (
+              {templateOficial?.modelo_docx_url && (
                 <button
                   onClick={baixarCorrigido}
                   disabled={corrigindo}
