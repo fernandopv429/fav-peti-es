@@ -408,7 +408,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
 
   // Relê o modelo oficial NA HORA de exportar. O template era carregado uma vez,
   // na montagem da tela: quem trocasse o .docx com a aba aberta continuava
-  // exportando o arquivo antigo até recarregar a página — e a peça saa idêntica,
+  // exportando o arquivo antigo até recarregar a página — e a peça saía idêntica,
   // sem nenhum sinal de que o modelo novo não tinha sido usado.
   const resolverTemplateAtual = async () => {
     try {
