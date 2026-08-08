@@ -264,7 +264,9 @@ function municipiosDoCaso(caso) {
   if (daComarca.length > 2) out.push(daComarca);
   const m = /([A-Za-zÀ-ÿ\s'.-]+?)\s*[-/]\s*[A-Z]{2}\b/.exec(caso.local_prestacao || '');
   if (m) out.push(m[1].trim());
-  return out;
+  // comarca_uf e local_prestacao costumam apontar a mesma cidade: sem o dedupe
+  // a instrução saía como "(Itapecerica da Serra, Itapecerica da Serra)".
+  return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 }
 
 // Formata as referências mais semelhantes (diferencial de cada modelo) como
