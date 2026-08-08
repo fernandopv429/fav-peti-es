@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
-import { calcularVerbasCaso } from '../../shared/mathUtils.js';
+import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
@@ -155,8 +155,17 @@ export default async function(req) {
         }
       }
       if (!caso.cct_clausula_multa) {
-        const cl = dadosCct.clausulas.find((c) => /\bmulta\b|penalidade|descumprimento/i.test(c.ementa || c.texto || c.clausula_titulo || c.conteudo || ''));
-        if (cl?.clausula_ref) caso.cct_clausula_multa = cl.clausula_ref;
+        // "PENAS COMINATÓRIAS" é como a CCT de vigilância chama a multa normativa
+        // — sem esse termo o find não achava a cláusula certa.
+        const cl = dadosCct.clausulas.find((c) => /\bmulta\b|penalidade|cominat[óo]ria|descumprimento/i
+          .test(`${c.clausula_titulo || ''} ${c.ementa || ''} ${c.texto || ''} ${c.conteudo || ''}`));
+        if (cl) {
+          // A API numera por extenso e parte o ordinal entre ref e título
+          // ("CLÁUSULA SEPTAGÉSIMA" + "PRIMEIRA - PENAS COMINATÓRIAS"): sem ler os
+          // dois juntos, a peça citava "a cláusula de penalidade" sem número.
+          const n = numeroDaClausula(`${cl.clausula_ref || ''} ${cl.clausula_titulo || ''}`);
+          caso.cct_clausula_multa = n ? `${n}ª` : (cl.clausula_ref || '');
+        }
       }
     }
     // SALÁRIO-BASE. É a entrada mais importante da peça: dano moral (10x),
@@ -198,6 +207,9 @@ export default async function(req) {
     if (!ehVig && caso.tem_auxilio_alimentacao && !caso.valor_aux_alimentacao) {
       caso.valor_aux_alimentacao = 23.30;
       avisosDados.push('Auxílio-alimentação: valor não informado e não localizado na CCT — adotado R$ 23,30 (padrão SINDEEPRES/SIEMACO das peças de referência). CONFERIR na CCT vigente.');
+    }
+    if (dadosCct?.municipio_nao_filtrado) {
+      avisosDados.push(`CCT: nenhuma cláusula encontrada para o município "${dadosCct.municipio}"; as cláusulas citadas vieram da busca por categoria, sem filtro territorial. CONFERIR a abrangência da convenção antes de protocolar.`);
     }
     if (caso.gratificacao_ignorada) {
       avisosDados.push(`Gratificação de função NÃO foi pedida: a tese é do vigilante-condutor (cl. 3º da CCT de vigilância) e a função aqui é "${caso.funcao || 'não informada'}". O evento mencionava: "${caso.gratificacao_ignorada}". Revisar se cabe outra verba.`);
