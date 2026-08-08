@@ -397,6 +397,23 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     try {
       await exportarDocxTemplate(templateUrl, ultimaGeracao.dados, 'Petição inicial');
     } catch (err) {
+      // A conferência final (preencherDocxTemplate) aponta campo não preenchido,
+      // tag não substituída, envelope de JSON etc. Ela AVISA, mas não decide: o
+      // download tem de sair mesmo com pendência — quem julga se a minuta serve
+      // é o advogado, e travar o arquivo só atrapalha o trabalho. O arquivo com
+      // pendência sai com o nome marcado, para ninguém confundir com a peça final.
+      if (err?.achados?.length) {
+        const seguir = window.confirm(`${err.message}\n\nBaixar assim mesmo, com as pendências acima?`);
+        if (seguir) {
+          await exportarDocxTemplate(
+            templateUrl,
+            ultimaGeracao.dados,
+            'Petição inicial (COM PENDÊNCIAS - revisar)',
+            { permitirPendencias: true },
+          );
+        }
+        return;
+      }
       console.error(err);
       window.alert(`Não foi possível exportar o documento: ${err?.message || 'verifique o template .docx e as tags.'}`);
     } finally {
