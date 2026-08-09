@@ -376,7 +376,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.ASSIDUIDADE_PAGO = valorOuTexto(caso.assiduidade_pago);
   dados.ASSIDUIDADE_DIFERENCA = valorOuTexto(caso.assiduidade_diferenca);
   dados.DOENCA_DESCRICAO = caso.doenca_descricao || '';
-  dados.VALOR_POR_FORA = valorOuTexto(caso.valor_por_fora);
+  // O valor pago "por fora" É o valor da FT quitada em PIX/dinheiro. A regra
+  // existia só no mapeamento do WEBHOOK; a mesma peça gerada pela tela de
+  // entrevista (parser/extração) continuava saindo com
+  // "[A PREENCHER: VALOR_POR_FORA]" — dois caminhos de geração com resultados
+  // diferentes para o mesmo caso. Aqui, na camada que preenche o template,
+  // vale para os dois.
+  dados.VALOR_POR_FORA = valorOuTexto(caso.valor_por_fora || (caso.tem_integracao_por_fora ? caso.val_ft : null));
   dados.VALOR_AUX_ALIMENTACAO = valorOuTexto(caso.valor_aux_alimentacao);
 
   // 10) CCT
