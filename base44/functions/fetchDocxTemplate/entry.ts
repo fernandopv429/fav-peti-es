@@ -1,20 +1,37 @@
 /**
- * fetchDocxTemplate — baixa um arquivo .docx de uma URL e devolve o conteúdo
- * em base64 para o frontend. Resolve o bloqueio CORS no app publicado.
+ * fetchDocxTemplate — baixa um arquivo .docx do storage do app e devolve o
+ * conteúdo em base64 para o frontend. Resolve o bloqueio CORS no app publicado.
  *
- * NÃO requer autenticação — a URL do arquivo já é o controle de acesso.
- * Qualquer usuário (inclusive anônimo no app publicado) pode chamar esta função.
+ * EXIGE usuário autenticado e SÓ baixa de hosts do próprio Base44.
+ * Antes não exigia nada: qualquer pessoa na internet podia mandar uma URL
+ * arbitrária e receber o conteúdo de volta em base64 — um proxy de requisições
+ * (SSRF) que alcançava endereços internos da infraestrutura e qualquer arquivo
+ * cuja URL vazasse. "A URL é o controle de acesso" não é controle de acesso.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Somente o storage do próprio app. Modelo hospedado fora daqui deve ser
+// cadastrado em Modelos de Petição (que sobe o arquivo para o storage).
+const HOSTS_PERMITIDOS = [/(^|\.)base44\.com$/i, /(^|\.)base44\.app$/i];
+
 Deno.serve(async (req) => {
   try {
-    // Inicializa o cliente mas NÃO exige auth — a função só faz fetch de URL pública
-    createClientFromRequest(req);
+    const base44 = createClientFromRequest(req);
+    let user = null;
+    try { user = await base44.auth.me(); } catch { user = null; }
+    if (!user) return Response.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { url } = await req.json();
     if (!url || typeof url !== 'string') {
       return Response.json({ error: 'url é obrigatório' }, { status: 400 });
+    }
+    let alvo;
+    try { alvo = new URL(url); } catch { return Response.json({ error: 'url inválida' }, { status: 400 }); }
+    if (alvo.protocol !== 'https:' || !HOSTS_PERMITIDOS.some((re) => re.test(alvo.hostname))) {
+      return Response.json(
+        { error: `Host não permitido (${alvo.hostname}). Esta função só baixa arquivos do storage do app.` },
+        { status: 403 },
+      );
     }
 
     const resp = await fetch(url);
