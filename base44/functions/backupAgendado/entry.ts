@@ -1,7 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// CasoTrabalhista entrou na lista: é ONDE VIVEM as peças geradas pelo webhook
+// (analise_json com caso, cálculos, cláusulas da CCT e capítulos redigidos) e
+// estava de fora — o backup protegia o legado (CasoVigilante) e não o que está
+// em produção. Junto vieram ModeloReferencia (o "PADRÃO OURO" e as referências
+// de estilo), CCT (as convenções cadastradas à mão) e as duas configurações que
+// governam a geração.
 const ENTIDADES = [
-  "CasoVigilante", "Petition", "PetitionConfig", "PetitionTemplate",
+  "CasoTrabalhista", "CasoVigilante", "Petition", "PetitionConfig", "PetitionTemplate",
+  "ModeloReferencia", "CCT", "IntegracaoConfig", "EspecialistaConfig",
   "Precedent", "PrecedentV2", "Defesa", "DefesaConfig",
   "VerbaRescisoriaCalculo", "AtualizacaoCalculo", "Client", "Defendant", "Especialista"
 ];
