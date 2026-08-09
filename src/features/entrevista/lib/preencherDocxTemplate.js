@@ -399,7 +399,7 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
     nullGetter: (part) => {
       // Seções e loops ({{#TAG}} / {{^TAG}} / {{#lista}}) precisam de valor VAZIO
       // quando a tag não existe — são condições, não texto. Devolvendo o marcador
-      // aqui, a condição virava "verdadeira" (string não vazia) e o bloco saa na
+      // aqui, a condição virava "verdadeira" (string não vazia) e o bloco saía na
       // peça: foi assim que as linhas de 10 minutos e periculosidade apareceram
       // como "[A PREENCHER: ...]" num caso em que essas verbas nem existem.
       if (part && typeof part === 'object' && part.module) return '';
