@@ -4,71 +4,10 @@
 // e `configs` (EspecialistaConfig) já carregados pelo orquestrador.
 
 import { formatBRL, temDanoMoralConcreto } from './mathUtils.js';
-
-const BLOCO_ENGENHARIA_JURIDICA = `
-DIRETRIZES DE ENGENHARIA JURÍDICA (obrigatórias):
-B) TESE RESCISÓRIA — selecione UMA conforme o relato:
-- Dispensa sem justa causa: saldo de salário, aviso prévio indenizado (Lei 12.506/11), férias + 1/3, 13º proporcional e FGTS + 40%, sem capítulo de reversão/rescisão indireta.
-- Pedido de demissão sob coação/ameaça: incluir "DA ANULAÇÃO DO PEDIDO DE DEMISSÃO E CONVOLAÇÃO EM DISPENSA IMOTIVADA" (art. 171, II, CC c/c art. 9º CLT), com pedido expresso de nulidade.
-- Justa causa injusta: incluir "DA REVERSÃO DA DISPENSA POR JUSTA CAUSA" (art. 482 CLT; ônus do empregador; ausência de falta grave e desproporcionalidade da punição).
-- Rescisão indireta: incluir "DA RESCISÃO INDIRETA DO CONTRATO DE TRABALHO" (art. 483, "b" e "d", CLT), com rol das faltas graves do empregador; a multa do art. 477 fica subsidiária.
-C) ENQUADRAMENTO FUNCIONAL (nunca cumular teses sobre os mesmos fatos):
-- Vigilante executando prevenção de perdas, conferência de cargas ou controle de validade de produtos → SOMENTE DESVIO DE FUNÇÃO (multa convencional de 50% por mês — cláusula 64ª da CCT de vigilância).
-- Vigilante conduzindo veículo/moto (motoronda) → GRATIFICAÇÃO DE FUNÇÃO de 10% sobre o salário base (cláusula 3ª).
-- Porteiro/controlador executando rondas de vigilante → ACÚMULO DE FUNÇÃO de 20% sobre o salário.
-D) JORNADA E DANO MORAL:
-- Trate exclusivamente da escala relatada. Em 12x36, aborde a extensão habitual, a supressão do intervalo intrajornada (art. 71 CLT), os minutos de troca de uniforme antes/depois e o labor em folgas (FTS).
-- Para vigilantes, incluir a tese dos 10 minutos de descanso sentado a cada hora trabalhada (cláusulas 33ª/34ª da CCT).
-- Dano moral: manter a fundamentação doutrinária padrão e INCORPORAR a narrativa concreta dos abusos. Valor: exatamente 10x o último salário do reclamante.
-E) CÁLCULO E ROL DE PEDIDOS: valores determinísticos por código — não recalcular.
-G) ENTREGA: concordância de gênero conforme o reclamante; "seu advogado" sempre masculino.`;
-
-const BLOCO_REGRAS_QUALIDADE = `
-REGRAS DE QUALIDADE NA REDAÇÃO DOS CAPÍTULOS:
-- COMPETÊNCIA / LOCAL DE PRESTAÇÃO: refira-se ao endereço da prestação (reclamada/tomadora), NUNCA ao residencial do reclamante. Grafia exata dos dados (inclusive km).
-- DANO MORAL: narrativa fluida e encadeada; PROIBIDO frases soltas/fragmentadas.
-- MULTAS CONVENCIONAIS: NÚMERO exato das cláusulas e PERCENTUAL conforme a CCT fornecida; PROIBIDO inventar — sem CCT, use [cláusula/percentual conforme CCT].
-- SEM DUPLICIDADE ENTRE CAPÍTULOS: cada verba/tese tratada UMA vez.
-- HONORÁRIOS: art. 791-A da CLT; NUNCA Súmula 425 do TST.`;
-
-const BLOCO_MATRIZ_TOPICOS = `
-MATRIZ DE TÓPICOS — REGRAS DE INCLUSÃO, EXCLUSÃO E BIS IN IDEM:
-JORNADA E HORAS EXTRAS: excedentes da 8ª diária/44ª semanal com adicional convencional real da CCT; descaracterização do 12x36 (Súmula 85) é fundamentação, não pedido; art. 71 com reflexos; noturno só se a jornada abranger 22h-5h; minutos de troca (vigilância); DSR autônomo só com causa própria; folgas/feriados 100% (Súmula 444).
-VIGILÂNCIA: 10 minutos de descanso (cumulativo c/ art. 71); periculosidade nas HE (armado — Súmula 132 I); VT/VA nas folgas.
-ENQUADRAMENTO: desvio (prevenção de perdas), gratificação (condutor), acúmulo (porteiro) — alternativos, nunca cumular.
-OUTROS: integração de valores por fora; assiduidade só se prometido; tomadora SUBSIDIÁRIA (Súmula 331), nunca solidária; avos conforme meses trabalhados.`;
-
-const MUNICIPIOS_TRT2 = [
-  'são paulo', 'itapecerica da serra', 'embu', 'embu das artes', 'embu-guaçu', 'taboão da serra',
-  'osasco', 'carapicuíba', 'cotia', 'barueri', 'jandira', 'itapevi', 'guarulhos', 'santo andré',
-  'são bernardo do campo', 'são caetano do sul', 'diadema', 'mauá', 'ribeirão pires',
-  'rio grande da serra', 'mogi das cruzes', 'suzano', 'poá', 'itaquaquecetuba', 'ferraz de vasconcelos',
-  'arujá', 'santa isabel', 'caieiras', 'franco da rocha', 'francisco morato', 'mairiporã',
-  'santana de parnaíba', 'pirapora do bom jesus', 'juquitiba', 'são lourenço da serra',
-  'santos', 'são vicente', 'guarujá', 'cubatão', 'praia grande', 'itanhaém', 'peruíbe',
-  'mongaguá', 'bertioga', 'caraguatatuba', 'são sebastião', 'ubatuba', 'ilhabela',
-];
-
-function regiaoTrtPorMunicipio(municipio) {
-  const m = (municipio || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const achou = MUNICIPIOS_TRT2.some((nome) => m.includes(nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
-  return achou ? '2ª Região (TRT-2)' : null;
-}
-
-function blocoRegrasCriticas({ municipios = [] } = {}) {
-  const trt2 = municipios.filter((m) => regiaoTrtPorMunicipio(m));
-  const orientacaoTrt = trt2.length
-    ? `O local de prestação (${trt2.join(', ')}) pertence ao TRT da 2ª Região. Enderece a "AO JUÍZO DA VARA DO TRABALHO DE ${trt2[0].toUpperCase()} – SEGUNDA REGIÃO". NUNCA use TRT da 15ª Região.`
-    : 'Confirme o TRT pelo município de prestação: Grande São Paulo/Baixada Santista/Litoral = 2ª Região; interior/Campinas = 15ª Região.';
-  return `
-REGRAS CRÍTICAS (erros já cometidos — NÃO repita):
-1. COMPETÊNCIA / TRT: ${orientacaoTrt}
-2. ESCALA: use EXCLUSIVAMENTE a escala relatada. PROIBIDO criar tópicos sobre escalas não trabalhadas.
-3. DESVIO × ACÚMULO: alternativos e excludentes sobre os mesmos fatos — escolha UM só.
-4. HONORÁRIOS: fora do array de saída (calculados à parte pelo sistema).
-5. VALORES ESTIMADOS: proporcionais por item; PROIBIDO valores redondos genéricos.
-6. VALOR DA CAUSA, FECHO E ASSINATURA são determinísticos — não os escreva.`;
-}
+import { BLOCO_ENGENHARIA_JURIDICA } from './engenhariaJuridica.js';
+import { BLOCO_REGRAS_QUALIDADE } from './regrasQualidadeFav.js';
+import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos.js';
+import { blocoRegrasCriticas } from './regrasCriticas.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
