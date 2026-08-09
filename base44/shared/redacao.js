@@ -143,7 +143,12 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
 }
 
 export const ESPECIALISTAS = [
-  { numero: 'espinha', nome: 'Espinha da rescisão', campo: 'BLOCO_ESPINHA_RESCISAO', ativo: () => true,
+  // Só há tese rescisória a redigir quando a modalidade PRECISA ser construída
+  // (rescisão indireta, nulidade do pedido de demissão, reversão de justa causa).
+  // Na dispensa sem justa causa o modelo já traz o parágrafo determinístico do
+  // contrato — com o salário — e o capítulo da IA saía junto, repetindo os mesmos
+  // fatos logo abaixo. Duplicidade vista na peça gerada em 08/2026.
+  { numero: 'espinha', nome: 'Espinha da rescisão', campo: 'BLOCO_ESPINHA_RESCISAO', ativo: (d) => !!d.tem_capitulo_rescisao,
     instrucao: 'Escreva o capítulo COMPLETO da modalidade de rescisão aplicável (conforme tipo_dispensa), em prosa jurídica fluida e SUBSTANCIAL: (1) FATOS — narre a situação que configura a modalidade; (2) FUNDAMENTO LEGAL/NORMATIVO — dispositivos da CLT (art. 482, 483, 484-A, 165 etc.); (3) JURISPRUDÊNCIA — quando relevante; (4) PEDIDO/CONCLUSÃO — requerimento com os reflexos cabíveis. NÃO escreva jornada, dano moral nem verbas calculadas.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em teses rescisórias. Redija o capítulo COMPLETO em prosa jurídica fluida e argumentativa.' },
   // jornada e sumula331 DESATIVADOS (revisão da especialista, ago/2026): o
