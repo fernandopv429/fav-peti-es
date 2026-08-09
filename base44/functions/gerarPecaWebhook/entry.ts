@@ -14,8 +14,14 @@ import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/r
 // dadosCep, dadosCct, blocos }. O frontend apenas revisa/exporta.
 // ============================================================
 export default async function(req) {
+  // Guardados fora do try para que o catch final consiga liberar a trava de
+  // 'processando' — sem isso, um erro no meio deixaria o evento travado para
+  // sempre e nem o reprocessamento manual passaria.
+  let clienteRef = null;
+  let eventoIdRef = null;
   try {
     const base44 = createClientFromRequest(req);
+    clienteRef = base44;
     // Aceita chamada direta ({ evento_id }) e o payload do gatilho por
     // entidade ({ event: { entity_id }, data }).
     const body = await req.json().catch(() => ({}));
@@ -33,12 +39,21 @@ export default async function(req) {
     // revisado nesse intervalo. Reenviar o evento de propósito cria um
     // WebhookEvento NOVO, então o reprocessamento legítimo segue funcionando;
     // para reprocessar o mesmo registro, chame com { forcar: true }.
-    if (evento.status === 'processado' && !body.forcar) {
+    // A trava precisa ser TOMADA ANTES do trabalho pesado. Antes, o status só
+    // virava 'processado' no passo 9 — depois da chamada de IA, ~30 s adiante.
+    // Nessa janela os DOIS disparos (o invoke direto do webhookReceber e o
+    // workflow por gatilho) liam 'recebido' e ambos seguiam: saíam duas Petitions
+    // por entrevista, com segundos de diferença e custo de IA dobrado. Marcando
+    // 'processando' logo na entrada, a janela cai de ~30 s para um round-trip.
+    if (['processado', 'processando'].includes(evento.status) && !body.forcar) {
       return Response.json({
-        ok: true, ignorado: true, evento_id,
-        motivo: 'evento já processado (disparo duplicado) — use forcar:true para refazer',
+        ok: true, ignorado: true, evento_id, status: evento.status,
+        motivo: 'evento já processado ou em processamento (disparo duplicado) — use forcar:true para refazer',
       });
     }
+    await base44.asServiceRole.entities.WebhookEvento.update(evento_id, { status: 'processando' })
+      .catch(() => {});
+    eventoIdRef = evento_id;
     const payload = evento.payload || {};
     const data = payload.data || {};
     if (!data || !Object.keys(data).length) {
@@ -339,6 +354,15 @@ export default async function(req) {
     }
 
     let petitionId = petitionIdExistente || null;
+    // Releitura tardia: o petition_id só é gravado no analise_json DEPOIS que a
+    // Petition nasce, então um disparo concorrente que tenha passado pela trava
+    // no começo ainda leria null aqui. Reler agora aproveita a Petition que ele
+    // acabou de criar em vez de abrir uma segunda.
+    if (!petitionId) {
+      const casoAtual = await base44.asServiceRole.entities.CasoTrabalhista.get(casoId).catch(() => null);
+      petitionId = casoAtual?.analise_json?.petition_id || null;
+    }
+    const vaiAtualizar = Boolean(petitionId);
     const petitionCampos = {
       title: `${caso.recl_nome || 'Reclamante'} x ${caso.recl1_nome || 'Reclamada'}`.slice(0, 200),
       case_type: 'trabalhista',
@@ -366,8 +390,8 @@ export default async function(req) {
       status: (dialetoOk && !redacaoErro && salarioConfiavel) ? 'concluida' : 'revisao_necessaria',
     };
     try {
-      if (petitionIdExistente) {
-        await base44.asServiceRole.entities.Petition.update(petitionIdExistente, petitionCampos);
+      if (vaiAtualizar) {
+        await base44.asServiceRole.entities.Petition.update(petitionId, petitionCampos);
       } else {
         const petition = await base44.asServiceRole.entities.Petition.create(petitionCampos);
         petitionId = petition.id;
@@ -376,7 +400,7 @@ export default async function(req) {
         analise_json: { ...analiseJsonFinal, petition_id: petitionId },
       });
     } catch (e) {
-      avisos.push(`Falha ao ${petitionIdExistente ? 'atualizar' : 'criar'} a Petition: ${e?.message || e}`);
+      avisos.push(`Falha ao ${vaiAtualizar ? 'atualizar' : 'criar'} a Petition: ${e?.message || e}`);
     }
 
     // 9) Marca o evento como processado
@@ -399,6 +423,15 @@ export default async function(req) {
       avisos,
     });
   } catch (error) {
+    // Libera a trava: um evento deixado em 'processando' bloquearia até o
+    // reprocessamento legítimo do mesmo registro.
+    if (clienteRef && eventoIdRef) {
+      await clienteRef.asServiceRole.entities.WebhookEvento.update(eventoIdRef, {
+        status: 'erro',
+        erro_mensagem: `Falha na geração: ${error?.message || error}`,
+        processado_em: new Date().toISOString(),
+      }).catch(() => {});
+    }
     return Response.json({ error: error.message || 'erro interno' }, { status: 500 });
   }
 }
