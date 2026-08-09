@@ -395,6 +395,41 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18c) DUPLICIDADE NO ROL. As verbas por hora passaram a ter linha PRÓPRIA com
+  // valor (etapa 18), mas o modelo já tinha, para as mesmas verbas, linhas "a
+  // apurar em liquidação". A peça saiu pedindo art. 71, noturno, 10 minutos e
+  // periculosidade DUAS VEZES — uma com valor e outra sem. Aqui removemos as
+  // linhas sem valor cuja verba agora está quantificada. As de horas extras
+  // (descaracterização da 12x36 e excedentes da 8ª/44ª) e o DSR autônomo FICAM:
+  // são teses próprias na peça da especialista e a decisão de fundi-las é do
+  // escritório, não minha.
+  const ROL_DUPLICADOS = [
+    'intervalo intrajornada (art. 71 da CLT) e reflexos, a apurar em liquidação',
+    'adicional noturno (20%) e hora noturna reduzida e reflexos, a apurar em liquidação',
+    '10 (dez) minutos de descanso (cláusula 33ª) como hora extra e reflexos, a apurar em liquidação',
+    'diferenças do adicional de periculosidade nas horas extras e reflexos, a apurar em liquidação',
+    'minutos que antecedem/sucedem a jornada e reflexos, a apurar em liquidação',
+  ];
+  let rolDuplicadosRemovidos = 0;
+  {
+    const ps = _paras(xml);
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const texto = _textoPara(ps[i].raw);
+      if (!ROL_DUPLICADOS.some((d) => texto.includes(d))) continue;
+      xml = xml.slice(0, ps[i].start) + xml.slice(ps[i].end);
+      rolDuplicadosRemovidos++;
+    }
+  }
+
+  // 18d) A linha das multas no ROL ainda trazia o "2%" fixo do caso de origem —
+  // o capítulo já tinha sido tokenizado, o rol não.
+  let rolMultaTokenizada = false;
+  if (xml.includes('multas convencionais (2% por cláusula descumprida)')) {
+    xml = xml.split('multas convencionais (2% por cláusula descumprida)')
+      .join('multas convencionais ({{PERC_MULTA_CONV}})');
+    rolMultaTokenizada = true;
+  }
+
   // 18a) LISTA DAS MULTAS CONVENCIONAIS, um item por parágrafo. As três tags do
   // loop estão no MESMO parágrafo ("{{#pedidos_multas}}{{.}}{{/pedidos_multas}}"),
   // e aí o docxtemplater repete inline: as infrações saem todas emendadas num
@@ -482,5 +517,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     rolNumerado,
     contratoNumerado,
     multasEmItens,
+    rolDuplicadosRemovidos,
+    rolMultaTokenizada,
   };
 }
