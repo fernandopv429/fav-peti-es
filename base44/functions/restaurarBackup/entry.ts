@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  // Esta função APAGA todos os registros das entidades listadas antes de
+  // recriar. Bastava estar logado: qualquer usuário podia zerar a base — e
+  // mandando { snapshot_json: { "Petition": [] } } apagava sem nem precisar de
+  // um backup existente. Restaurar é operação de administrador.
+  if (user.role !== 'admin') {
+    return Response.json({ error: 'Apenas administradores podem restaurar backup.' }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const { backup_id, snapshot_json } = body;
@@ -68,6 +75,37 @@ Deno.serve(async (req) => {
     return Response.json({ error: errMsg }, { status: 500 });
   }
 
+  // REDE DE SEGURANÇA: snapshot do estado ATUAL antes de apagar qualquer coisa.
+  // A entidade Backup já previa o tipo 'pre_restauracao' e nada o criava; uma
+  // restauração errada era irreversível.
+  let backupPrevio = null;
+  try {
+    const atual = {};
+    let total = 0;
+    for (const entidade of ENTIDADES) {
+      const regs = await base44.asServiceRole.entities[entidade].list().catch(() => []);
+      atual[entidade] = regs || [];
+      total += (regs || []).length;
+    }
+    const json = JSON.stringify(atual);
+    const file = new File([json], 'backup-pre-restauracao.json', { type: 'application/json' });
+    const { file_url } = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+    backupPrevio = await base44.asServiceRole.entities.Backup.create({
+      tipo: 'pre_restauracao',
+      total_registros: total,
+      tamanho_bytes: new TextEncoder().encode(json).length,
+      file_url,
+      entidades_incluidas: ENTIDADES,
+      observacao: `Snapshot automático antes da restauração feita por ${user.email || user.id}`,
+    });
+  } catch (e) {
+    // Sem rede de segurança não se apaga nada.
+    return Response.json(
+      { error: `Não foi possível criar o backup pré-restauração — restauração cancelada: ${e.message}` },
+      { status: 500 },
+    );
+  }
+
   let totalRestaurado = 0;
   const erros = [];
 
@@ -101,5 +139,10 @@ Deno.serve(async (req) => {
     }).catch(() => {});
   }
 
-  return Response.json({ success: true, total_restaurado: totalRestaurado, erros });
+  return Response.json({
+    success: true,
+    total_restaurado: totalRestaurado,
+    erros,
+    backup_pre_restauracao_id: backupPrevio?.id || null,
+  });
 });
