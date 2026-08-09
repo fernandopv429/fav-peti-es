@@ -25,6 +25,20 @@ export default async function(req) {
     // 1) Carrega o evento do webhook
     const evento = await base44.asServiceRole.entities.WebhookEvento.get(evento_id);
     if (!evento) return Response.json({ error: 'evento não encontrado' }, { status: 404 });
+    // IDEMPOTÊNCIA. O mesmo evento chega aqui por DOIS caminhos: a invocação
+    // direta do webhookReceber e o workflow "Gerar Peça do Webhook" (gatilho por
+    // entidade), que dispara com atraso de ~1 min a quase 1 h. Sem esta guarda a
+    // mesma entrevista era redigida duas vezes: custo de IA dobrado e, pior, a
+    // segunda execução sobrescrevia a Petition que o advogado já podia ter
+    // revisado nesse intervalo. Reenviar o evento de propósito cria um
+    // WebhookEvento NOVO, então o reprocessamento legítimo segue funcionando;
+    // para reprocessar o mesmo registro, chame com { forcar: true }.
+    if (evento.status === 'processado' && !body.forcar) {
+      return Response.json({
+        ok: true, ignorado: true, evento_id,
+        motivo: 'evento já processado (disparo duplicado) — use forcar:true para refazer',
+      });
+    }
     const payload = evento.payload || {};
     const data = payload.data || {};
     if (!data || !Object.keys(data).length) {
