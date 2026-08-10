@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
-import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct } from '../../shared/consultas.js';
+import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
 // ============================================================
@@ -165,7 +165,41 @@ export default async function(req) {
       config.cct_ativo ? enriquecerCct(caso, caso, config, secrets.get('CCT_API_KEY')).catch(() => null) : Promise.resolve(null),
     ]);
 
-    // 4) Auto-preenchimento a partir da CCT (piso, condução, auxílio, multa)
+    // 4) Auto-preenchimento dos valores. A ordem é deliberada e vale só para o
+    // que o FORMULÁRIO não informou (cada passo testa `if (!caso.<campo>)`):
+    //   1º formulário  2º base de CCTs cadastradas  3º cláusula da CCT
+    //   consultada por API  4º tabela por categoria.
+    // A base cadastrada vem antes da API porque é curada e conferida à mão,
+    // enquanto a API exige raspar "R$" de texto corrido. Antes deste ponto a
+    // entidade CCT só era lida por auditarPeticao — o gerador a ignorava.
+    const categoriaEnt = categoriaEntidadeCct(caso);
+    const cctCadastrada = categoriaEnt
+      ? (await base44.asServiceRole.entities.CCT
+          .filter({ categoria: categoriaEnt, ativo: true }).catch(() => []))?.[0] || null
+      : null;
+    if (cctCadastrada) {
+      if (!caso.cct_ano && cctCadastrada.vigencia_inicio) {
+        caso.cct_ano = String(cctCadastrada.vigencia_inicio).slice(0, 4);
+      }
+      if (!caso.sindicato && cctCadastrada.sindicatos_laborais) {
+        caso.sindicato = cctCadastrada.sindicatos_laborais;
+      }
+      if (!caso.valor_aux_alimentacao) {
+        const achado = valorDiarioDaBaseCct(cctCadastrada, 'alimentacao');
+        if (achado) {
+          caso.valor_aux_alimentacao = achado.valor;
+          caso.valor_aux_alim_origem = `base de CCTs cadastradas (${cctCadastrada.nome})`;
+        }
+      }
+      if (!caso.val_conducao) {
+        const achado = valorDiarioDaBaseCct(cctCadastrada, 'conducao');
+        if (achado) {
+          caso.val_conducao = achado.valor;
+          caso.val_conducao_origem = `base de CCTs cadastradas (${cctCadastrada.nome})`;
+        }
+      }
+    }
+
     if (dadosCct?.clausulas?.length) {
       if (!caso.cct_ano && dadosCct.meta?.ano_base) caso.cct_ano = String(dadosCct.meta.ano_base);
       if (!caso.sindicato && dadosCct.meta?.sindicato_laboral) caso.sindicato = dadosCct.meta.sindicato_laboral;
