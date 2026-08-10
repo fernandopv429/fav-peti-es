@@ -209,7 +209,23 @@ function quebrarParagrafo(doc, p, pPrModelo) {
     }
     if (run) grupos[grupos.length - 1].push(run);
   }
-  const novos = grupos.filter((g) => g.length).map((g) => {
+  // Um grupo pode ter filhos e AINDA ASSIM ser vazio. A IA separa parágrafos
+  // com \n\n (preservado de propósito em sanitizarValoresIA), o que virou dois
+  // <w:br/> seguidos, e entre eles o render deixa um <w:r><w:t/></w:r> sem
+  // texto. Filtrar por `g.length` mantinha esse grupo, que herdava o w:pPr
+  // numerado e virava um ITEM EM BRANCO: na peça do Marcos saíram os itens 10,
+  // 12, 14 e 16 vazios dentro do dano moral, e o mesmo no desvio e nas multas.
+  // Agora o grupo só sobrevive se tiver texto de verdade, ou algum elemento que
+  // não seja um run vazio (imagem, campo etc.), para não perder conteúdo.
+  const temConteudo = (g) => g.some((n) => {
+    if (n.localName !== 'r') return true;
+    for (const t of Array.from(n.getElementsByTagNameNS(NS_W, 't'))) {
+      if ((t.textContent || '').trim()) return true;
+    }
+    return n.getElementsByTagNameNS(NS_W, 'drawing').length > 0
+      || n.getElementsByTagNameNS(NS_W, 'pict').length > 0;
+  });
+  const novos = grupos.filter(temConteudo).map((g) => {
     const np = doc.createElementNS(NS_W, 'w:p');
     if (pPrModelo) np.appendChild(pPrModelo.cloneNode(true));
     g.forEach((n) => np.appendChild(n));
