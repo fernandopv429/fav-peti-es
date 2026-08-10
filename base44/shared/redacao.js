@@ -19,7 +19,7 @@ function sanitizarValoresIA(texto) {
   if (!texto) return texto;
   return texto
     // Valor COM o extenso entre parênteses tratado como UMA unidade. Sem isto
-    // o numeral saa e o extenso ficava órfão no meio da frase
+    // o numeral saía e o extenso ficava órfão no meio da frase
     // ("... (vinte e um mil quatrocentos e oitenta e dois reais) ...").
     .replace(/R\$\s*\d[\d.\s]*,\d{2}\s*\((?:[^()]*?reais[^()]*?)\)/gi, '')
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
