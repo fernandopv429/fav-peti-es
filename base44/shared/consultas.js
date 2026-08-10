@@ -96,6 +96,62 @@ export function categoriaCct(caso = {}, attrs = {}) {
   return 'terceirizados';
 }
 
+// ------------------------------------------------------------------
+// BASE DE CCTs CADASTRADAS (entidade CCT) como fonte de valores.
+//
+// A entidade CCT guarda três convenções curadas à mão, com `beneficios` e
+// `adicionais` conferidos — fonte melhor do que raspar R$ do texto devolvido
+// pela API. Ela era lida apenas por auditarPeticao; o gerador não a consultava.
+//
+// Atenção: são DUAS taxonomias de categoria. `categoriaCct` (acima) devolve
+// vigilancia/asseio_conservacao/terceirizados; a entidade usa
+// vigilante/porteiro_siemaco/porteiro_sindeepres. O mapa abaixo liga as duas.
+// ------------------------------------------------------------------
+const CATEGORIA_ENTIDADE = {
+  vigilancia: 'vigilante',
+  asseio_conservacao: 'porteiro_siemaco',
+  terceirizados: 'porteiro_sindeepres',
+};
+
+export function categoriaEntidadeCct(caso = {}, attrs = {}) {
+  return CATEGORIA_ENTIDADE[categoriaCct(caso, attrs)] || null;
+}
+
+// Valor DIÁRIO por categoria, extraído das peças reais revisadas pela
+// especialista (INICIAIS_REAIS). Último recurso: só vale quando nem o
+// formulário, nem a base de CCTs, nem a cláusula consultada trazem o número.
+const AUX_ALIMENTACAO_TABELA = {
+  vigilante: 42.00,          // "R$ 42,00/dia" — Cl. 17ª SESVESP 2026/2027
+  porteiro_siemaco: 21.80,   // "R$ 21,80/dia" — Cl. 15ª SIEMACO-SP 2026/2027
+  porteiro_sindeepres: 26.03, // "R$ 26,03/dia" — Cl. 10ª Termo Aditivo SINDEEPRES 2026
+};
+
+export function auxAlimentacaoDaTabela(categoriaEntidade) {
+  return AUX_ALIMENTACAO_TABELA[categoriaEntidade] || null;
+}
+
+// Procura o valor diário de alimentação nos `beneficios` do registro de CCT.
+// Exige a marca "/dia" (ou "por dia") de propósito: os mesmos campos citam
+// descontos ("R$ 1,46"), cestas mensais ("R$ 205,91/mês") e totais anuais
+// ("totalizando R$ 43,60") que NÃO são o valor diário.
+const RX_DIARIO = /R\$\s*([\d.]+,\d{2})\s*(?:\/\s*dia|por\s*dia|ao\s*dia)/i;
+
+export function valorDiarioDaBaseCct(registroCct, tema = 'alimentacao') {
+  const beneficios = registroCct?.beneficios;
+  if (!beneficios || typeof beneficios !== 'object') return null;
+  const rxTema = tema === 'conducao'
+    ? /transporte|condu[çc][ãa]o|passagen/i
+    : /refei[çc][ãa]o|aliment/i;
+  for (const [chave, texto] of Object.entries(beneficios)) {
+    if (!rxTema.test(chave) && !rxTema.test(String(texto))) continue;
+    const m = RX_DIARIO.exec(String(texto));
+    if (!m) continue;
+    const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+    if (Number.isFinite(v) && v > 1 && v < 200) return { valor: v, clausula: chave };
+  }
+  return null;
+}
+
 const CCT_PERGUNTAS_BASE = [
   'piso salarial / salário normativo da categoria',
   'adicional noturno e hora noturna reduzida',
