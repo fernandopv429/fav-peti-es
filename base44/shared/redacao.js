@@ -166,7 +166,7 @@ function resumoCalculos(calculos) {
 }
 
 // Linhas de grounding a partir da CCT CADASTRADA (entidade CCT). Os campos
-// `adicionais` e `beneficios` são curados à mão e já trêem o número da cláusula
+// `adicionais` e `beneficios` são curados à mão e já trazem o número da cláusula
 // no próprio texto ("(Cl. 17ª)"), que é exatamente o que faltava à IA.
 function linhasCctCadastrada(cctCadastrada) {
   if (!cctCadastrada) return [];
