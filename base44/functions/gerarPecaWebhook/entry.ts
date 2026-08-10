@@ -261,16 +261,27 @@ export default async function(req) {
     if (ehVig && caso.tem_ft) {
       caso.tem_vale_transporte = true;
       caso.tem_auxilio_alimentacao = true;
-      if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 42; // padrão Vigilância (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
     }
-    // Demais categorias (SINDEEPRES/SIEMACO): sem valor a peça saía com
-    // "[A PREENCHER: VALOR_AUX_ALIMENTACAO]" no corpo E no rol — aconteceu nas
-    // peças do Jonathan e do Luciano. R$ 23,30 é o valor das duas peças reais da
-    // especialista (CCT 2025); fica com aviso porque envelhece com a convenção.
-    if (!ehVig && caso.tem_auxilio_alimentacao && !caso.valor_aux_alimentacao) {
-      caso.valor_aux_alimentacao = 23.30;
-      avisosDados.push('Auxílio-alimentação: valor não informado e não localizado na CCT — adotado R$ 23,30 (padrão SINDEEPRES/SIEMACO das peças de referência). CONFERIR na CCT vigente.');
+    // ÚLTIMO recurso do auxílio-alimentação: a tabela por categoria. Só chega
+    // aqui quem não teve valor no formulário, nem na base de CCTs cadastradas,
+    // nem na cláusula consultada. Antes eram dois números fixos soltos no meio
+    // do código (R$ 42 vigilância / R$ 23,30 demais) e o da vigilância entrava
+    // SEM aviso nenhum; agora os três saem da tabela e sempre com aviso.
+    if (caso.tem_auxilio_alimentacao && !caso.valor_aux_alimentacao) {
+      const daTabela = auxAlimentacaoDaTabela(categoriaEnt);
+      if (daTabela) {
+        caso.valor_aux_alimentacao = daTabela;
+        caso.valor_aux_alim_origem = `tabela por categoria (${categoriaEnt})`;
+        avisosDados.push(
+          `Auxílio-alimentação: valor não informado, ausente da base de CCTs cadastradas e não localizado na cláusula consultada — adotado R$ ${daTabela.toFixed(2).replace('.', ',')}/dia da tabela de ${categoriaEnt}. CONFERIR na CCT vigente.`
+        );
+      } else {
+        avisosDados.push('Auxílio-alimentação: marcado como devido, mas sem valor no evento, na base de CCTs, na cláusula consultada nem na tabela — o item NÃO será liquidado no rol. Informar o valor antes de exportar.');
+      }
     }
+    // Rastreio da procedência, para a revisão saber de onde saiu cada número.
+    if (caso.valor_aux_alimentacao && !caso.valor_aux_alim_origem) caso.valor_aux_alim_origem = 'informado no evento';
+    if (caso.val_conducao && !caso.val_conducao_origem) caso.val_conducao_origem = 'informado no evento';
     if (dadosCct?.municipio_nao_filtrado) {
       avisosDados.push(`CCT: nenhuma cláusula encontrada para o município "${dadosCct.municipio}"; as cláusulas citadas vieram da busca por categoria, sem filtro territorial. CONFERIR a abrangência da convenção antes de protocolar.`);
     }
