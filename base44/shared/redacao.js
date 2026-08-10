@@ -38,6 +38,28 @@ function sanitizarValoresIA(texto) {
     .trim();
 }
 
+// Rede de segurança para a regra "não repita o título do capítulo". A instrução
+// no prompt é a correção principal; esta função existe porque, neste projeto,
+// instrução sozinha já falhou várias vezes (o histórico do arquivo registra JSON
+// cru e subtítulos numerados chegando à peça apesar da proibição expressa).
+//
+// Só remove a PRIMEIRA linha e apenas quando ela é inequivocamente um
+// cabeçalho: começa por DO/DA/DOS/DAS/DE, não tem NENHUMA minúscula e é curta.
+// Um parágrafo de verdade sempre tem minúsculas, então não é alcançado.
+function removerTituloRepetido(texto) {
+  if (!texto) return texto;
+  const linhas = String(texto).split('\n');
+  let i = 0;
+  while (i < linhas.length && !linhas[i].trim()) i++;
+  if (i >= linhas.length) return texto;
+  const primeira = linhas[i].trim();
+  const ehCabecalho = primeira.length <= 90
+    && /^(?:DO|DA|DOS|DAS|DE)\s+\S/.test(primeira)
+    && !/[a-zà-ÿ]/.test(primeira);
+  if (!ehCabecalho) return texto;
+  return linhas.slice(i + 1).join('\n').replace(/^\n+/, '');
+}
+
 const flag = (v) => !!v;
 const soDigitos = (s) => (s || '').replace(/\D/g, '');
 
@@ -200,6 +222,11 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
     // obedecia ao prompt e imprimia "1. DOS FATOS", "2. FUNDAMENTO LEGAL" como
     // subtítulos — foi o que a revisão apontou como "fora da estrutura".
     '- SEM SUBTÍTULOS E SEM SUBDIVISÃO NUMERADA: o capítulo é PROSA CORRIDA de 2 a 6 parágrafos. Cubra, nessa ordem e SEM rotular, os fatos do caso, o fundamento (CLT, Súmulas e cláusula da CCT citados em linha, sem transcrever ementas longas) e o pedido com os reflexos. NUNCA escreva "1. DOS FATOS", "2. FUNDAMENTO LEGAL", "3. JURISPRUDÊNCIA" nem qualquer título dentro do capítulo — o padrão do escritório proíbe expressamente essa subdivisão.',
+    // A regra acima proibia "qualquer título dentro do capítulo" e a IA entendeu
+    // como subtítulo interno: seguiu abrindo o texto repetindo o CABEÇALHO do
+    // capítulo. Na peça do Marcos "DO DANO MORAL", "DO DESVIO DE FUNÇÃO" e "DAS
+    // MULTAS CONVENCIONAIS" saíram DUAS vezes cada — uma do modelo, uma da IA.
+    '- NÃO REPITA O TÍTULO DO CAPÍTULO: o modelo .docx JÁ imprime o cabeçalho (ex.: "DO DANO MORAL", "DO DESVIO DE FUNÇÃO", "DAS MULTAS CONVENCIONAIS"). Comece a resposta DIRETO no primeiro parágrafo do texto corrido. Escrever o título de novo faz o cabeçalho aparecer duplicado na peça.',
     '- REDAÇÃO NATURAL: parágrafos jurídicos coesos e fluídos, não enlatados; cada capítulo SUBSTANCIAL e COMPLETO.',
     '- CONCORDÂNCIA DE GÊNERO (STRICT): recl_genero "M" ou "F" — concordância PERFEITA em todo o texto. M → "o reclamante" (proibido feminino); F → o inverso. "reclamada" (empresa) nunca troca. "seu advogado" sempre masculino.',
     '',
@@ -382,7 +409,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs 
   const blocos = {};
   for (const e of ativos) {
     const texto = typeof obj[e.campo] === 'string' ? desempacotarTexto(obj[e.campo], e.campo) : '';
-    if (texto) blocos[e.campo] = sanitizarValoresIA(texto);
+    if (texto) blocos[e.campo] = sanitizarValoresIA(removerTituloRepetido(texto));
   }
   if (multasAtivo && Array.isArray(obj.PEDIDOS_MULTAS)) {
     const lista = obj.PEDIDOS_MULTAS.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
