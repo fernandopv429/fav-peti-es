@@ -18,10 +18,21 @@ import { blocoRegrasCriticas } from './regrasCriticas.js';
 function sanitizarValoresIA(texto) {
   if (!texto) return texto;
   return texto
+    // Valor COM o extenso entre parênteses tratado como UMA unidade. Sem isto
+    // o numeral saa e o extenso ficava órfão no meio da frase
+    // ("... (vinte e um mil quatrocentos e oitenta e dois reais) ...").
+    .replace(/R\$\s*\d[\d.\s]*,\d{2}\s*\((?:[^()]*?reais[^()]*?)\)/gi, '')
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
     .replace(/R\$\s*\d[\d.,]*/gi, '')
+    // PREPOSIÇÃO ÓRFÃ. A remoção do valor deixava a regência pendurada: na
+    // peça do Marcos saiu "no montante apurado de, correspondente a dez vezes
+    // a maior remuneração" — com o "de" solto antes da vírgula. Só age quando a
+    // preposição encostou na pontuação, situação que já é agramatical.
+    .replace(/\b(?:de|em|por|a)\s*(?=[,;.])/gi, '')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+([,.;:])/g, '$1')
+    .replace(/([,;])\s*\1+/g, '$1')
+    .replace(/\(\s*\)/g, '')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -272,6 +283,13 @@ const PADROES_DEFEITO = [
   [/\[A PREENCHER/i, 'marcador [A PREENCHER] não resolvido'],
   [/\[CONFIRMAR:/i, 'pendência [CONFIRMAR: ...] não resolvida'],
   [/\[(INSERIR|A COMPLETAR)/i, 'placeholder de redação não resolvido'],
+  // TEXTO TRUNCADO. O capítulo de desvio da peça do Marcos terminou em
+  // "...(SEEVISSP x SESVESP), intitulada" e foi protocolado assim. Capítulo
+  // íntegro fecha em pontuação terminal — ponto, ponto e vírgula, dois-pontos
+  // (o capítulo de multas encerra em "a seguir elencadas:"), interrogação,
+  // exclamação, fecha-parênteses ou fecha-aspas. Terminar em letra, dígito ou
+  // vírgula denuncia corte no meio da frase.
+  [/[A-Za-zÀ-ÿ0-9,]\s*$/, 'capítulo termina sem pontuação final (texto truncado)'],
 ];
 
 export function problemasNosBlocos(blocos = {}) {
