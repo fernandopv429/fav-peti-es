@@ -165,15 +165,54 @@ function resumoCalculos(calculos) {
   return linhas.length ? linhas.join('\n') : '(sem valores calculados disponíveis)';
 }
 
-function resumoCct(dadosCct) {
+// Linhas de grounding a partir da CCT CADASTRADA (entidade CCT). Os campos
+// `adicionais` e `beneficios` são curados à mão e já trêem o número da cláusula
+// no próprio texto ("(Cl. 17ª)"), que é exatamente o que faltava à IA.
+function linhasCctCadastrada(cctCadastrada) {
+  if (!cctCadastrada) return [];
+  const out = [];
+  for (const grupo of ['adicionais', 'beneficios']) {
+    const obj = cctCadastrada[grupo];
+    if (!obj || typeof obj !== 'object') continue;
+    for (const [chave, valor] of Object.entries(obj)) {
+      const texto = String(valor == null ? '' : valor).replace(/\s+/g, ' ').trim();
+      if (!texto || /^OBS/i.test(chave)) continue;
+      const m = /\(\s*Cl\.?\s*([\dºª]+[^)]*)\)/i.exec(texto);
+      const ref = m ? `Cl. ${m[1].trim()}` : '(sem número — NÃO cite número para este item)';
+      out.push(`- ${ref} — ${chave}: ${texto.slice(0, 240)}`);
+    }
+  }
+  return out;
+}
+
+// O grounding sai de DUAS fontes: a base cadastrada (curada, prioritária) e as
+// cláusulas devolvidas pela API. Antes vinha SÓ da API — e quando ela não
+// trazia o tema, a IA preenchia a lacuna INVENTANDO: na peça do Marcos citou
+// "cláusula sexta do Termo Aditivo CCT Vigilância SP 2025", documento que não
+// existe na base, e pôs a 40ª (intervalo) no lugar da 41ª (folgas 12x36).
+function resumoCct(dadosCct, cctCadastrada) {
+  const daBase = linhasCctCadastrada(cctCadastrada);
   const cl = dadosCct?.clausulas || [];
-  if (!cl.length) return '(nenhuma cláusula de CCT disponível — NÃO cite número de cláusula; use apenas dispositivos legais e Súmulas.)';
-  return cl.slice(0, 12).map((c) => {
+  const daApi = cl.slice(0, 12).map((c) => {
     const ref = c.clausula_ref || '(cláusula)';
     const tit = c.titulo || '';
     const corpo = (c.ementa || c.texto || c.conteudo || '').replace(/\s+/g, ' ').slice(0, 240);
     return `- ${ref} — ${tit}: ${corpo}`;
-  }).join('\n');
+  });
+  if (!daBase.length && !daApi.length) {
+    return '(nenhuma cláusula de CCT disponível — NÃO cite número de cláusula; use apenas dispositivos legais e Súmulas.)';
+  }
+  const partes = [];
+  if (daBase.length) {
+    partes.push(`CONVENÇÃO CADASTRADA E CONFERIDA${cctCadastrada?.nome ? ` (${cctCadastrada.nome})` : ''} — fonte PRIORITÁRIA:`);
+    partes.push(daBase.join('\n'));
+  }
+  if (daApi.length) {
+    if (daBase.length) partes.push('');
+    partes.push('CLÁUSULAS RETORNADAS PELA CONSULTA À CCT:');
+    partes.push(daApi.join('\n'));
+  }
+  return partes.join('\n');
 }
 
 const CAMPOS_CASO = ['recl_nome', 'recl_genero', 'funcao', 'tipo_dispensa', 'data_admissao', 'data_rescisao', 'salario', 'maior_remuneracao', 'escala', 'jornada_horario', 'intervalo_usufruido', 'prorrogacao_jornada', 'ft_qtd_media', 'acumulo_atividades', 'desvio_atividades', 'dano_fatos', 'dano_supervisor', 'recl1_nome', 'recl2_nome', 'sindicato', 'cct_ano', 'comarca_uf', 'local_prestacao'];
@@ -199,7 +238,7 @@ function municipiosDoCaso(caso) {
   return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 }
 
-function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos }) {
+function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos }) {
   return [
     'CONTEXTO COMPLETO DO CASO (leia tudo; você escreverá TODOS os capítulos ativos em uma única resposta JSON).',
     BLOCO_ENGENHARIA_JURIDICA,
@@ -213,7 +252,7 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
     '- NÃO cite R$ nos capítulos. Valores são calculados por código e figuram APENAS no rol de pedidos. Mencione reflexos de forma qualitativa.',
     '- VEDAÇÃO A PLACEHOLDERS: nunca lacunas "[A PREENCHER]"; se faltar dado, use [CONFIRMAR: ...].',
     '- CAUSA DE PEDIR ALINHADA: use EXCLUSIVAMENTE o endereço de prestação da Tomadora (local_prestacao) na Competência; NUNCA o residencial do autor.',
-    '- Cite SOMENTE cláusulas listadas em CLÁUSULAS DA CCT. Nunca invente número.',
+    '- Cite SOMENTE cláusulas listadas em CLÁUSULAS DA CCT, com o número EXATO que aparece ali. Nunca invente número, nunca cite instrumento coletivo (CCT ou termo aditivo) que não esteja listado, e nunca reaproveite numeração de outra categoria ou de outro ano. Se o tema não constar da lista, descreva a violação SEM citar cláusula.',
     '- Escreva APENAS os capítulos solicitados. NÃO escreva endereçamento, qualificação, valor da causa, honorários, data ou fecho.',
     // Esta regra MANDAVA o oposto do padrão do escritório. O modelo de
     // referência "PADRÃO OURO" (entidade ModeloReferencia) diz: "capítulos curtos
@@ -232,7 +271,7 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos })
     '',
     'DADOS DO CASO:', resumoCaso(caso), '',
     'VALORES CALCULADOS (determinísticos — USE ESTES, NÃO RECALCULE):', resumoCalculos(calculos), '',
-    'CLÁUSULAS DA CCT (grounding — só cite estas):', resumoCct(dadosCct), '',
+    'CLÁUSULAS DA CCT (grounding — só cite estas):', resumoCct(dadosCct, cctCadastrada), '',
     `CAPÍTULOS ATIVOS NESTA PEÇA: ${blocosAtivos.join(', ')}.`,
   ].join('\n');
 }
@@ -344,13 +383,13 @@ function extrairCampo(obj, campo) {
   return str ? str.trim() : null;
 }
 
-export async function redigirTesesIA({ caso, calculos, dadosCct, dados, configs = [], invokeLLM }) {
+export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, dados, configs = [], invokeLLM }) {
   const ativos = ESPECIALISTAS.filter((e) => { try { return e.ativo(dados, caso); } catch { return false; } });
   if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
 
   const cfgPorNumero = new Map((configs || []).map((c) => [String(c.numero), c]));
   const blocosAtivos = ativos.map((e) => e.nome);
-  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos });
+  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos });
 
   const properties = {};
   const tarefaPorCampo = {};
