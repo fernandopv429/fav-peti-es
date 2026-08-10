@@ -30,11 +30,27 @@ function mapearTipoDispensa(s) {
   return 'sem_justa_causa';
 }
 
+// Aceita valor unico ("R$ 180,00") ou faixa ("5 a 6", "R$ 180 a R$ 200"),
+// devolvendo o numero ou a media da faixa.
+//
+// CUIDADO COM O SEPARADOR DE MILHAR. A versao anterior casava numeros com
+// /\d+(?:[.,]\d+)?/g e, em "R$ 1.180,00", encontrava DOIS tokens ("1.180" e
+// "00"): tratava o valor como faixa e devolvia a media, 0,59. Ou seja, qualquer
+// folga trabalhada de R$ 1.000 ou mais entrava no rol como centavos, em
+// silencio, contaminando tambem valor_por_fora e o valor da causa. Agora o
+// formato pt-BR e reconhecido ANTES de decidir se ha faixa.
 function parseRange(s) {
   if (!s) return null;
-  const nums = String(s).match(/\d+(?:[.,]\d+)?/g);
+  const nums = String(s).match(/\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?|\d+(?:\.\d+)?/g);
   if (!nums || !nums.length) return null;
-  const vals = nums.map((n) => parseFloat(n.replace(',', '.')));
+  const vals = nums
+    .map((n) => {
+      if (n.includes(',')) return parseFloat(n.replace(/\./g, '').replace(',', '.'));
+      if (/^\d{1,3}(?:\.\d{3})+$/.test(n)) return parseFloat(n.replace(/\./g, ''));
+      return parseFloat(n);
+    })
+    .filter((v) => Number.isFinite(v));
+  if (!vals.length) return null;
   if (vals.length === 1) return vals[0];
   return (vals[0] + vals[1]) / 2;
 }
