@@ -303,7 +303,10 @@ export default async function(req) {
     try {
       const configs = await base44.asServiceRole.entities.EspecialistaConfig.filter({ ativo: true });
       const res = await redigirTesesIA({
-        caso, calculos, dadosCct, dados: flags, configs,
+        // cctCadastrada entra no grounding: é dela que saem os números de
+        // cláusula conferidos. Sem isso a IA só via o retorno da API e, quando
+        // o tema não vinha, inventava cláusula e termo aditivo inexistentes.
+        caso, calculos, dadosCct, cctCadastrada, dados: flags, configs,
         invokeLLM: (r) => base44.asServiceRole.integrations.Core.InvokeLLM(r),
       });
       blocos = res.blocos || {};
