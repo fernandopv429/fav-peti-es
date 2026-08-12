@@ -271,20 +271,8 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // Chave com underscore: não é tag do template, só diagnóstico para a UI/gate.
   dados._itensSemToken = itensSemToken;
   // O modelo-mestre pede {{FT_100}} numa única linha do rol (principal + reflexo
-  // de DSR). A tag não existia em lugar nenhum do código: com este modelo a
-  // linha sairia como "[A PREENCHER: FT_100]".
-  if (dados.VALOR_FT) {
-    const itFt = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_FT');
-    const itDsr = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_DSR');
-    const vFt = Number(itFt && itFt.valor) || 0;
-    const vDsr = Number(itDsr && itDsr.valor) || 0;
-    // ATENÇÃO: aqui o reflexo é SÓ o DSR, e a 1/6 (critério atual do cálculo),
-    // enquanto as demais verbas por hora levam a matriz de 34,75%. Discriminado,
-    // fica visível qual critério foi aplicado em vez de sair um número solto.
-    dados.FT_100 = vFt > 0 && vDsr > 0
-      ? `valor principal estimado de ${formatBRL(vFt)}, acrescido do reflexo em DSR (${formatBRL(vDsr)}), totalizando o valor estimado de ${formatBRL(round2(vFt + vDsr))}`
-      : `valor estimado de ${dados.VALOR_FT}`;
-  }
+  // de DSR). A tag é montada mais abaixo, junto dos fallbacks "a apurar" — havia
+  // DUAS atribuições de FT_100 e a de baixo vencia, deixando a de cima morta.
   const valorCausa = brlComExtenso(round2(somaCausa));
   dados.VALOR_CAUSA_TOTAL = valorCausa;
   // Aliases — algumas versões do template usam tags diferentes para o mesmo valor
@@ -486,9 +474,23 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // Fallback dos pedidos: tese ligada mas valor não calculado -> "a apurar em liquidação"
   // (evita pedido em branco, ex.: folgas sem valor por folga informado).
   const APURAR = 'a apurar em liquidação';
-  dados.FT_100 = (dados.VALOR_FT || dados.VALOR_DSR)
-    ? [dados.VALOR_FT, dados.VALOR_DSR].filter(Boolean).join(' + ')
-    : APURAR;
+  // Folgas/feriados: mesma abertura das demais verbas do rol, para o pedido ser
+  // conferível (era "R$ 79.288,00 + R$ 13.214,67", dois números sem rubrica).
+  // ATENÇÃO: aqui o reflexo é SÓ o DSR e a 1/6, critério atual do cálculo,
+  // enquanto as outras verbas por hora levam a matriz de 34,75% — na peça da
+  // especialista as folgas levam a matriz inteira. Discriminado, o critério
+  // usado fica à vista em vez de sair embutido num número solto.
+  const itFt = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_FT');
+  const itDsr = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_DSR');
+  const vFt = Number(itFt && itFt.valor) || 0;
+  const vDsr = Number(itDsr && itDsr.valor) || 0;
+  if (vFt > 0 && vDsr > 0) {
+    dados.FT_100 = `valor principal estimado de ${formatBRL(vFt)}, acrescido do reflexo em DSR (${formatBRL(vDsr)}), totalizando o valor estimado de ${formatBRL(round2(vFt + vDsr))}`;
+  } else if (dados.VALOR_FT || dados.VALOR_DSR) {
+    dados.FT_100 = `valor estimado de ${[dados.VALOR_FT, dados.VALOR_DSR].filter(Boolean).join(' + ')}`;
+  } else {
+    dados.FT_100 = APURAR;
+  }
   for (const [fl, cp] of [
     ['acumulo_funcao', 'VALOR_ACUMULO'], ['gratificacao_funcao', 'VALOR_GRATIFICACAO'],
     ['desvio_funcao', 'VALOR_DESVIO'], ['assiduidade', 'VALOR_ASSIDUIDADE'],
