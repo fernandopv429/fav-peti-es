@@ -550,6 +550,54 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18g) ROL — REFLEXOS DISCRIMINADOS. A especialista apontou "pedidos sem
+  // reflexos": eles ESTAVAM lá, mas como um valor único ("{{VALOR_ART71}} +
+  // reflexos de {{VALOR_ART71_REFLEXOS}}"), impossível de conferir rubrica por
+  // rubrica. No rol dela cada verba abre DSR, aviso prévio, 13º, férias + 1/3 e
+  // FGTS + 40%, e só depois totaliza. A frase pronta vem do cálculo
+  // (mathUtils.reflexosSobre → tag {{TAG_REFLEXOS_TEXTO}}); aqui só se troca o
+  // formato da linha. Nenhum valor muda: a soma das rubricas é o mesmo 34,75%.
+  const RE_REFLEXO_SOMADO = /^(\s*•?\s*)(.+?):\s*\{\{(VALOR_[A-Z0-9_]+)\}\}\s*\+\s*reflexos?\s+de\s*\{\{\3_REFLEXOS\}\}\s*;?\s*$/;
+  let reflexosDiscriminados = 0;
+  let ftDiscriminada = false;
+  let rolMultaComValor = false;
+  {
+    const ps = _paras(xml);
+    // De trás para frente: reescrever um parágrafo desloca os offsets seguintes.
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const txt = _textoPara(ps[i].raw);
+      const pPr = _pPr(ps[i].raw);
+      const m = RE_REFLEXO_SOMADO.exec(txt);
+      if (m) {
+        const nova = _paraTx(
+          `${m[1]}${m[2]}: valor principal estimado de {{${m[3]}}}, {{${m[3]}_REFLEXOS_TEXTO}};`,
+          pPr,
+        );
+        xml = xml.slice(0, ps[i].start) + nova + xml.slice(ps[i].end);
+        reflexosDiscriminados++;
+        continue;
+      }
+      // Folgas/feriados: o rótulo do modelo já anunciava "e reflexo de DSR", e
+      // agora a própria {{FT_100}} traz a rubrica aberta — senão sai duplicado.
+      if (txt.includes('{{FT_100}}') && /e\s+reflexos?\s+de\s+DSR\s*:/i.test(txt)) {
+        const nova = _paraTx(txt.replace(/\s*e\s+reflexos?\s+de\s+DSR\s*:/i, ':'), pPr);
+        xml = xml.slice(0, ps[i].start) + nova + xml.slice(ps[i].end);
+        ftDiscriminada = true;
+        continue;
+      }
+      // Multas convencionais: a linha pedia a multa "a apurar em liquidação",
+      // sem valor, enquanto a peça da especialista traz valor estimado. O
+      // cálculo agora entrega {{VALOR_MULTAS_CONV}} (qtd. de cláusulas × % ×
+      // salário normativo) e cai de volta em "a apurar" se não houver base.
+      if (/multas convencionais/i.test(txt) && /a apurar em liquidação/i.test(txt)) {
+        const nova = _paraTx(txt.replace(/,?\s*a apurar em liquidação/i, ': {{VALOR_MULTAS_CONV}}'), pPr);
+        xml = xml.slice(0, ps[i].start) + nova + xml.slice(ps[i].end);
+        rolMultaComValor = true;
+        continue;
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -599,5 +647,8 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     rolMultaTokenizada,
     danoMoralReordenado,
     rolGenericosRemovidos,
+    reflexosDiscriminados,
+    ftDiscriminada,
+    rolMultaComValor,
   };
 }
