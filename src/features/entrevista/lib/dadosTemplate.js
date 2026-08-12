@@ -49,6 +49,13 @@ const CALC_CAMPO = {
   'Reflexos de Adicional de periculosidade sobre as horas extras': 'VALOR_PERICULOSIDADE_HE_REFLEXOS',
 };
 
+// Mesma tabela, com o percentual do fim do rótulo removido — usada como
+// segunda tentativa quando a CCT do caso traz percentual diferente do padrão.
+const semPercentual = (rotulo) => String(rotulo || '').replace(/\s*\(\d{1,3}%\)\s*$/, '').trim();
+const CALC_CAMPO_SEM_PCT = Object.fromEntries(
+  Object.entries(CALC_CAMPO).map(([chave, campo]) => [semPercentual(chave), campo]),
+);
+
 // Contrato de tags do .docx (documentação viva).
 export const CAMPOS_TEMPLATE = [
   'VARA_CIDADE_REGIAO', 'RITO',
@@ -238,7 +245,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const itensSemToken = [];
   for (const c of calculos || []) {
     if (c.valor == null) continue;
-    const campo = CALC_CAMPO[c.item];
+    // O rótulo do item embute o percentual REAL da CCT ("Acúmulo de função
+    // (25%)"), mas as chaves aqui são fixas no percentual padrão. Quando a
+    // convenção do caso traz outro percentual, a busca falhava: a verba ficava
+    // sem token, saía do valor da causa e o pedido virava "a apurar". Ficou mais
+    // provável depois de a leitura de cláusula da CCT passar a funcionar — então
+    // a comparação ignora o percentual entre parênteses no fim do rótulo.
+    const campo = CALC_CAMPO[c.item] || CALC_CAMPO_SEM_PCT[semPercentual(c.item)];
     if (campo) dados[campo] = formatBRL(c.valor);
     // Honorários são calculados À PARTE (15% sobre o valor da causa, art. 85
     // CPC) — padrão do escritório. Não compõem o valor da causa (o rol de
