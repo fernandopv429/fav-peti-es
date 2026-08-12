@@ -383,6 +383,16 @@ export function conferirDocumentoFinal(zip, dados = {}) {
       `verba somada no valor da causa e AUSENTE do rol de pedidos (${naoImpressos.length}): ${naoImpressos.slice(0, 6).join(' · ')}`
     );
   }
+  // O inverso: verba calculada que NÃO tem lugar no modelo. Ficava só no
+  // diagnóstico interno (_itensSemToken) e desaparecia em silêncio — nem no rol,
+  // nem no valor da causa. Se há verba calculada sem onde imprimir, o advogado
+  // tem de saber, porque é pedido que ficou de fora.
+  const semToken = Array.isArray(dados?._itensSemToken) ? dados._itensSemToken : [];
+  if (semToken.length) {
+    achados.push(
+      `verba calculada SEM lugar no modelo — ficou fora do rol e do valor da causa (${semToken.length}): ${semToken.slice(0, 6).join(' · ')}`
+    );
+  }
   return achados;
 }
 
