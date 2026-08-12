@@ -472,6 +472,43 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18e) ORDEM DOS CAPÍTULOS: o dano moral vem DEPOIS dos tópicos fáticos.
+  // A ordem da peça é a ordem das tags no .docx — não há array de sequenciamento
+  // no código. O capítulo do dano moral estava logo depois do contrato, e a
+  // narrativa redigida pela IA citava "o desvio de função imposto" e "a
+  // supressão do intervalo" antes de existirem os capítulos que fundamentam
+  // esses fatos. Move-se o capítulo inteiro para imediatamente antes das multas
+  // convencionais, que é depois de enquadramento, jornada, art. 71, noturno,
+  // folgas e VT/VA.
+  let danoMoralReordenado = false;
+  {
+    const ehCapitulo = (s) => s.length > 3 && s.length < 85 && s === s.toUpperCase() && /^(D[AEO]S? |AO )/.test(s);
+    const soTag = (s) => /^(\{\{[#^/][A-Za-z_0-9.]*\}\})+$/.test(s);
+    const ps = _paras(xml);
+    const ini = ps.findIndex((p) => _textoPara(p.raw).trim() === 'DO DANO MORAL');
+    const jaNoLugar = ini >= 0 && ps.slice(0, ini).some((p) => _textoPara(p.raw).trim().startsWith('DAS HORAS EXTRAS DE 100%'));
+    if (ini >= 0 && !jaNoLugar) {
+      let prox = -1;
+      for (let i = ini + 1; i < ps.length; i++) {
+        if (ehCapitulo(_textoPara(ps[i].raw).trim())) { prox = i; break; }
+      }
+      // NÃO leva as tags que ABREM o capítulo seguinte (ex.: {{#tem_tomadora}}
+      // fica logo antes do título da Súmula 331): recua enquanto for só tag.
+      let fim = prox - 1;
+      while (fim > ini && soTag(_textoPara(ps[fim].raw).trim())) fim--;
+      if (prox > 0 && fim > ini) {
+        const bloco = xml.slice(ps[ini].start, ps[fim].end);
+        const resto = xml.slice(0, ps[ini].start) + xml.slice(ps[fim].end);
+        const ps2 = _paras(resto);
+        const alvo = ps2.findIndex((p) => _textoPara(p.raw).trim().startsWith('DAS MULTAS CONVENCIONAIS'));
+        if (alvo >= 0) {
+          xml = resto.slice(0, ps2[alvo].start) + bloco + resto.slice(ps2[alvo].start);
+          danoMoralReordenado = true;
+        }
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -519,5 +556,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     multasEmItens,
     rolDuplicadosRemovidos,
     rolMultaTokenizada,
+    danoMoralReordenado,
   };
 }
