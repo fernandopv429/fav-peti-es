@@ -276,13 +276,37 @@ export const REFLEXOS_PCT = {
 };
 export const REFLEXOS_TOTAL_PCT = 0.3475;
 
+// Rubricas como saem NO ROL DE PEDIDOS. A especialista soma FGTS e multa de 40%
+// numa única rubrica ("FGTS + 40%"), embora o cálculo as mantenha separadas —
+// aqui só a APRESENTAÇÃO agrupa; os percentuais continuam vindos de REFLEXOS_PCT.
+const REFLEXOS_EXIBICAO = [
+  ['DSR', ['DSR']],
+  ['aviso prévio', ['aviso prévio']],
+  ['13º salário', ['13º salário']],
+  ['férias + 1/3', ['férias + 1/3']],
+  ['FGTS + 40%', ['FGTS', 'multa de 40% do FGTS']],
+];
+
+// O rol trazia "R$ 1.874,40 + reflexos de R$ 651,35": um número que não se
+// audita — não dá para saber se entrou DSR, se entrou FGTS, se faltou rubrica.
+// Foi o apontamento "pedidos sem reflexos" da especialista. O campo `texto`
+// devolve as cinco rubricas abertas, no formato da peça dela.
 export function reflexosSobre(principal) {
   const p = Number(principal) || 0;
   if (p <= 0) return null;
   const memoria = Object.entries(REFLEXOS_PCT)
     .map(([nome, pct]) => `${nome} ${formatBRL(round2(p * pct))}`)
     .join(' · ');
-  return { valor: round2(p * REFLEXOS_TOTAL_PCT), memoria };
+  const valor = round2(p * REFLEXOS_TOTAL_PCT);
+  const partes = REFLEXOS_EXIBICAO.map(([rotulo, chaves]) => {
+    const pct = chaves.reduce((s, k) => s + (REFLEXOS_PCT[k] || 0), 0);
+    return `${rotulo} (${formatBRL(round2(p * pct))})`;
+  });
+  const lista = partes.length > 1
+    ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}`
+    : partes[0];
+  const texto = `acrescido dos reflexos em ${lista}, totalizando o valor estimado de ${formatBRL(round2(p + valor))}`;
+  return { valor, memoria, texto, total: round2(p + valor) };
 }
 
 // ============================================================
@@ -495,6 +519,8 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
           item: `Reflexos de ${item}`,
           memoria: `${(REFLEXOS_TOTAL_PCT * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
           valor: r.valor,
+          // Frase pronta com as rubricas abertas, consumida pelo rol de pedidos.
+          texto: r.texto,
         });
       }
     };
