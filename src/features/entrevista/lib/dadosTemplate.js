@@ -79,6 +79,10 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
   'VALOR_DEZ_MINUTOS', 'VALOR_DEZ_MINUTOS_REFLEXOS',
   'VALOR_PERICULOSIDADE_HE', 'VALOR_PERICULOSIDADE_HE_REFLEXOS',
+  // Reflexos discriminados (rubrica por rubrica) e valor das multas da CCT.
+  'VALOR_HE_PRORROGACAO_REFLEXOS_TEXTO', 'VALOR_ART71_REFLEXOS_TEXTO',
+  'VALOR_NOTURNO_REFLEXOS_TEXTO', 'VALOR_DEZ_MINUTOS_REFLEXOS_TEXTO',
+  'VALOR_PERICULOSIDADE_HE_REFLEXOS_TEXTO', 'VALOR_MULTAS_CONV',
 ];
 
 export const FLAGS_TEMPLATE = [
@@ -253,6 +257,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     // a comparação ignora o percentual entre parênteses no fim do rótulo.
     const campo = CALC_CAMPO[c.item] || CALC_CAMPO_SEM_PCT[semPercentual(c.item)];
     if (campo) dados[campo] = formatBRL(c.valor);
+    // Reflexos: além do valor somado, o item traz a frase com as cinco rubricas
+    // abertas (mathUtils.reflexosSobre). Vira a tag {{CAMPO_TEXTO}} usada no rol.
+    if (campo && c.texto) dados[`${campo}_TEXTO`] = c.texto;
     // Honorários são calculados À PARTE (15% sobre o valor da causa, art. 85
     // CPC) — padrão do escritório. Não compõem o valor da causa (o rol de
     // pedidos não os lista como valor), senão o fecho fica maior que a soma
@@ -267,7 +274,16 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // de DSR). A tag não existia em lugar nenhum do código: com este modelo a
   // linha sairia como "[A PREENCHER: FT_100]".
   if (dados.VALOR_FT) {
-    dados.FT_100 = dados.VALOR_DSR ? `${dados.VALOR_FT} + ${dados.VALOR_DSR}` : dados.VALOR_FT;
+    const itFt = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_FT');
+    const itDsr = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_DSR');
+    const vFt = Number(itFt && itFt.valor) || 0;
+    const vDsr = Number(itDsr && itDsr.valor) || 0;
+    // ATENÇÃO: aqui o reflexo é SÓ o DSR, e a 1/6 (critério atual do cálculo),
+    // enquanto as demais verbas por hora levam a matriz de 34,75%. Discriminado,
+    // fica visível qual critério foi aplicado em vez de sair um número solto.
+    dados.FT_100 = vFt > 0 && vDsr > 0
+      ? `valor principal estimado de ${formatBRL(vFt)}, acrescido do reflexo em DSR (${formatBRL(vDsr)}), totalizando o valor estimado de ${formatBRL(round2(vFt + vDsr))}`
+      : `valor estimado de ${dados.VALOR_FT}`;
   }
   const valorCausa = brlComExtenso(round2(somaCausa));
   dados.VALOR_CAUSA_TOTAL = valorCausa;
@@ -602,6 +618,26 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     itensMulta.push('Não remunera corretamente os seus DSR´s;');
     if (temDanoMoralConcreto(caso)) itensMulta.push('Incorre em dano moral em virtude das condições supramencionadas;');
     dados.pedidos_multas = itensMulta;
+  }
+
+  // No rol, a linha das multas convencionais saía "a apurar em liquidação", sem
+  // valor — parte do "pedidos incompletos" apontado pela especialista. O
+  // critério é o da própria CCT (percentual por cláusula descumprida) e a
+  // quantidade é a da lista que a peça imprime no capítulo, em pedidos_multas:
+  // nada é estimado por fora, e a conta fica no próprio pedido para auditoria.
+  const pctMultaConv = ehVigilante ? 0.03 : 0.20;
+  const baseMultaConv = Number(caso.salario) || 0;
+  const qtdMultas = Array.isArray(dados.pedidos_multas) ? dados.pedidos_multas.length : 0;
+  if (qtdMultas > 0 && baseMultaConv > 0) {
+    const totalMultas = round2(qtdMultas * pctMultaConv * baseMultaConv);
+    const plural = qtdMultas > 1 ? 's' : '';
+    dados.VALOR_MULTAS_CONV = `valor estimado de ${formatBRL(totalMultas)} (${qtdMultas} cláusula${plural} descumprida${plural} × ${(pctMultaConv * 100).toFixed(0)}% de ${formatBRL(baseMultaConv)})`;
+    // A verba passa a ter valor: entra na alçada, senão o rol pede um valor que
+    // o fecho da peça não cobra (a mesma incoerência do caso do Jonathan).
+    somaCausa += totalMultas;
+    dados.VALOR_CAUSA_TOTAL = brlComExtenso(round2(somaCausa));
+  } else {
+    dados.VALOR_MULTAS_CONV = 'a apurar em liquidação';
   }
 
   return dados;
