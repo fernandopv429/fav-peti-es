@@ -122,6 +122,9 @@ function _numerarRol(xml, numId) {
   const ps = _paras(xml);
   const idxInicio = ps.findIndex((p) => _textoPara(p.raw).includes('passa a expor seus pedidos'));
   if (idxInicio < 0) return { xml, alterados: 0 };
+  // Fim do rol: o parágrafo de fecho da peça. Tudo entre a abertura e ele é item.
+  let idxFim = ps.findIndex((p, i) => i > idxInicio && _textoPara(p.raw).trim().startsWith('Diante do exposto'));
+  if (idxFim < 0) idxFim = ps.length;
   // A indentação TEM de vir de um parágrafo que já renderiza certo. Montar um
   // pPr do zero (só pStyle + numPr) deixava o recuo por conta da definição da
   // lista nova e o rol saiu numa coluna estreita no canto da página — conferido
@@ -134,16 +137,22 @@ function _numerarRol(xml, numId) {
     ? pPrAbertura.replace(/<w:numId\s+w:val="\d+"\s*\/>/, `<w:numId w:val="${numId}"/>`)
     : `<w:pPr><w:pStyle w:val="PargrafodaLista"/>` +
       `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr>`;
-  // O bullet costuma vir DEPOIS de uma tag de seção no mesmo parágrafo
-  // ("{{#tem_tomadora}}• responsabilidade subsidiária…"): 19 dos itens do rol
-  // são assim. Exigir o bullet no início do texto deixava todos esses de fora.
-  const INICIO_ITEM = /(?:^|\}\})\s*•\s/;
+  // TODO item do rol entra na MESMA lista. A versão anterior só convertia
+  // parágrafo com bullet "•" literal — e os cinco últimos pedidos (custas e
+  // honorários, juros, IR, INSS, ofícios) nunca tiveram bullet: já vinham
+  // numerados por OUTRA lista do modelo. Resultado: a contagem reiniciava em 1
+  // no meio do rol, que é a "sequência da numeração incorreta" da revisão.
+  const SO_TAG = /^(\{\{[#^/][^}]*\}\})+$/;
   let out = xml;
   let alterados = 0;
-  for (let i = ps.length - 1; i > idxInicio; i--) {
+  for (let i = idxFim - 1; i > idxInicio; i--) {
     const raw = ps[i].raw;
-    if (!INICIO_ITEM.test(_textoPara(raw))) continue;
-    // remove apenas o PRIMEIRO bullet literal do parágrafo, onde ele estiver
+    const txt = _textoPara(raw).trim();
+    if (!txt || SO_TAG.test(txt)) continue;
+    // "Dos pedidos acima apontados, deverão ser apurados..." é fecho de texto
+    // corrido, não pedido — na peça da especialista ele fica na lista do corpo.
+    if (txt.startsWith('Dos pedidos acima apontados')) continue;
+    // remove o bullet literal, quando houver, onde ele estiver
     let novo = raw.replace(/•\s*/, '');
     if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(novo)) novo = novo.replace(/<w:pPr>[\s\S]*?<\/w:pPr>/, pPrNovo);
     else if (/<w:pPr\s*\/>/.test(novo)) novo = novo.replace(/<w:pPr\s*\/>/, pPrNovo);
@@ -151,6 +160,12 @@ function _numerarRol(xml, numId) {
     out = out.slice(0, ps[i].start) + novo + out.slice(ps[i].end);
     alterados++;
   }
+  // A linha de abertura ("Assim, o reclamante passa a expor seus pedidos:")
+  // estava numerada pela lista do CORPO, consumindo um número da sequência da
+  // peça. Na peça da especialista ela não é numerada. É o último ajuste porque
+  // tem o menor offset — os cortes acima não o invalidam.
+  const semNumero = ps[idxInicio].raw.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, '');
+  out = out.slice(0, ps[idxInicio].start) + semNumero + out.slice(ps[idxInicio].end);
   return { xml: out, alterados };
 }
 
@@ -472,6 +487,32 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18f) PEDIDOS EM DUPLICIDADE no rol. Estes quatro itens genéricos repetem
+  // verbas que JÁ constam do rol com valor próprio, logo acima:
+  //   • "verbas rescisórias (saldo, férias vencidas...)" repete saldo, aviso,
+  //     13º, férias e FGTS, todos já pedidos com valor;
+  //   • "multa do art. 477 e multa do art. 467" repete os dois itens anteriores;
+  //   • "honorários; juros; IR; INSS; ofícios" amontoa num item só o que o rol
+  //     pede individualmente nos cinco itens finais;
+  //   • "salários em aberto (...) e reflexos" repete o item de salários em aberto.
+  // A peça da especialista não tem nenhum deles.
+  const ROL_GENERICOS = [
+    'verbas rescisórias (saldo de salário, férias vencidas se houver, e demais diferenças), a apurar em liquidação',
+    'multa do art. 477 e multa do art. 467 da CLT',
+    'honorários advocatícios sucumbenciais de 15%; juros de mora e correção monetária',
+    'salários em aberto ({{SALARIOS_ABERTO}}) e reflexos',
+  ];
+  let rolGenericosRemovidos = 0;
+  {
+    const ps = _paras(xml);
+    for (let i = ps.length - 1; i >= 0; i--) {
+      const txt = _textoPara(ps[i].raw);
+      if (!ROL_GENERICOS.some((g) => txt.includes(g))) continue;
+      xml = xml.slice(0, ps[i].start) + xml.slice(ps[i].end);
+      rolGenericosRemovidos++;
+    }
+  }
+
   // 18e) ORDEM DOS CAPÍTULOS: o dano moral vem DEPOIS dos tópicos fáticos.
   // A ordem da peça é a ordem das tags no .docx — não há array de sequenciamento
   // no código. O capítulo do dano moral estava logo depois do contrato, e a
@@ -557,5 +598,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     rolDuplicadosRemovidos,
     rolMultaTokenizada,
     danoMoralReordenado,
+    rolGenericosRemovidos,
   };
 }
