@@ -104,6 +104,7 @@ export default function ModelosReferencia() {
         r.rolDuplicadosRemovidos && `${r.rolDuplicadosRemovidos} pedido(s) duplicado(s) removido(s) do rol`,
         r.rolMultaTokenizada && 'percentual da multa também no rol',
         r.danoMoralReordenado && 'dano moral movido para depois dos tópicos fáticos',
+        r.rolGenericosRemovidos && r.rolGenericosRemovidos + ' pedido(s) genérico(s) duplicado(s) removido(s)',
       ].filter(Boolean);
       setMsg(`Template corrigido baixado${itens.length ? ` (adicionado: ${itens.join(', ')})` : ' — já estava atualizado'}. Envie-o em “Trocar template” para torná-lo oficial.`);
     } catch (err) {
