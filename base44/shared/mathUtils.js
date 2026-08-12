@@ -294,19 +294,25 @@ const REFLEXOS_EXIBICAO = [
 export function reflexosSobre(principal) {
   const p = Number(principal) || 0;
   if (p <= 0) return null;
-  const memoria = Object.entries(REFLEXOS_PCT)
-    .map(([nome, pct]) => `${nome} ${formatBRL(round2(p * pct))}`)
-    .join(' · ');
-  const valor = round2(p * REFLEXOS_TOTAL_PCT);
-  const partes = REFLEXOS_EXIBICAO.map(([rotulo, chaves]) => {
+  // O total é a SOMA das rubricas arredondadas — não 34,75% arredondado. As duas
+  // contas divergem em R$ 0,01 em ~45% dos valores, e o pedido sairia com cinco
+  // números que não fecham com o próprio total: é a primeira coisa que a parte
+  // contrária confere. As rubricas são a fonte; o total é derivado delas.
+  const rubricas = REFLEXOS_EXIBICAO.map(([rotulo, chaves]) => {
     const pct = chaves.reduce((s, k) => s + (REFLEXOS_PCT[k] || 0), 0);
-    return `${rotulo} (${formatBRL(round2(p * pct))})`;
+    return { rotulo, pct, valor: round2(p * pct) };
   });
+  const valor = round2(rubricas.reduce((s, r) => s + r.valor, 0));
+  const memoria = rubricas
+    .map((r) => `${r.rotulo} ${(r.pct * 100).toFixed(2)}% ${formatBRL(r.valor)}`)
+    .join(' · ');
+  const partes = rubricas.map((r) => `${r.rotulo} (${formatBRL(r.valor)})`);
   const lista = partes.length > 1
     ? `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}`
     : partes[0];
-  const texto = `acrescido dos reflexos em ${lista}, totalizando o valor estimado de ${formatBRL(round2(p + valor))}`;
-  return { valor, memoria, texto, total: round2(p + valor) };
+  const total = round2(p + valor);
+  const texto = `acrescido dos reflexos em ${lista}, totalizando o valor estimado de ${formatBRL(total)}`;
+  return { valor, memoria, texto, total, rubricas };
 }
 
 // ============================================================
