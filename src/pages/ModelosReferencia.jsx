@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2, Upload, Download, Library, CheckCircle2, AlertCircl
 import { base44 } from '@/api/base44Client';
 import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
 import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/features/entrevista/lib/modelosReferencia';
-import { conteudoDeReferencia } from '../../base44/shared/referencias.js';
+import { conteudoDeReferencia, reprocessarConteudoModelos } from '../../base44/shared/referencias.js';
 import { invalidateRuntimeCache } from '@/features/entrevista/lib/runtimeCache';
 import { baixarTemplateCorrigido } from '@/features/entrevista/lib/gerarTemplateCorrigido';
 import TemplateAtualizarDocx from '@/features/entrevista/components/TemplateAtualizarDocx';
@@ -213,7 +213,21 @@ export default function ModelosReferencia() {
               para adaptar teses e capítulos ao tipo de caso — quanto mais preciso o diferencial, mais aderente a minuta.
             </p>
           </div>
-          <div>
+          <div className="flex items-center gap-2">
+            {/* Reprocessa os modelos já cadastrados: os antigos guardaram só os
+                primeiros 1.500 caracteres da peça, que não servem de exemplo de
+                redação. Sem isto o few-shot com o capítulo real valeria apenas
+                para modelos importados de agora em diante. */}
+            <button
+              type="button"
+              onClick={handleReprocessar}
+              disabled={reprocessando || importando}
+              title="Relê os .docx já enviados e guarda os capítulos que a IA usa como exemplo"
+              className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {reprocessando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {reprocessando ? 'Reprocessando...' : 'Reprocessar capítulos'}
+            </button>
             <input type="file" multiple accept=".docx" onChange={handleImport} className="hidden" id="import-modelos" />
             <label
               htmlFor="import-modelos"
