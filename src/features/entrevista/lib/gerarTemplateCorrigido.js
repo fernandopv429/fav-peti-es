@@ -741,6 +741,54 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18j) TÍTULOS DE CAPÍTULO FORA DO PADRÃO. O título padrão da peça traz, no
+  // parágrafo, <w:spacing w:line="360"> e, no run, <w:sz w:val="24"/> (12 pt) — e
+  // é seguido de um parágrafo VAZIO, que é o que abre a linha entre o título e o
+  // primeiro item do capítulo. Dez títulos não tinham nada disso: herdavam o
+  // tamanho do estilo Título 1 (maior que 12 pt) e ficavam colados no texto.
+  //
+  // São os mesmos capítulos da etapa anterior mais alguns: doença ocupacional,
+  // estabilidade, pensão, desvio de função, gratificação, escala {{ESCALA}},
+  // 10 minutos, periculosidade, insalubridade e salários em aberto.
+  //
+  // O modelo de formatação sai do próprio documento (primeiro título que já está
+  // no padrão), não de valores inventados aqui.
+  let titulosPadronizados = 0;
+  let linhasAposTitulo = 0;
+  {
+    const ps = _paras(xml);
+    const ehTituloCap = (t) => !!_tituloCapitulo(t) && !/^AO\s/.test(t);
+    const noPadrao = (raw) => /<w:spacing w:line="360" w:lineRule="auto"\/>/.test(raw) && /<w:sz w:val="24"\/>/.test(raw);
+    const iModelo = ps.findIndex((p) => ehTituloCap(_textoPara(p.raw).trim()) && noPadrao(p.raw));
+    if (iModelo >= 0) {
+      const pPrModelo = _pPr(ps[iModelo].raw);
+      const runModelo = ps[iModelo].raw.match(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/);
+      const rPrModelo = runModelo ? (runModelo[0].match(/<w:rPr>[\s\S]*?<\/w:rPr>/) || [''])[0] : '';
+      const vazioSeguinte = !_textoPara(ps[iModelo + 1]?.raw || '').trim() ? ps[iModelo + 1].raw : '';
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const raw = ps[i].raw;
+        const txt = _textoPara(raw).trim();
+        if (!ehTituloCap(txt)) continue;
+        const precisaFormato = !noPadrao(raw);
+        // Linha em branco entre o título e o texto: só quando não houver uma.
+        const seguinte = ps[i + 1];
+        const precisaLinha = !!vazioSeguinte && !!seguinte && !!_textoPara(seguinte.raw).trim();
+        if (!precisaFormato && !precisaLinha) continue;
+        let novo = raw;
+        if (precisaFormato) {
+          novo = novo.replace(/<w:pPr\s*\/>|<w:pPr>[\s\S]*?<\/w:pPr>/, pPrModelo);
+          if (!/<w:pPr[\s>]/.test(novo)) novo = novo.replace(/<w:p\b([^>]*)>/, `<w:p$1>${pPrModelo}`);
+          if (rPrModelo) {
+            novo = novo.replace(/<w:r\b([^>]*)>(<w:rPr>[\s\S]*?<\/w:rPr>)?/g, (m, attrs) => `<w:r${attrs}>${rPrModelo}`);
+          }
+          titulosPadronizados++;
+        }
+        if (precisaLinha) { novo += vazioSeguinte; linhasAposTitulo++; }
+        xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -796,5 +844,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     rolMultaComValor,
     danoMoralFormatado,
     corpoDestituloAjustado,
+    titulosPadronizados,
+    linhasAposTitulo,
   };
 }
