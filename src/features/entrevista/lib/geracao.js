@@ -327,7 +327,14 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   // enquanto qualificação, valores e fecho seguem determinísticos.
   if (redigirIA) {
     try {
-      const { blocos, especialistasUsados } = await redigirTesesIA({ caso, calculos, dadosCct, dados, referencias, onTool });
+      // `modelos` vai com os registros INTEIROS (não o `diferencial` cortado em
+      // 4.000/3): a redacaoTeses extrai de cada um o trecho real do capítulo
+      // correspondente. `referencias` fica só como compatibilidade.
+      const { blocos, especialistasUsados } = await redigirTesesIA({
+        caso, calculos, dadosCct, dados, referencias,
+        modelos: modelosSemelhantes, attrs,
+        onTool,
+      });
       Object.assign(dados, blocos);
       // O template usa {{DANO_MORAL_FATO_ESPECIFICO}} para a narrativa concreta
       // do dano moral (após a fundamentação constitucional fixa). Quando a IA
