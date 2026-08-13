@@ -1,6 +1,8 @@
 import { base44 } from '@/api/base44Client';
 import mammoth from 'mammoth';
 import { traceAiCall } from '@/features/entrevista/lib/sessionTrace';
+import { fetchDocxViaBackend } from '@/lib/fetchDocxViaBackend';
+import { conteudoDeReferencia } from '../../../../base44/shared/referencias.js';
 
 // ============================================================
 // Importação/cadastro de modelos de referência a partir de .docx:
@@ -40,6 +42,47 @@ Responda em português, apenas o resumo do diferencial.`;
     base44.integrations.Core.InvokeLLM(request)
   );
   return typeof r === 'string' ? r : String(r || '');
+}
+
+// Reprocessa o `conteudo` dos modelos JÁ cadastrados, a partir do .docx que
+// ficou guardado em `arquivo_url`.
+//
+// Por que existe: os registros antigos gravaram `texto.slice(0, 1500)` — na peça
+// da especialista isso é 3,7% do documento, e justamente o endereçamento e a
+// qualificação das partes. Não serve de exemplo de redação. Sem este
+// reprocessamento, o few-shot com o capítulo real só passaria a valer para
+// modelos importados depois da mudança, e os 18 já cadastrados continuariam
+// entrando na geração sem nada aproveitável.
+//
+// Usa o proxy fetchDocxTemplate (autenticado, restrito ao storage do app) porque
+// o fetch direto do media.base44.com é bloqueado por CORS no app publicado.
+export async function reprocessarConteudoModelos(modelos, onProgresso) {
+  const resumo = { atualizados: 0, semArquivo: 0, semCapitulo: 0, falhas: [] };
+  for (const m of modelos || []) {
+    const nome = m.titulo || m.arquivo_nome || m.id;
+    try {
+      if (!m.arquivo_url) {
+        resumo.semArquivo++;
+        onProgresso?.(`${nome}: sem .docx guardado — reimporte o arquivo`);
+        continue;
+      }
+      const arrayBuffer = await fetchDocxViaBackend(m.arquivo_url);
+      const { value } = await mammoth.extractRawText({ arrayBuffer });
+      const conteudo = conteudoDeReferencia(anonimizarTexto(value || ''));
+      if (!conteudo) {
+        resumo.semCapitulo++;
+        onProgresso?.(`${nome}: nenhum capítulo reconhecido no documento`);
+        continue;
+      }
+      await base44.entities.ModeloReferencia.update(m.id, { conteudo });
+      resumo.atualizados++;
+      onProgresso?.(`${nome}: ${conteudo.length} caracteres de capítulos`);
+    } catch (e) {
+      resumo.falhas.push(`${nome}: ${e?.message || e}`);
+      onProgresso?.(`${nome}: FALHOU — ${e?.message || e}`);
+    }
+  }
+  return resumo;
 }
 
 // Extrai o texto de um .docx real, anonimizado, para enriquecer um modelo.
