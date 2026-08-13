@@ -675,8 +675,25 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
       const pPrMarcador = modelo ? _pPr(modelo.raw) : '';
       const narrativa = ps.slice(ini + 1, fim).find((p) => _textoPara(p.raw).includes('{{BLOCO_DANO_MORAL}}')) || null;
       if (narrativa && pPrMarcador) {
+        // Espaçamento entre os itens: na peça dela cada parágrafo com marcador é
+        // separado por um parágrafo VAZIO (sem numeração). Aqui os parágrafos só
+        // nascem no preenchimento, então o intervalo tem de vir do próprio pPr:
+        // o pPr copiado traz w:line="360" mas nenhum w:after, e os parágrafos
+        // saíam colados. w:after="360" (18pt) dá o mesmo salto de uma linha, sem
+        // inserir itens vazios na lista — parágrafo vazio COM numPr voltaria a
+        // produzir marcador sem texto, defeito que já tivemos aqui.
+        let pPrNarrativa = pPrMarcador;
+        if (/<w:spacing\b[^>]*\/>/.test(pPrNarrativa)) {
+          pPrNarrativa = pPrNarrativa.replace(/<w:spacing\b([^>]*?)\s*\/>/, (todo, attrs) => (
+            /w:after=/.test(attrs)
+              ? `<w:spacing${attrs.replace(/w:after="\d+"/, 'w:after="360"')}/>`
+              : `<w:spacing${attrs} w:after="360"/>`
+          ));
+        } else {
+          pPrNarrativa = pPrNarrativa.replace('</w:pPr>', '<w:spacing w:after="360"/></w:pPr>');
+        }
         let novo = narrativa.raw.replace(/<w:pPr\s*\/>|<w:pPr>[\s\S]*?<\/w:pPr>/, '');
-        novo = novo.replace(/<w:p\b([^>]*)>/, `<w:p$1>${pPrMarcador}`);
+        novo = novo.replace(/<w:p\b([^>]*)>/, `<w:p$1>${pPrNarrativa}`);
         // quebrarParagrafo replica o w:rPr do run em cada parágrafo que cria,
         // então o negrito posto aqui vale para a narrativa inteira.
         novo = novo.replace(/<w:r\b([^>]*)>(?!<w:rPr)/g, `<w:r$1>${RPR_NARRATIVA}`);
