@@ -105,7 +105,8 @@ export default function ModelosReferencia() {
         r.multasEmItens && 'multas convencionais item a item',
         r.rolDuplicadosRemovidos && `${r.rolDuplicadosRemovidos} pedido(s) duplicado(s) removido(s) do rol`,
         r.rolMultaTokenizada && 'percentual da multa também no rol',
-        r.danoMoralReordenado && 'dano moral movido para depois dos tópicos fáticos',
+        r.capitulosReordenados && `${r.capitulosReordenados} capítulo(s) reposicionado(s) na ordem da peça da especialista`,
+        r.ordemPendente?.length && `ordem não aplicada em: ${r.ordemPendente.join('; ')}`,
         r.rolGenericosRemovidos && r.rolGenericosRemovidos + ' pedido(s) genérico(s) duplicado(s) removido(s)',
       ].filter(Boolean);
       setMsg(`Template corrigido baixado${itens.length ? ` (adicionado: ${itens.join(', ')})` : ' — já estava atualizado'}. Envie-o em “Trocar template” para torná-lo oficial.`);
