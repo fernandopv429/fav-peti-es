@@ -4,6 +4,7 @@ import { BLOCO_ENGENHARIA_JURIDICA } from './engenhariaJuridica';
 import { BLOCO_REGRAS_QUALIDADE } from './regrasQualidadeFav';
 import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos';
 import { blocoRegrasCriticas } from './regrasCriticas';
+import { blocoReferencias, attrsDoCaso } from '../../../../base44/shared/referencias.js';
 import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 
 // ============================================================
@@ -289,7 +290,7 @@ function resumoReferencias(referencias) {
 // Contexto COMPARTILHADO da análise única. Fica no prompt da chamada —
 // prefixo estável, pronto para prompt caching quando o provedor/SDK
 // expuser esse controle (hoje reenviado por chamada).
-export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos, referencias = [] }) {
+export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAtivos, referencias = [], referenciasTexto = '' }) {
   return [
     'CONTEXTO COMPLETO DO CASO (leia tudo; você escreverá TODOS os capítulos ativos em uma única resposta JSON).',
     BLOCO_ENGENHARIA_JURIDICA,
@@ -326,7 +327,10 @@ export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAt
     'CLÁUSULAS DA CCT (grounding — só cite estas):',
     resumoCct(dadosCct),
     '',
-    resumoReferencias(referencias),
+    // referenciasTexto (trechos REAIS dos capítulos das peças revisadas) é o
+    // caminho novo, comum ao webhook; resumoReferencias fica como fallback para
+    // quem ainda chame esta função passando só `referencias`.
+    referenciasTexto || resumoReferencias(referencias),
     '',
     `CAPÍTULOS ATIVOS NESTA PEÇA: ${blocosAtivos.join(', ')}.`,
   ].join('\n');
@@ -335,7 +339,7 @@ export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAt
 // Orquestrador: acende os capítulos conforme as flags (determinístico),
 // faz UMA ÚNICA chamada à IA devolvendo TODOS os capítulos ativos de
 // uma vez (JSON) e devolve os blocos por campo do template.
-export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referencias = [], onTool } = {}) {
+export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referencias = [], modelos = [], attrs = null, onTool } = {}) {
   const notify = (m) => { try { onTool?.(m); } catch { /* ignora */ } };
 
   let configs = [];
@@ -354,7 +358,19 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
   if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
 
   const blocosAtivos = ativos.map((e) => e.nome);
-  const contexto = montarContextoCompartilhado({ caso: c, calculos: calculos || [], dadosCct, blocosAtivos, referencias });
+  // Exemplo real do capítulo correspondente nas peças revisadas — mesma função
+  // que o webhook usa, para os dois caminhos escreverem com a mesma referência.
+  let referenciasTexto = '';
+  try {
+    referenciasTexto = blocoReferencias({
+      modelos: modelos && modelos.length ? modelos : referencias,
+      attrs: attrs || attrsDoCaso(c, d),
+      campos: ativos.map((e) => e.campo),
+    });
+  } catch {
+    referenciasTexto = '';
+  }
+  const contexto = montarContextoCompartilhado({ caso: c, calculos: calculos || [], dadosCct, blocosAtivos, referencias, referenciasTexto });
 
   // Schema JSON dinâmico: uma propriedade string por capítulo ativo.
   // O root é sempre "object" (req. do InvokeLLM).
