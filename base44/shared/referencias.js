@@ -136,6 +136,37 @@ export function capitulosDaPeca(conteudo) {
   return caps.map((c) => ({ titulo: c.titulo, texto: c.corpo.join('\n\n') }));
 }
 
+// Capítulos que a IA escreve — os únicos que vale guardar como exemplo. O resto
+// da peça (competência, justiça gratuita, juros, IR, ofícios...) é texto padrão
+// que o modelo .docx já imprime: guardar não ensina nada e infla o registro.
+export const CAMPOS_COM_EXEMPLO = [
+  'BLOCO_ESPINHA_RESCISAO',
+  'BLOCO_DANO_MORAL',
+  'BLOCO_ENQUADRAMENTO',
+  'BLOCO_INSALUBRIDADE',
+  'BLOCO_MULTAS_CONVENCIONAIS',
+  'BLOCO_JORNADA',
+  'BLOCO_SUMULA_331',
+];
+
+// Texto a gravar em ModeloReferencia.conteudo na importação: só os capítulos
+// acima, com o título preservado para que trechoDoCapitulo consiga lê-los de
+// volta. Antes gravava-se `texto.slice(0, 1500)` — 3,7% da peça da especialista,
+// que são o endereçamento e a qualificação das partes: nada de aproveitável
+// como exemplo de redação.
+export function conteudoDeReferencia(textoAnonimizado, limitePorCapitulo = 6000) {
+  const caps = capitulosDaPeca(textoAnonimizado);
+  const fora = [];
+  for (const campo of CAMPOS_COM_EXEMPLO) {
+    const padroes = TITULOS_POR_CAMPO[campo] || [];
+    const achado = caps.find((c) => padroes.some((rx) => rx.test(c.titulo)) && c.texto.trim().length >= 200);
+    if (achado && !fora.some((f) => f.titulo === achado.titulo)) {
+      fora.push({ titulo: achado.titulo, texto: achado.texto.trim().slice(0, limitePorCapitulo) });
+    }
+  }
+  return fora.map((c) => `${c.titulo}\n\n${c.texto}`).join('\n\n');
+}
+
 export function trechoDoCapitulo(conteudo, campo, limite = 6000) {
   const padroes = TITULOS_POR_CAMPO[campo];
   if (!padroes) return null;
@@ -172,11 +203,16 @@ export function blocoReferencias({ modelos = [], attrs = {}, campos = [], limite
     }
   }
 
+  // O `diferencial` do PADRÃO OURO tem ~2.100 caracteres de regras numeradas do
+  // escritório. A tela mandava 4.000 dividido por 3 modelos (~1.333 cada) e
+  // cortava no meio da regra 5 — a IA nunca via as regras 5 a 10, entre elas
+  // "ROL DE PEDIDOS DETALHADO: reflexos discriminados um a um", exatamente o que
+  // a especialista apontou como faltando. O mais semelhante agora vai inteiro.
   const diferenciais = candidatos
     .slice(0, 3)
     .map((m) => ({ titulo: m.titulo || '', texto: String(m.diferencial || m.resumo || '').trim() }))
     .filter((d) => d.texto)
-    .map((d, i) => `--- Referência ${i + 1}${d.titulo ? ` (${d.titulo})` : ''} ---\n${d.texto.slice(0, 1500)}`);
+    .map((d, i) => `--- Referência ${i + 1}${d.titulo ? ` (${d.titulo})` : ''} ---\n${d.texto.slice(0, i === 0 ? 6000 : 1200)}`);
 
   if (!exemplos.length && !diferenciais.length) {
     return '(nenhuma peça de referência disponível — siga apenas os dispositivos legais, Súmulas e a CCT acima.)';
