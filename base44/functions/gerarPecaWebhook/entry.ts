@@ -302,11 +302,21 @@ export default async function(req) {
     let redacaoErro = null;
     try {
       const configs = await base44.asServiceRole.entities.EspecialistaConfig.filter({ ativo: true });
+      // Peças de referência revisadas: até aqui este caminho não carregava
+      // nenhuma, e a IA escrevia os capítulos sem nunca ter visto uma peça do
+      // escritório — só a tela mandava referência. Falha na busca não pode
+      // derrubar a geração: sem modelos, a redação segue como antes.
+      let modelos = [];
+      try {
+        modelos = await base44.asServiceRole.entities.ModeloReferencia.filter({ ativo: true });
+      } catch (e) {
+        modelos = [];
+      }
       const res = await redigirTesesIA({
         // cctCadastrada entra no grounding: é dela que saem os números de
         // cláusula conferidos. Sem isso a IA só via o retorno da API e, quando
         // o tema não vinha, inventava cláusula e termo aditivo inexistentes.
-        caso, calculos, dadosCct, cctCadastrada, dados: flags, configs,
+        caso, calculos, dadosCct, cctCadastrada, dados: flags, configs, modelos,
         invokeLLM: (r) => base44.asServiceRole.integrations.Core.InvokeLLM(r),
       });
       blocos = res.blocos || {};
