@@ -567,8 +567,9 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   //   dela:    CONTRATO → DANO MORAL → SÚMULA 331 → DESVIO → JORNADA
   //   modelo:  CONTRATO → SÚMULA 331 → DESVIO → … → VT → VA → DANO MORAL
   //
-  //   dela:    NOTURNO → DSR → 10 MINUTOS → PERICULOSIDADE
-  //   modelo:  NOTURNO → 10 MINUTOS → PERICULOSIDADE → INSALUBRIDADE → DSR
+  // O pedido foi: a Súmula 331 depois do dano moral e antes da jornada. Antes da
+  // jornada ela já estava; o que estava fora de lugar era o dano moral, lá
+  // embaixo. Movido o dano moral para antes da Súmula 331, a sequência se forma.
   //
   // ATENÇÃO: isto REVERTE a etapa anterior, que levava o dano moral para
   // imediatamente antes das multas convencionais. A peça da especialista traz o
@@ -577,9 +578,14 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // O dano moral entra depois do bloco de doença/estabilidade/pensão (que a peça
   // dela não tem) e imediatamente antes da Súmula 331: assim os fatos da doença,
   // quando existem, já estão narrados quando o dano moral os invoca.
+  //
+  // OUTRA DIVERGÊNCIA DE ORDEM, CONHECIDA E NÃO APLICADA (fora do que foi
+  // pedido): na peça dela o DSR vem entre o adicional noturno e os 10 minutos
+  // (NOTURNO → DSR → 10 MINUTOS → PERICULOSIDADE); no modelo ele está depois da
+  // insalubridade. Para corrigir, basta acrescentar a linha abaixo:
+  //   ['DO DESCANSO SEMANAL REMUNERADO', 'DOS 10 (DEZ) MINUTOS DE DESCANSO'],
   const ORDEM_CAPITULOS = [
     ['DO DANO MORAL', 'DA SÚMULA 331 DO C. TST'],
-    ['DO DESCANSO SEMANAL REMUNERADO', 'DOS 10 (DEZ) MINUTOS DE DESCANSO'],
   ];
   let capitulosReordenados = 0;
   const ordemPendente = [];
