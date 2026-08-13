@@ -646,25 +646,22 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // 18h) DANO MORAL — narrativa com MARCADOR e em NEGRITO, como na peça da
   // especialista: lá são 8 parágrafos em numId 3 / ilvl 3 / PargrafodaLista,
   // negrito e sem sublinhado no texto, entre o parágrafo do art. 5º da CF e o
-  // "Em razão dos fatos acima expostos". Dois defeitos no mesmo lugar:
+  // "Em razão dos fatos acima expostos".
   //
-  //  (a) o parágrafo que recebe {{BLOCO_DANO_MORAL}} vinha com <w:pPr/> VAZIO.
-  //      Sem numPr próprio, dividirParagrafosInjetados cai no pPr do último
-  //      parágrafo numerado do corpo (numId 26) e a narrativa saía numerada em
-  //      prosa, não com marcador.
+  // O parágrafo que recebe {{BLOCO_DANO_MORAL}} vinha com <w:pPr/> VAZIO. Sem
+  // numPr próprio, dividirParagrafosInjetados cai no pPr do último parágrafo
+  // numerado do corpo (numId 26) e a narrativa saía NUMERADA em prosa, em vez de
+  // com marcador. Aqui o parágrafo recebe o pPr dos itens com marcador do
+  // próprio capítulo e o run ganha negrito — nada mais muda.
   //
-  //  (b) o capítulo trazia CINCO parágrafos FIXOS com marcador afirmando fatos do
-  //      caso de origem do modelo ("O FGTS do obreiro nunca foi remunerado
-  //      corretamente", "intervalo em torno de 10 a 15 minutos diariamente",
-  //      "jamais pode efetuar a correta marcação nos cartões de ponto"). Saíam em
-  //      TODA peça, ao lado da narrativa real: a do Marcos recebeu as duas
-  //      coisas. A narrativa da IA ocupa o lugar deles.
-  //
-  // Cada fixo sai junto com o parágrafo vazio que o segue, senão ficam cinco
-  // linhas em branco no meio do capítulo.
+  // NÃO MEXIDO DE PROPÓSITO: o capítulo também tem CINCO parágrafos fixos com
+  // marcador que afirmam fatos do caso de origem do modelo ("O FGTS do obreiro
+  // nunca foi remunerado corretamente", "intervalo em torno de 10 a 15 minutos
+  // diariamente", "jamais pode efetuar a correta marcação nos cartões de ponto").
+  // Eles saem em toda peça ao lado da narrativa real — decisão do escritório se
+  // ficam ou não, e por isso ficam.
   const RPR_NARRATIVA = '<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:bCs/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>';
   let danoMoralFormatado = false;
-  let danoMoralFixosRemovidos = 0;
   {
     const ps = _paras(xml);
     const ini = ps.findIndex((p) => _textoPara(p.raw).trim() === 'DO DANO MORAL');
@@ -676,24 +673,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
       const comMarcador = (raw) => /<w:numId\s+w:val="3"\s*\/>/.test(raw) && /<w:ilvl\s+w:val="3"\s*\/>/.test(raw);
       const modelo = ps.slice(ini, fim).find((p) => comMarcador(p.raw));
       const pPrMarcador = modelo ? _pPr(modelo.raw) : '';
-      let narrativa = null;
-      const remover = [];
-      for (let i = ini + 1; i < fim; i++) {
-        const raw = ps[i].raw;
-        const txt = _textoPara(raw).trim();
-        if (txt.includes('{{BLOCO_DANO_MORAL}}')) { narrativa = ps[i]; continue; }
-        if (comMarcador(raw) && txt && !txt.includes('{{')) {
-          const vazioSeguinte = i + 1 < fim && !_textoPara(ps[i + 1].raw).trim() ? ps[i + 1] : null;
-          remover.push([ps[i].start, vazioSeguinte ? vazioSeguinte.end : ps[i].end]);
-          if (vazioSeguinte) i++;
-        }
-      }
-      // Remove de trás para frente; o parágrafo da narrativa vem ANTES de todos
-      // os fixos, então os offsets dele seguem válidos depois das remoções.
-      for (const [a, b] of remover.reverse()) {
-        xml = xml.slice(0, a) + xml.slice(b);
-        danoMoralFixosRemovidos++;
-      }
+      const narrativa = ps.slice(ini + 1, fim).find((p) => _textoPara(p.raw).includes('{{BLOCO_DANO_MORAL}}')) || null;
       if (narrativa && pPrMarcador) {
         let novo = narrativa.raw.replace(/<w:pPr\s*\/>|<w:pPr>[\s\S]*?<\/w:pPr>/, '');
         novo = novo.replace(/<w:p\b([^>]*)>/, `<w:p$1>${pPrMarcador}`);
@@ -760,6 +740,5 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     ftDiscriminada,
     rolMultaComValor,
     danoMoralFormatado,
-    danoMoralFixosRemovidos,
   };
 }
