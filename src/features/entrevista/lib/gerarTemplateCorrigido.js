@@ -48,6 +48,52 @@ function _textoPara(raw) {
   return (raw.match(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/g) || []).map((t) => t.replace(/<[^>]*>/g, '')).join('');
 }
 function _pPr(raw) { const m = raw.match(/<w:pPr>[\s\S]*?<\/w:pPr>/); return m ? m[0] : ''; }
+// Título de capítulo: parágrafo curto, todo em maiúsculas, começando por DO/DA/DOS/DAS/AO.
+function _tituloCapitulo(s) {
+  const t = (s || '').trim();
+  return t.length > 3 && t.length < 85 && t === t.toUpperCase() && /^(D[AEO]S? |AO )/.test(t) ? t : null;
+}
+function _soTags(s) { return /^(\{\{[#^/][A-Za-z_0-9.]*\}\})+$/.test((s || '').trim()); }
+function _soTagsAbertura(s) { return _soTags(s) && !/\{\{\//.test(s); }
+
+// Move um capítulo INTEIRO para imediatamente antes de outro.
+//
+// Dois cuidados que fazem a diferença entre reordenar e quebrar a peça:
+//  (1) o bloco movido NÃO leva as tags que abrem/fecham as seções vizinhas — o
+//      corte recua enquanto o parágrafo for só tag;
+//  (2) a inserção acontece ANTES das tags que ABREM a seção do capítulo de
+//      destino. Sem isso, o capítulo movido cairia DENTRO da condicional do
+//      vizinho: o dano moral, por exemplo, só sairia em peça com tomadora,
+//      porque a Súmula 331 é precedida de {{#tem_tomadora}}.
+function _moverCapituloAntesDe(xml, tituloMover, tituloAntesDe) {
+  const ehTitulo = (p, titulo) => {
+    const t = _textoPara(p.raw).trim();
+    return !!_tituloCapitulo(t) && t.startsWith(titulo);
+  };
+  const ps = _paras(xml);
+  const ini = ps.findIndex((p) => ehTitulo(p, tituloMover));
+  const destinoAtual = ps.findIndex((p) => ehTitulo(p, tituloAntesDe));
+  if (ini < 0 || destinoAtual < 0) return { xml, movido: false, motivo: 'capítulo não encontrado' };
+  if (ini < destinoAtual) return { xml, movido: false, motivo: 'já está na posição' };
+
+  let prox = -1;
+  for (let i = ini + 1; i < ps.length; i++) {
+    if (_tituloCapitulo(_textoPara(ps[i].raw))) { prox = i; break; }
+  }
+  if (prox < 0) return { xml, movido: false, motivo: 'sem capítulo seguinte' };
+  let fim = prox - 1;
+  while (fim > ini && _soTags(_textoPara(ps[fim].raw))) fim--;
+  if (fim <= ini) return { xml, movido: false, motivo: 'bloco vazio' };
+
+  const bloco = xml.slice(ps[ini].start, ps[fim].end);
+  const resto = xml.slice(0, ps[ini].start) + xml.slice(ps[fim].end);
+
+  const ps2 = _paras(resto);
+  let alvo = ps2.findIndex((p) => ehTitulo(p, tituloAntesDe));
+  if (alvo < 0) return { xml, movido: false, motivo: 'destino perdido após o corte' };
+  while (alvo > 0 && _soTagsAbertura(_textoPara(ps2[alvo - 1].raw))) alvo--;
+  return { xml: resto.slice(0, ps2[alvo].start) + bloco + resto.slice(ps2[alvo].start), movido: true };
+}
 function _paraTx(conteudo, pPr = '') {
   return `<w:p>${pPr}<w:r><w:t xml:space="preserve">${conteudo}</w:t></w:r></w:p>`;
 }
@@ -513,41 +559,34 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
-  // 18e) ORDEM DOS CAPÍTULOS: o dano moral vem DEPOIS dos tópicos fáticos.
-  // A ordem da peça é a ordem das tags no .docx — não há array de sequenciamento
-  // no código. O capítulo do dano moral estava logo depois do contrato, e a
-  // narrativa redigida pela IA citava "o desvio de função imposto" e "a
-  // supressão do intervalo" antes de existirem os capítulos que fundamentam
-  // esses fatos. Move-se o capítulo inteiro para imediatamente antes das multas
-  // convencionais, que é depois de enquadramento, jornada, art. 71, noturno,
-  // folgas e VT/VA.
-  let danoMoralReordenado = false;
-  {
-    const ehCapitulo = (s) => s.length > 3 && s.length < 85 && s === s.toUpperCase() && /^(D[AEO]S? |AO )/.test(s);
-    const soTag = (s) => /^(\{\{[#^/][A-Za-z_0-9.]*\}\})+$/.test(s);
-    const ps = _paras(xml);
-    const ini = ps.findIndex((p) => _textoPara(p.raw).trim() === 'DO DANO MORAL');
-    const jaNoLugar = ini >= 0 && ps.slice(0, ini).some((p) => _textoPara(p.raw).trim().startsWith('DAS HORAS EXTRAS DE 100%'));
-    if (ini >= 0 && !jaNoLugar) {
-      let prox = -1;
-      for (let i = ini + 1; i < ps.length; i++) {
-        if (ehCapitulo(_textoPara(ps[i].raw).trim())) { prox = i; break; }
-      }
-      // NÃO leva as tags que ABREM o capítulo seguinte (ex.: {{#tem_tomadora}}
-      // fica logo antes do título da Súmula 331): recua enquanto for só tag.
-      let fim = prox - 1;
-      while (fim > ini && soTag(_textoPara(ps[fim].raw).trim())) fim--;
-      if (prox > 0 && fim > ini) {
-        const bloco = xml.slice(ps[ini].start, ps[fim].end);
-        const resto = xml.slice(0, ps[ini].start) + xml.slice(ps[fim].end);
-        const ps2 = _paras(resto);
-        const alvo = ps2.findIndex((p) => _textoPara(p.raw).trim().startsWith('DAS MULTAS CONVENCIONAIS'));
-        if (alvo >= 0) {
-          xml = resto.slice(0, ps2[alvo].start) + bloco + resto.slice(ps2[alvo].start);
-          danoMoralReordenado = true;
-        }
-      }
-    }
+  // 18e) ORDEM DOS CAPÍTULOS — conferida título a título contra a peça da
+  // especialista no caso Marcos ("Feita pela especialista.docx", 32 capítulos).
+  // A ordem da peça é a ordem das tags no .docx; não havia array de
+  // sequenciamento. Duas divergências, e só duas:
+  //
+  //   dela:    CONTRATO → DANO MORAL → SÚMULA 331 → DESVIO → JORNADA
+  //   modelo:  CONTRATO → SÚMULA 331 → DESVIO → … → VT → VA → DANO MORAL
+  //
+  //   dela:    NOTURNO → DSR → 10 MINUTOS → PERICULOSIDADE
+  //   modelo:  NOTURNO → 10 MINUTOS → PERICULOSIDADE → INSALUBRIDADE → DSR
+  //
+  // ATENÇÃO: isto REVERTE a etapa anterior, que levava o dano moral para
+  // imediatamente antes das multas convencionais. A peça da especialista traz o
+  // dano moral logo depois do contrato de trabalho — é ela o padrão.
+  //
+  // O dano moral entra depois do bloco de doença/estabilidade/pensão (que a peça
+  // dela não tem) e imediatamente antes da Súmula 331: assim os fatos da doença,
+  // quando existem, já estão narrados quando o dano moral os invoca.
+  const ORDEM_CAPITULOS = [
+    ['DO DANO MORAL', 'DA SÚMULA 331 DO C. TST'],
+    ['DO DESCANSO SEMANAL REMUNERADO', 'DOS 10 (DEZ) MINUTOS DE DESCANSO'],
+  ];
+  let capitulosReordenados = 0;
+  const ordemPendente = [];
+  for (const [mover, antesDe] of ORDEM_CAPITULOS) {
+    const r = _moverCapituloAntesDe(xml, mover, antesDe);
+    if (r.movido) { xml = r.xml; capitulosReordenados++; }
+    else if (r.motivo !== 'já está na posição') ordemPendente.push(`${mover}: ${r.motivo}`);
   }
 
   // 18g) ROL — REFLEXOS DISCRIMINADOS. A especialista apontou "pedidos sem
@@ -645,7 +684,8 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     multasEmItens,
     rolDuplicadosRemovidos,
     rolMultaTokenizada,
-    danoMoralReordenado,
+    capitulosReordenados,
+    ordemPendente,
     rolGenericosRemovidos,
     reflexosDiscriminados,
     ftDiscriminada,
