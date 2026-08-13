@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, Upload, Download, Library, CheckCircle2, AlertCircl
 import { base44 } from '@/api/base44Client';
 import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
 import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/features/entrevista/lib/modelosReferencia';
+import { conteudoDeReferencia } from '../../base44/shared/referencias.js';
 import { invalidateRuntimeCache } from '@/features/entrevista/lib/runtimeCache';
 import { baixarTemplateCorrigido } from '@/features/entrevista/lib/gerarTemplateCorrigido';
 import TemplateAtualizarDocx from '@/features/entrevista/components/TemplateAtualizarDocx';
@@ -154,7 +155,11 @@ export default function ModelosReferencia() {
         const dados = {
           arquivo_url: docxUrl,               // DOCX original (arquivo/referência; não vai à IA)
           diferencial,                        // o que é PARTICULAR deste modelo (usado na geração)
-          conteudo: (textoAnon || '').slice(0, 1500), // prévia curta (anonimizada)
+          // Antes: `slice(0, 1500)` — na peça da especialista isso é 3,7% do
+          // texto (endereçamento e qualificação), inútil como exemplo de
+          // redação. Agora guarda os CAPÍTULOS que a IA escreve, anonimizados,
+          // que são o que ela usa como few-shot na geração.
+          conteudo: conteudoDeReferencia(textoAnon || ''),
           resumo: '',                         // remove o resumo antigo
         };
         const match = atuais.find((m) => norm(m.arquivo_nome) === norm(file.name));
