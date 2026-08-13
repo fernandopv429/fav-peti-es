@@ -643,6 +643,69 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18h) DANO MORAL — narrativa com MARCADOR e em NEGRITO, como na peça da
+  // especialista: lá são 8 parágrafos em numId 3 / ilvl 3 / PargrafodaLista,
+  // negrito e sem sublinhado no texto, entre o parágrafo do art. 5º da CF e o
+  // "Em razão dos fatos acima expostos". Dois defeitos no mesmo lugar:
+  //
+  //  (a) o parágrafo que recebe {{BLOCO_DANO_MORAL}} vinha com <w:pPr/> VAZIO.
+  //      Sem numPr próprio, dividirParagrafosInjetados cai no pPr do último
+  //      parágrafo numerado do corpo (numId 26) e a narrativa saía numerada em
+  //      prosa, não com marcador.
+  //
+  //  (b) o capítulo trazia CINCO parágrafos FIXOS com marcador afirmando fatos do
+  //      caso de origem do modelo ("O FGTS do obreiro nunca foi remunerado
+  //      corretamente", "intervalo em torno de 10 a 15 minutos diariamente",
+  //      "jamais pode efetuar a correta marcação nos cartões de ponto"). Saíam em
+  //      TODA peça, ao lado da narrativa real: a do Marcos recebeu as duas
+  //      coisas. A narrativa da IA ocupa o lugar deles.
+  //
+  // Cada fixo sai junto com o parágrafo vazio que o segue, senão ficam cinco
+  // linhas em branco no meio do capítulo.
+  const RPR_NARRATIVA = '<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:bCs/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>';
+  let danoMoralFormatado = false;
+  let danoMoralFixosRemovidos = 0;
+  {
+    const ps = _paras(xml);
+    const ini = ps.findIndex((p) => _textoPara(p.raw).trim() === 'DO DANO MORAL');
+    if (ini >= 0) {
+      let fim = ps.length;
+      for (let i = ini + 1; i < ps.length; i++) {
+        if (_tituloCapitulo(_textoPara(ps[i].raw))) { fim = i; break; }
+      }
+      const comMarcador = (raw) => /<w:numId\s+w:val="3"\s*\/>/.test(raw) && /<w:ilvl\s+w:val="3"\s*\/>/.test(raw);
+      const modelo = ps.slice(ini, fim).find((p) => comMarcador(p.raw));
+      const pPrMarcador = modelo ? _pPr(modelo.raw) : '';
+      let narrativa = null;
+      const remover = [];
+      for (let i = ini + 1; i < fim; i++) {
+        const raw = ps[i].raw;
+        const txt = _textoPara(raw).trim();
+        if (txt.includes('{{BLOCO_DANO_MORAL}}')) { narrativa = ps[i]; continue; }
+        if (comMarcador(raw) && txt && !txt.includes('{{')) {
+          const vazioSeguinte = i + 1 < fim && !_textoPara(ps[i + 1].raw).trim() ? ps[i + 1] : null;
+          remover.push([ps[i].start, vazioSeguinte ? vazioSeguinte.end : ps[i].end]);
+          if (vazioSeguinte) i++;
+        }
+      }
+      // Remove de trás para frente; o parágrafo da narrativa vem ANTES de todos
+      // os fixos, então os offsets dele seguem válidos depois das remoções.
+      for (const [a, b] of remover.reverse()) {
+        xml = xml.slice(0, a) + xml.slice(b);
+        danoMoralFixosRemovidos++;
+      }
+      if (narrativa && pPrMarcador) {
+        let novo = narrativa.raw.replace(/<w:pPr\s*\/>|<w:pPr>[\s\S]*?<\/w:pPr>/, '');
+        novo = novo.replace(/<w:p\b([^>]*)>/, `<w:p$1>${pPrMarcador}`);
+        // quebrarParagrafo replica o w:rPr do run em cada parágrafo que cria,
+        // então o negrito posto aqui vale para a narrativa inteira.
+        novo = novo.replace(/<w:r\b([^>]*)>(?!<w:rPr)/g, `<w:r$1>${RPR_NARRATIVA}`);
+        xml = xml.slice(0, narrativa.start) + novo + xml.slice(narrativa.end);
+        danoMoralFormatado = true;
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -696,5 +759,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     reflexosDiscriminados,
     ftDiscriminada,
     rolMultaComValor,
+    danoMoralFormatado,
+    danoMoralFixosRemovidos,
   };
 }
