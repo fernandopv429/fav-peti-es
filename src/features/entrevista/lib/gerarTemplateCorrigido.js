@@ -703,6 +703,44 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18i) TEXTO MARCADO COMO TÍTULO. Doze parágrafos de TEXTO CORRIDO carregavam
+  // o estilo "Ttulo1" (Título 1) em vez de "Corpodetexto". Como o estilo Título 1
+  // é negrito e sublinhado, o capítulo inteiro saía em negrito, sem numeração e
+  // com o espaçamento de título — e o título do capítulo SEGUINTE se dissolvia no
+  // meio do bloco, porque tinha exatamente a mesma formatação do texto ao redor.
+  // Foi o que apareceu em "DOS 10 (DEZ) MINUTOS DE DESCANSO", arrastando junto
+  // "DAS DIFERENÇAS DO ADICIONAL DE PERICULOSIDADE".
+  //
+  // Atingia 6 capítulos: doença ocupacional, estabilidade acidentária, pensão
+  // vitalícia, 10 minutos, periculosidade nas horas extras e insalubridade.
+  //
+  // O parágrafo passa a usar o pPr do corpo do texto (Corpodetexto + numId 26),
+  // ganhando a numeração corrida da peça — como na peça da especialista, onde
+  // esses parágrafos são os itens 45 e 46. Títulos de verdade (tudo em
+  // maiúsculas, como "RECLAMAÇÃO TRABALHISTA") NÃO são tocados.
+  let corpoDestituloAjustado = 0;
+  {
+    const ps = _paras(xml);
+    const modeloCorpo = ps.find((p) => /<w:pStyle w:val="Corpodetexto"\/>/.test(p.raw) && /<w:numId\s+w:val="26"\s*\/>/.test(p.raw));
+    const pPrCorpo = modeloCorpo ? _pPr(modeloCorpo.raw) : '';
+    if (pPrCorpo) {
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const raw = ps[i].raw;
+        if (!/<w:pStyle w:val="Ttulo1"\/>/.test(raw)) continue;
+        const txt = _textoPara(raw).trim();
+        if (!txt || _tituloCapitulo(txt) || _soTags(txt)) continue;
+        // Prosa tem minúsculas; parágrafo de tag entra pelo {{. Cabeçalho em
+        // caixa alta ("RECLAMAÇÃO TRABALHISTA") não atende a nenhum dos dois.
+        const ehProsa = /[a-zà-ÿ]/.test(txt) || txt.includes('{{');
+        if (!ehProsa) continue;
+        const novo = raw.replace(/<w:pPr\s*\/>|<w:pPr>[\s\S]*?<\/w:pPr>/, pPrCorpo);
+        if (novo === raw) continue;
+        xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+        corpoDestituloAjustado++;
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -757,5 +795,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     ftDiscriminada,
     rolMultaComValor,
     danoMoralFormatado,
+    corpoDestituloAjustado,
   };
 }
