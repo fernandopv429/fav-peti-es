@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Loader2, Upload, Download, Library, CheckCircle2, AlertCircle, FileText, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Loader2, Upload, Download, Library, CheckCircle2, AlertCircle, FileText, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { TIPO_DISPENSA_LABELS } from '@/features/entrevista/lib/tokens';
-import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial } from '@/features/entrevista/lib/modelosReferencia';
-import { conteudoDeReferencia, reprocessarConteudoModelos } from '../../base44/shared/referencias.js';
+import { extrairTextoDocx, classificarTextoModelo, resumirDiferencial, reprocessarConteudoModelos } from '@/features/entrevista/lib/modelosReferencia';
+import { conteudoDeReferencia } from '../../base44/shared/referencias.js';
 import { invalidateRuntimeCache } from '@/features/entrevista/lib/runtimeCache';
 import { baixarTemplateCorrigido } from '@/features/entrevista/lib/gerarTemplateCorrigido';
 import TemplateAtualizarDocx from '@/features/entrevista/components/TemplateAtualizarDocx';
@@ -23,6 +23,7 @@ export default function ModelosReferencia() {
   const [erro, setErro] = useState(null);
   const [config, setConfig] = useState(null);
   const [corrigindo, setCorrigindo] = useState(false);
+  const [reprocessando, setReprocessando] = useState(false);
 
   const load = () =>
     Promise.all([
@@ -132,6 +133,29 @@ export default function ModelosReferencia() {
     } catch {
       setTemplates(anteriores);
       setErro('Erro ao definir o modelo padrão.');
+    }
+  };
+
+  // Relê os .docx já enviados e grava os capítulos que a IA usa como exemplo.
+  // Vale rodar uma vez depois desta mudança; nos modelos importados a partir de
+  // agora o conteúdo já entra certo pela própria importação.
+  const handleReprocessar = async () => {
+    setReprocessando(true);
+    setErro(null);
+    setMsg(null);
+    try {
+      const r = await reprocessarConteudoModelos(modelos, (linha) => setMsg(linha));
+      const partes = [`${r.atualizados} modelo(s) com capítulos gravados`];
+      if (r.semCapitulo) partes.push(`${r.semCapitulo} sem capítulo reconhecível`);
+      if (r.semArquivo) partes.push(`${r.semArquivo} sem .docx guardado (reimporte)`);
+      setMsg(partes.join(' · '));
+      if (r.falhas.length) setErro(`Falhas: ${r.falhas.slice(0, 3).join(' | ')}${r.falhas.length > 3 ? ` (+${r.falhas.length - 3})` : ''}`);
+      invalidateRuntimeCache('modelos-ativos');
+      await load();
+    } catch (err) {
+      setErro(`Erro ao reprocessar: ${err?.message || err}`);
+    } finally {
+      setReprocessando(false);
     }
   };
 
