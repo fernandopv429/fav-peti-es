@@ -8,6 +8,7 @@ import { BLOCO_ENGENHARIA_JURIDICA } from './engenhariaJuridica.js';
 import { BLOCO_REGRAS_QUALIDADE } from './regrasQualidadeFav.js';
 import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos.js';
 import { blocoRegrasCriticas } from './regrasCriticas.js';
+import { blocoReferencias, attrsDoCaso } from './referencias.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -238,7 +239,7 @@ function municipiosDoCaso(caso) {
   return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 }
 
-function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos }) {
+function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos, referenciasTexto = '' }) {
   return [
     'CONTEXTO COMPLETO DO CASO (leia tudo; você escreverá TODOS os capítulos ativos em uma única resposta JSON).',
     BLOCO_ENGENHARIA_JURIDICA,
@@ -272,6 +273,10 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, 
     'DADOS DO CASO:', resumoCaso(caso), '',
     'VALORES CALCULADOS (determinísticos — USE ESTES, NÃO RECALCULE):', resumoCalculos(calculos), '',
     'CLÁUSULAS DA CCT (grounding — só cite estas):', resumoCct(dadosCct, cctCadastrada), '',
+    // Este caminho (webhook) NÃO mandava referência nenhuma: a IA escrevia sem
+    // nunca ter visto uma peça do escritório, enquanto a tela mandava um resumo.
+    // Era a maior diferença de qualidade entre os dois caminhos.
+    ...(referenciasTexto ? [referenciasTexto, ''] : []),
     `CAPÍTULOS ATIVOS NESTA PEÇA: ${blocosAtivos.join(', ')}.`,
   ].join('\n');
 }
@@ -383,13 +388,26 @@ function extrairCampo(obj, campo) {
   return str ? str.trim() : null;
 }
 
-export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, dados, configs = [], invokeLLM }) {
+export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, dados, configs = [], modelos = [], attrs = null, invokeLLM }) {
   const ativos = ESPECIALISTAS.filter((e) => { try { return e.ativo(dados, caso); } catch { return false; } });
   if (!ativos.length) return { blocos: {}, especialistasUsados: [] };
 
   const cfgPorNumero = new Map((configs || []).map((c) => [String(c.numero), c]));
   const blocosAtivos = ativos.map((e) => e.nome);
-  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos });
+  // Exemplo real do capítulo correspondente nas peças revisadas, só para os
+  // capítulos que esta peça vai escrever — mandar a peça inteira afogaria o
+  // exemplo no texto padrão que o modelo .docx já imprime.
+  let referenciasTexto = '';
+  try {
+    referenciasTexto = blocoReferencias({
+      modelos,
+      attrs: attrs || attrsDoCaso(caso, dados),
+      campos: ativos.map((e) => e.campo),
+    });
+  } catch (e) {
+    referenciasTexto = '';
+  }
+  const contexto = montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, blocosAtivos, referenciasTexto });
 
   const properties = {};
   const tarefaPorCampo = {};
