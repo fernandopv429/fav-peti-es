@@ -789,6 +789,52 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18k) QUALIFICAÇÃO — negrito só no que identifica a parte.
+  // Os três parágrafos da qualificação vinham num ÚNICO run em negrito, então a
+  // peça saía com o bloco inteiro em negrito: nome, RG, CPF, PIS, CTPS, filiação,
+  // endereço, e-mail e até o fundamento legal. Na peça da especialista o negrito
+  // marca só a identificação:
+  //   reclamante → "MARCOS MOREIRA PAULO," e o resto normal;
+  //   reclamadas → "1ª RECLAMADA: RAZÃO SOCIAL, devidamente inscrita no CNPJ
+  //                 nº …," e o endereço em diante normal.
+  // O corte fica DEPOIS da tag indicada (mais a vírgula e o espaço, como nela).
+  const CORTES_NEGRITO = [
+    ['{{RECL_NOME}}', '{{RECL_NOME}}'],
+    ['{{RECLAMADA1_RAZAO}}', '{{RECLAMADA1_CNPJ}}'],
+    ['{{RECLAMADA2_RAZAO}}', '{{RECLAMADA2_CNPJ}}'],
+  ];
+  let qualificacaoAjustada = 0;
+  {
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    for (const [marcador, ateTag] of CORTES_NEGRITO) {
+      const ps = _paras(xml);
+      const i = ps.findIndex((p) => _textoPara(p.raw).includes(marcador));
+      if (i < 0) continue;
+      const raw = ps[i].raw;
+      const txt = _textoPara(raw);
+      const pos = txt.indexOf(ateTag);
+      if (pos < 0) continue;
+      let corte = pos + ateTag.length;
+      // Leva a vírgula e o espaço para a parte em negrito, como na peça dela.
+      if (txt[corte] === ',') corte++;
+      while (txt[corte] === ' ') corte++;
+      const negrito = txt.slice(0, corte);
+      const resto = txt.slice(corte);
+      if (!negrito || !resto.trim()) continue;
+      const runComTexto = (raw.match(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/g) || []).find((r) => /<w:t\b/.test(r));
+      if (!runComTexto) continue;
+      const rPrNegrito = (runComTexto.match(/<w:rPr>[\s\S]*?<\/w:rPr>/) || [''])[0];
+      if (!/<w:b\/>/.test(rPrNegrito)) continue; // já está corrigido
+      const rPrNormal = rPrNegrito.replace(/<w:b\/>/g, '').replace(/<w:bCs\/>/g, '');
+      const novo = `<w:p>${_pPr(raw)}`
+        + `<w:r>${rPrNegrito}<w:t xml:space="preserve">${esc(negrito)}</w:t></w:r>`
+        + `<w:r>${rPrNormal}<w:t xml:space="preserve">${esc(resto)}</w:t></w:r>`
+        + '</w:p>';
+      xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+      qualificacaoAjustada++;
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -846,5 +892,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     corpoDestituloAjustado,
     titulosPadronizados,
     linhasAposTitulo,
+    qualificacaoAjustada,
   };
 }
