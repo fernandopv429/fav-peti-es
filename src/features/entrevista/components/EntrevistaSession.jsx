@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Paperclip, Send, X, FileText, Bot, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import ToolTraceMessage from '@/features/entrevista/components/ToolTraceMessage';
@@ -83,6 +84,11 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   const [input, setInput] = useState(() => localStorage.getItem(SK_TEXT) || '');
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
+  // Recolher a conversa depois que a peça existe: com o documento pronto, a
+  // revisão é o que importa, e o chat de 420px tira largura da folha A4.
+  // Só pode recolher quando HÁ documento — senão a tela ficaria sem saída,
+  // porque é pelo chat que se envia a entrevista.
+  const [chatAberto, setChatAberto] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [exporting, setExporting] = useState(false);
