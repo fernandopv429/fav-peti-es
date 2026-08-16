@@ -515,10 +515,17 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       </div>
 
       {/* Corpo: chat (esq) + documento (dir) */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
+      {/* O container do corpo NÃO rola: quem rola são os dois painéis de dentro.
+          Empilhados no celular, lado a lado em lg — nos dois casos cada painel
+          é `flex-1 min-h-0`, que é o que permite ao filho com overflow encolher
+          abaixo do tamanho do conteúdo (sem min-h-0 o flex item tem
+          min-height:auto e nunca gera barra interna). */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {/* Chat */}
-        <div className="flex flex-col min-h-0 w-full max-h-[70vh] lg:max-h-none lg:w-[420px] lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border">
-          <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+        <div className="flex flex-col min-h-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border">
+          {/* overscroll-contain: ao chegar no fim da rolagem, o gesto NÃO passa
+              para o container de trás (scroll chaining). */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 min-h-0">
             <div className="space-y-3">
               {messages.length === 0 && (
                 <div className="text-center py-10">
@@ -635,7 +642,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
 
         {/* Documento */}
-        <div className="flex flex-col flex-1 min-h-[60vh] lg:min-h-0 bg-muted">
+        <div className="flex flex-col flex-1 min-h-0 bg-muted">
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             <FileText className="w-4 h-4 text-primary-ink" />
             <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
@@ -674,7 +681,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 lg:p-8 min-h-0 relative">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 lg:p-8 min-h-0 relative">
             {!temTemplate ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <AlertTriangle className="w-10 h-10 text-warning mb-3" />
