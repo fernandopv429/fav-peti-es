@@ -456,7 +456,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-white flex-shrink-0">
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-card flex-shrink-0">
         <Link to="/modelos-referencia" className="text-muted-foreground hover:text-foreground" title="Modelos / Configurações">
           <ArrowLeft className="w-5 h-5" />
         </Link>
@@ -480,7 +480,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         >
           <Inbox className="w-4 h-4" />
           {filaCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-primary text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full flex items-center justify-center">
               {filaCount}
             </span>
           )}
@@ -491,7 +491,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       </div>
 
       {/* Barra do template .docx */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-muted bg-white flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-muted bg-card flex-shrink-0">
         <span className="text-xs text-muted-foreground">Template .docx:</span>
         {temTemplate ? (
           <span className="text-xs font-medium text-success truncate max-w-[420px]">
@@ -546,8 +546,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                     <div
                       className={`max-w-[88%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
                         m.role === 'user'
-                          ? 'bg-primary text-white rounded-br-sm'
-                          : 'bg-white border border-border text-foreground rounded-bl-sm'
+                          ? 'bg-primary text-primary-foreground rounded-br-sm'
+                          : 'bg-card border border-border text-foreground rounded-bl-sm'
                       }`}
                     >
                       {m.files?.length > 0 && (
@@ -567,7 +567,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
               )}
               {(sending || generating) && (
                 <div className="flex justify-start">
-                  <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-border rounded-2xl rounded-bl-sm text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 px-3.5 py-2 bg-card border border-border rounded-2xl rounded-bl-sm text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin text-primary-ink" />
                     {generating ? 'Preenchendo o documento...' : 'Pensando...'}
                   </div>
@@ -578,7 +578,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           </div>
 
           {/* Barra de entrada */}
-          <div className="flex-shrink-0 border-t border-border bg-white px-3 py-3">
+          <div className="flex-shrink-0 border-t border-border bg-card px-3 py-3">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {files.map((f, i) => (
@@ -625,7 +625,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
               <button
                 onClick={handleSend}
                 disabled={sending || generating || (!input.trim() && files.length === 0)}
-                className="p-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
+                className="p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
                 title="Enviar"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -636,7 +636,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
 
         {/* Documento */}
         <div className="flex flex-col min-h-0 flex-1 bg-muted">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-white flex-shrink-0">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             <FileText className="w-4 h-4 text-primary-ink" />
             <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
             {docHtml && (
@@ -694,7 +694,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             )}
             {generating && docHtml && (
               <div className="absolute inset-0 flex items-start justify-center pt-10 pointer-events-none">
-                <span className="flex items-center gap-2 px-3 py-1.5 bg-white/90 border border-border rounded-full text-xs text-primary-ink shadow-sm">
+                <span className="flex items-center gap-2 px-3 py-1.5 bg-card/90 border border-border rounded-full text-xs text-primary-ink shadow-sm">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Atualizando o documento...
                 </span>
               </div>
