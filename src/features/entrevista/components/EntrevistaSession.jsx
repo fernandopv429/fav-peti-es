@@ -125,6 +125,10 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   const templateUrl = templatePadrao?.url || templateCaso?.url || config?.template_docx_url || '';
   const templateNome = templatePadrao?.nome || templateCaso?.nome || config?.template_docx_nome || '';
   const temTemplate = !!templateUrl;
+  // O botão de recolher a conversa só aparece com a peça já gerada na tela.
+  // Enquanto não houver documento, esconder o chat deixaria a página sem
+  // nenhuma forma de enviar a entrevista.
+  const podeRecolherChat = !!docHtml;
 
   useEffect(() => {
     base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
