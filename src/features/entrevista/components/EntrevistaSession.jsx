@@ -635,7 +635,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
 
         {/* Documento */}
-        <div className="flex flex-col min-h-0 flex-1 min-h-[60vh] lg:min-h-0 bg-muted">
+        <div className="flex flex-col flex-1 min-h-[60vh] lg:min-h-0 bg-muted">
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             <FileText className="w-4 h-4 text-primary-ink" />
             <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
