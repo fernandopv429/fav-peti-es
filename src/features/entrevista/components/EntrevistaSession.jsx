@@ -525,7 +525,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         <div className="flex flex-col min-h-0 min-w-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border">
           {/* overscroll-contain: ao chegar no fim da rolagem, o gesto NÃO passa
               para o container de trás (scroll chaining). */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 min-h-0">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 min-h-0 min-w-0">
             <div className="space-y-3">
               {messages.length === 0 && (
                 <div className="text-center py-10">
@@ -624,7 +624,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 onKeyDown={handleKeyDown}
                 placeholder="Descreva o caso, peça um ajuste ou envie documentos..."
                 rows={1}
-                className="flex-1 px-1 py-2 text-sm bg-transparent resize-none focus:outline-none max-h-40"
+                className="flex-1 min-w-0 px-1 py-2 text-sm bg-transparent resize-none focus:outline-none max-h-40"
               />
               <span className="hidden sm:inline pb-2 text-[10px] text-muted-foreground/70 whitespace-nowrap">
                 {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'local' ? 'Salvo neste dispositivo' : 'Salvo'}
@@ -681,7 +681,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain p-4 lg:p-8 min-h-0 relative">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 lg:p-8 min-h-0 min-w-0 relative">
             {!temTemplate ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <AlertTriangle className="w-10 h-10 text-warning mb-3" />
