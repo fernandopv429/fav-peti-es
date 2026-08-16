@@ -14,7 +14,19 @@ export default function GerarPorEntrevista() {
   const { sessions, activeId, createSession, closeSession, renameSession, selectSession } = useSessions();
 
   return (
-    <div className="flex flex-col h-full bg-[#f8f9fa]">
+    // ALTURA REAL, NÃO PERCENTUAL. Esta era a origem do scroll da página inteira:
+    // aqui havia `h-full` (height:100%), mas nenhum ancestral tem altura
+    // definida — AppLayout usa `min-h-screen` (min-height, não height), <main>
+    // não tem altura, e html/body/#root também não. Altura percentual contra pai
+    // de altura automática é IGNORADA pelo CSS: o container crescia com o
+    // conteúdo, nenhum `overflow-y-auto` interno recebia limite e quem rolava era
+    // a página. Fixar a altura no viewport aqui faz todos os `min-h-0` +
+    // `overflow-y-auto` de dentro passarem a funcionar.
+    //
+    // Abaixo de lg o AppLayout renderiza um header sticky de 4rem, descontado
+    // do cálculo; em lg não há header. `dvh` acompanha a barra de endereço do
+    // navegador no celular, onde `vh` fica maior que a área visível.
+    <div className="flex flex-col h-[calc(100dvh-4rem)] lg:h-dvh bg-[#f8f9fa]">
       <SessionTabs
         sessions={sessions}
         activeId={activeId}
