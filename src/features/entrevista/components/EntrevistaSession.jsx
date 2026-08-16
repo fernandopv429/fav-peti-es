@@ -522,7 +522,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           min-height:auto e nunca gera barra interna). */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {/* Chat */}
-        <div className="flex flex-col min-h-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border">
+        <div className="flex flex-col min-h-0 min-w-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border">
           {/* overscroll-contain: ao chegar no fim da rolagem, o gesto NÃO passa
               para o container de trás (scroll chaining). */}
           <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 min-h-0">
@@ -551,7 +551,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 ) : (
                   <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[88%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                      className={`max-w-[88%] min-w-0 break-words px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
                         m.role === 'user'
                           ? 'bg-primary text-primary-foreground rounded-br-sm'
                           : 'bg-card border border-border text-foreground rounded-bl-sm'
@@ -642,10 +642,10 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
 
         {/* Documento */}
-        <div className="flex flex-col flex-1 min-h-0 bg-muted">
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-muted">
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             <FileText className="w-4 h-4 text-primary-ink" />
-            <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
+            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">Petição</span>
             {docHtml && (
               <button
                 onClick={() => gerarMinuta()}
