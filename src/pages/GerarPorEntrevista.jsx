@@ -26,7 +26,10 @@ export default function GerarPorEntrevista() {
     // Abaixo de lg o AppLayout renderiza um header sticky de 4rem, descontado
     // do cálculo; em lg não há header. `dvh` acompanha a barra de endereço do
     // navegador no celular, onde `vh` fica maior que a área visível.
-    <div className="flex flex-col h-[calc(100dvh-4rem)] lg:h-dvh bg-[#f8f9fa]">
+    // overflow-x-hidden: trava de segurança para a barra horizontal. Sem ela,
+    // qualquer conteúdo largo dentro dos painéis (uma tabela, uma URL sem espaço,
+    // a folha A4 do preview) empurra a página inteira para o lado.
+    <div className="flex flex-col h-[calc(100dvh-4rem)] lg:h-dvh overflow-x-hidden bg-[#f8f9fa]">
       <SessionTabs
         sessions={sessions}
         activeId={activeId}
