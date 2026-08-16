@@ -456,13 +456,13 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-card flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 border-b border-border bg-card flex-shrink-0">
         <Link to="/modelos-referencia" className="text-muted-foreground hover:text-foreground" title="Modelos / Configurações">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-foreground">Gerar por Entrevista</h1>
-          <p className="text-xs text-muted-foreground truncate">
+          <h1 className="text-sm sm:text-base font-semibold text-foreground truncate">Gerar por Entrevista</h1>
+          <p className="hidden sm:block text-xs text-muted-foreground truncate">
             Converse à esquerda; a petição preenche o template ao lado e é exportada fiel ao .docx.
           </p>
         </div>
@@ -485,16 +485,16 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             </span>
           )}
         </button>
-        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-primary-ink hover:underline whitespace-nowrap">
-          <Library className="w-3.5 h-3.5" /> Configurações
+        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-primary-ink hover:underline whitespace-nowrap p-2 sm:p-0" title="Configurações">
+          <Library className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Configurações</span>
         </Link>
       </div>
 
       {/* Barra do template .docx */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-muted bg-card flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 sm:px-6 py-2 border-b border-muted bg-card flex-shrink-0">
         <span className="text-xs text-muted-foreground">Template .docx:</span>
         {temTemplate ? (
-          <span className="text-xs font-medium text-success truncate max-w-[420px]">
+          <span className="text-xs font-medium text-success truncate max-w-full sm:max-w-[420px]">
             {templateNome || 'enviado'}
           </span>
         ) : (
@@ -515,9 +515,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       </div>
 
       {/* Corpo: chat (esq) + documento (dir) */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
         {/* Chat */}
-        <div className="flex flex-col min-h-0 lg:w-[420px] lg:flex-shrink-0 lg:border-r border-border">
+        <div className="flex flex-col min-h-0 w-full max-h-[70vh] lg:max-h-none lg:w-[420px] lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border">
           <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
             <div className="space-y-3">
               {messages.length === 0 && (
@@ -619,7 +619,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 rows={1}
                 className="flex-1 px-1 py-2 text-sm bg-transparent resize-none focus:outline-none max-h-40"
               />
-              <span className="pb-2 text-[10px] text-muted-foreground/70 whitespace-nowrap">
+              <span className="hidden sm:inline pb-2 text-[10px] text-muted-foreground/70 whitespace-nowrap">
                 {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'local' ? 'Salvo neste dispositivo' : 'Salvo'}
               </span>
               <button
@@ -635,8 +635,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
 
         {/* Documento */}
-        <div className="flex flex-col min-h-0 flex-1 bg-muted">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
+        <div className="flex flex-col min-h-0 flex-1 min-h-[60vh] lg:min-h-0 bg-muted">
+          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             <FileText className="w-4 h-4 text-primary-ink" />
             <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
             {docHtml && (
@@ -646,7 +646,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 title="Reaplicar os dados ao template"
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+                <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Atualizar</span>
               </button>
             )}
             {docHtml && !reviewConfirmed && (
@@ -659,7 +659,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 onClick={() => setReviewConfirmed(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-primary text-primary-ink rounded-lg text-xs font-medium hover:bg-primary/10 transition-colors"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Confirmar revisão
+                <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Confirmar revisão</span>
               </button>
             )}
             <button
@@ -669,7 +669,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-success text-white rounded-lg text-xs font-medium hover:bg-success/90 transition-colors disabled:opacity-40"
             >
               {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-              {exporting ? 'Exportando...' : 'Exportar DOCX'}
+              <span className="hidden sm:inline">{exporting ? 'Exportando...' : 'Exportar DOCX'}</span>
+              <span className="sm:hidden">DOCX</span>
             </button>
           </div>
 
