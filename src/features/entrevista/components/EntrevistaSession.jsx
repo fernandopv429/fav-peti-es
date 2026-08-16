@@ -454,61 +454,61 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f8f9fa]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-[#dadce0] bg-white flex-shrink-0">
-        <Link to="/modelos-referencia" className="text-[#5f6368] hover:text-[#202124]" title="Modelos / Configurações">
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-white flex-shrink-0">
+        <Link to="/modelos-referencia" className="text-muted-foreground hover:text-foreground" title="Modelos / Configurações">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-[#202124]">Gerar por Entrevista</h1>
-          <p className="text-xs text-[#5f6368] truncate">
+          <h1 className="text-base font-semibold text-foreground">Gerar por Entrevista</h1>
+          <p className="text-xs text-muted-foreground truncate">
             Converse à esquerda; a petição preenche o template ao lado e é exportada fiel ao .docx.
           </p>
         </div>
         <button
           onClick={() => setLogsOpen(true)}
-          className="p-2 text-[#5f6368] hover:text-[#202124] hover:bg-[#f1f3f4] rounded-full"
+          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
           title="Ver logs da sessão"
         >
           <ScrollText className="w-4 h-4" />
         </button>
         <button
           onClick={() => setFilaOpen(true)}
-          className="relative p-2 text-[#5f6368] hover:text-[#202124] hover:bg-[#f1f3f4] rounded-full"
+          className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
           title="Fila de entrevistas (webhook)"
         >
           <Inbox className="w-4 h-4" />
           {filaCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#1a73e8] text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-primary text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
               {filaCount}
             </span>
           )}
         </button>
-        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-[#1a73e8] hover:underline whitespace-nowrap">
+        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-primary-ink hover:underline whitespace-nowrap">
           <Library className="w-3.5 h-3.5" /> Configurações
         </Link>
       </div>
 
       {/* Barra do template .docx */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-[#f1f3f4] bg-white flex-shrink-0">
-        <span className="text-xs text-[#5f6368]">Template .docx:</span>
+      <div className="flex flex-wrap items-center gap-2 px-6 py-2 border-b border-muted bg-white flex-shrink-0">
+        <span className="text-xs text-muted-foreground">Template .docx:</span>
         {temTemplate ? (
-          <span className="text-xs font-medium text-[#0b8043] truncate max-w-[420px]">
+          <span className="text-xs font-medium text-success truncate max-w-[420px]">
             {templateNome || 'enviado'}
           </span>
         ) : (
-          <Link to="/modelos-referencia" className="text-xs font-medium text-[#c5221f] hover:underline">
+          <Link to="/modelos-referencia" className="text-xs font-medium text-destructive hover:underline">
             nenhum — enviar em Configurações
           </Link>
         )}
         {attrs && (attrs.funcao || attrs.tipo_dispensa) && (
-          <span className="text-[11px] text-[#9aa0a6]">
+          <span className="text-[11px] text-muted-foreground/70">
             {attrs.funcao || '—'} · {TIPO_DISPENSA_LABELS[attrs.tipo_dispensa]?.split('(')[0]?.trim() || attrs.tipo_dispensa || '—'}
           </span>
         )}
         {generating && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-[#1a73e8]">
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-primary-ink">
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> Preenchendo a peça...
           </span>
         )}
@@ -517,13 +517,13 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       {/* Corpo: chat (esq) + documento (dir) */}
       <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {/* Chat */}
-        <div className="flex flex-col min-h-0 lg:w-[420px] lg:flex-shrink-0 lg:border-r border-[#dadce0]">
+        <div className="flex flex-col min-h-0 lg:w-[420px] lg:flex-shrink-0 lg:border-r border-border">
           <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
             <div className="space-y-3">
               {messages.length === 0 && (
                 <div className="text-center py-10">
-                  <Bot className="w-8 h-8 text-[#dadce0] mx-auto mb-2" />
-                  <p className="text-sm text-[#5f6368]">
+                  <Bot className="w-8 h-8 text-border mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
                     Descreva o caso ou cole a entrevista.
                     <br />Pode anexar documentos e enviar mais informações a qualquer momento.
                   </p>
@@ -546,8 +546,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                     <div
                       className={`max-w-[88%] px-3.5 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
                         m.role === 'user'
-                          ? 'bg-[#1a73e8] text-white rounded-br-sm'
-                          : 'bg-white border border-[#dadce0] text-[#3c4043] rounded-bl-sm'
+                          ? 'bg-primary text-white rounded-br-sm'
+                          : 'bg-white border border-border text-foreground rounded-bl-sm'
                       }`}
                     >
                       {m.files?.length > 0 && (
@@ -567,8 +567,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
               )}
               {(sending || generating) && (
                 <div className="flex justify-start">
-                  <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-[#dadce0] rounded-2xl rounded-bl-sm text-sm text-[#5f6368]">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#1a73e8]" />
+                  <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-border rounded-2xl rounded-bl-sm text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-ink" />
                     {generating ? 'Preenchendo o documento...' : 'Pensando...'}
                   </div>
                 </div>
@@ -578,11 +578,11 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           </div>
 
           {/* Barra de entrada */}
-          <div className="flex-shrink-0 border-t border-[#dadce0] bg-white px-3 py-3">
+          <div className="flex-shrink-0 border-t border-border bg-white px-3 py-3">
             {files.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {files.map((f, i) => (
-                  <span key={i} className="flex items-center gap-1 px-2 py-1 bg-[#e8f0fe] text-[#1a73e8] text-[11px] rounded-md">
+                  <span key={i} className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary-ink text-[11px] rounded-md">
                     <FileText className="w-3 h-3" />
                     <span className="max-w-[140px] truncate">{f.name}</span>
                     <button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="hover:text-red-500">
@@ -592,8 +592,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-1.5 border border-[#dadce0] rounded-2xl px-2 py-1.5 focus-within:border-[#1a73e8] transition-colors">
-              <label className="p-2 text-[#5f6368] hover:bg-[#f1f3f4] rounded-full cursor-pointer" title="Anexar documento">
+            <div className="flex items-end gap-1.5 border border-border rounded-2xl px-2 py-1.5 focus-within:border-primary transition-colors">
+              <label className="p-2 text-muted-foreground hover:bg-muted rounded-full cursor-pointer" title="Anexar documento">
                 <Paperclip className="w-4 h-4" />
                 <input
                   type="file"
@@ -619,13 +619,13 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 rows={1}
                 className="flex-1 px-1 py-2 text-sm bg-transparent resize-none focus:outline-none max-h-40"
               />
-              <span className="pb-2 text-[10px] text-[#9aa0a6] whitespace-nowrap">
+              <span className="pb-2 text-[10px] text-muted-foreground/70 whitespace-nowrap">
                 {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'local' ? 'Salvo neste dispositivo' : 'Salvo'}
               </span>
               <button
                 onClick={handleSend}
                 disabled={sending || generating || (!input.trim() && files.length === 0)}
-                className="p-2 bg-[#1a73e8] text-white rounded-full hover:bg-[#1557b0] transition-colors disabled:opacity-40"
+                className="p-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
                 title="Enviar"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -635,29 +635,29 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
 
         {/* Documento */}
-        <div className="flex flex-col min-h-0 flex-1 bg-[#f1f3f4]">
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#dadce0] bg-white flex-shrink-0">
-            <FileText className="w-4 h-4 text-[#1a73e8]" />
-            <span className="text-sm font-medium text-[#202124] truncate flex-1">Petição</span>
+        <div className="flex flex-col min-h-0 flex-1 bg-muted">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-white flex-shrink-0">
+            <FileText className="w-4 h-4 text-primary-ink" />
+            <span className="text-sm font-medium text-foreground truncate flex-1">Petição</span>
             {docHtml && (
               <button
                 onClick={() => gerarMinuta()}
                 disabled={generating}
                 title="Reaplicar os dados ao template"
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#dadce0] text-[#3c4043] rounded-lg text-xs font-medium hover:bg-[#f1f3f4] transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Atualizar
               </button>
             )}
             {docHtml && !reviewConfirmed && (
-              <span className="hidden md:inline text-[11px] text-[#8a5d00]">
+              <span className="hidden md:inline text-[11px] text-warning">
                 Confira os campos destacados
               </span>
             )}
             {docHtml && !reviewConfirmed && (
               <button
                 onClick={() => setReviewConfirmed(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1a73e8] text-[#1a73e8] rounded-lg text-xs font-medium hover:bg-[#e8f0fe] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-primary text-primary-ink rounded-lg text-xs font-medium hover:bg-primary/10 transition-colors"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" /> Confirmar revisão
               </button>
@@ -666,7 +666,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
               onClick={exportar}
               disabled={!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting}
               title={!temTemplate ? 'Envie o template .docx em Configurações' : !reviewConfirmed ? 'Confirme a revisão antes de exportar' : 'Exportar DOCX fiel ao modelo'}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b8043] text-white rounded-lg text-xs font-medium hover:bg-[#0a7038] transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-success text-white rounded-lg text-xs font-medium hover:bg-success/90 transition-colors disabled:opacity-40"
             >
               {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
               {exporting ? 'Exportando...' : 'Exportar DOCX'}
@@ -676,25 +676,25 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           <div className="flex-1 overflow-y-auto p-4 lg:p-8 min-h-0 relative">
             {!temTemplate ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <AlertTriangle className="w-10 h-10 text-[#e0a800] mb-3" />
-                <p className="text-sm text-[#5f6368]">Nenhum template .docx configurado.</p>
-                <p className="text-xs text-[#9aa0a6] mt-1">
+                <AlertTriangle className="w-10 h-10 text-warning mb-3" />
+                <p className="text-sm text-muted-foreground">Nenhum template .docx configurado.</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
                   Envie o modelo oficial (marcado com as tags) em{' '}
-                  <Link to="/modelos-referencia" className="text-[#1a73e8] hover:underline">Configurações</Link>.
+                  <Link to="/modelos-referencia" className="text-primary-ink hover:underline">Configurações</Link>.
                 </p>
               </div>
             ) : docHtml ? (
               <DocumentReviewPreview html={docHtml} dimmed={generating} />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <FileText className="w-10 h-10 text-[#dadce0] mb-3" />
-                <p className="text-sm text-[#5f6368]">A petição preenchida aparecerá aqui.</p>
-                <p className="text-xs text-[#9aa0a6] mt-1">Envie a entrevista à esquerda — o template será preenchido automaticamente.</p>
+                <FileText className="w-10 h-10 text-border mb-3" />
+                <p className="text-sm text-muted-foreground">A petição preenchida aparecerá aqui.</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Envie a entrevista à esquerda — o template será preenchido automaticamente.</p>
               </div>
             )}
             {generating && docHtml && (
               <div className="absolute inset-0 flex items-start justify-center pt-10 pointer-events-none">
-                <span className="flex items-center gap-2 px-3 py-1.5 bg-white/90 border border-[#dadce0] rounded-full text-xs text-[#1a73e8] shadow-sm">
+                <span className="flex items-center gap-2 px-3 py-1.5 bg-white/90 border border-border rounded-full text-xs text-primary-ink shadow-sm">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Atualizando o documento...
                 </span>
               </div>
