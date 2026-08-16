@@ -585,7 +585,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                   <span key={i} className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary-ink text-[11px] rounded-md">
                     <FileText className="w-3 h-3" />
                     <span className="max-w-[140px] truncate">{f.name}</span>
-                    <button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="hover:text-red-500">
+                    <button onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="hover:text-destructive">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
