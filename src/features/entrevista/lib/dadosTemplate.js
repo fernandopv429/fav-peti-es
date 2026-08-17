@@ -542,30 +542,26 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
       `Cumpre ressaltar que o obreiro pode ter feito outras escalas e horários que serão devidamente apreciados em audiência inaugural e, posteriormente, em sede de réplica.`;
   }
 
-  // Fallback da ESPINHA DA RESCISÃO — apenas para as modalidades que precisam ser
-  // CONSTRUÍDAS: rescisão indireta, nulidade do pedido de demissão por coação e
-  // reversão de justa causa. Na dispensa sem justa causa (e no acordo) NÃO se
-  // preenche: o modelo já traz o parágrafo do contrato com admissão, função,
-  // data, salário e a ressalva das verbas não pagas. Preencher os dois fazia o
-  // tópico "DO CONTRATO DE TRABALHO" sair dizendo quase a mesma coisa duas
-  // vezes — primeiro este bloco, depois o parágrafo do modelo.
-  const precisaTeseRescisoria = !!(dados.rescisao_indireta || dados.coacao_demissao || dados.reversao_justa_causa);
-  if (!dados.BLOCO_ESPINHA_RESCISAO && precisaTeseRescisoria) {
-    const motivo = dados.MOTIVO_SAIDA_RESUMIDO || 'foi dispensado sem justa causa';
-    let nucleo;
-    if (dados.rescisao_indireta) {
-      nucleo = 'A rescisão indireta do contrato de trabalho resta configurada nos termos do art. 483 da CLT, em virtude das graves violações contratuais praticadas pela reclamada, autorizando o reclamante a pleitear todas as verbas rescisórias como se dispensado sem justa causa fosse.';
-    } else if (dados.coacao_demissao) {
-      nucleo = 'O pedido de demissão restou eivado de nulidade, por ter sido extraído mediante coação e ameaça, configurando vício de consentimento nos termos do art. 9º da CLT, devendo ser reconhecida a nulidade do pedido de demissão e a recondução à rescisão imotivada.';
-    } else {
-      nucleo = 'A justa causa aplicada carece de lastro fático e probatório, devendo ser revertida em dispensa imotivada, com o pagamento de todas as verbas rescisórias decorrentes.';
-    }
-    dados.BLOCO_ESPINHA_RESCISAO =
-      `O reclamante foi admitido pela 1ª reclamada em ${dados.DATA_ADMISSAO || '[DATA DE ADMISSÃO]'}, ` +
-      `para exercer a função de ${dados.RECL_FUNCAO || '[FUNÇÃO]'}, tendo ${motivo} em ${dados.DATA_RESCISAO || '[DATA DE RESCISÃO]'}. ` +
-      `${nucleo} ` +
-      `Diante do exposto, requer o reconhecimento da modalidade rescisória acima delineada, com o pagamento de todas as verbas rescisórias devidas, nos termos do rol de pedidos ao final apresentado.`;
-  }
+  // ESPINHA DA RESCISÃO: NÃO HÁ MAIS FALLBACK — e é de propósito.
+  //
+  // Aqui existia um parágrafo determinístico montado para rescisão indireta,
+  // coação e reversão de justa causa. Só que o modelo .docx JÁ tem o texto do
+  // escritório para cada uma dessas modalidades, em ramos condicionais dentro de
+  // "DO CONTRATO DE TRABALHO":
+  //
+  //   {{#sem_justa_causa}} … {{#rescisao_indireta}} …
+  //   {{#reversao_justa_causa}} … {{#coacao_demissao}} (3 parágrafos)
+  //
+  // Resultado: nas três modalidades o capítulo saía com os mesmos fatos duas
+  // vezes — este bloco e, logo abaixo, o ramo do modelo. Visto na peça de
+  // 13/08 (Porteiro, coação): "admitido … em 11 de setembro de 2024 … coagido e
+  // ameaçado a pedir demissão em 19 de fevereiro de 2025" apareceu no parágrafo
+  // sem numeração (este bloco) e de novo no item 1 (ramo do modelo).
+  //
+  // O texto do modelo é o melhor dos dois: o da coação cita o art. 171, II, do
+  // Código Civil e enumera os títulos rescisórios, que este parágrafo não trazia.
+  // A tag {{BLOCO_ESPINHA_RESCISAO}} continua no modelo e simplesmente não
+  // renderiza — disponível caso o escritório queira voltar a usá-la.
 
   // Fallback do DANO MORAL: narrativa concreta determinística (mesma do
   // DANO_MORAL_FATO_ESPECIFICO). A IA sobrescreve via BLOCO_DANO_MORAL.
