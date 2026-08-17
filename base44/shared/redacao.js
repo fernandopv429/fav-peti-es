@@ -121,7 +121,14 @@ export const ESPECIALISTAS = [
   // Na dispensa sem justa causa o modelo já traz o parágrafo determinístico do
   // contrato — com o salário — e o capítulo da IA saía junto, repetindo os mesmos
   // fatos logo abaixo. Duplicidade vista na peça gerada em 08/2026.
-  { numero: 'espinha', nome: 'Espinha da rescisão', campo: 'BLOCO_ESPINHA_RESCISAO', ativo: (d) => !!d.tem_capitulo_rescisao,
+  // DESATIVADO (ago/2026), pelo mesmo motivo de jornada e Súmula 331: o modelo
+  // .docx já traz o texto do escritório para as QUATRO modalidades, em ramos
+  // condicionais dentro de "DO CONTRATO DE TRABALHO" ({{#sem_justa_causa}},
+  // {{#rescisao_indireta}}, {{#reversao_justa_causa}}, {{#coacao_demissao}}).
+  // Com o capítulo da IA ligado, as três modalidades que exigem tese saíam com
+  // os mesmos fatos duas vezes. Espelha src/features/entrevista/lib/redacaoTeses.js.
+  { numero: 'espinha', nome: 'Espinha da rescisão', campo: 'BLOCO_ESPINHA_RESCISAO', ativo: () => false,
+    ativoOriginal: (d) => !!d.tem_capitulo_rescisao,
     instrucao: 'Escreva o capítulo COMPLETO da modalidade de rescisão aplicável (conforme tipo_dispensa), em prosa jurídica fluida e SUBSTANCIAL: (1) FATOS — narre a situação que configura a modalidade; (2) FUNDAMENTO LEGAL/NORMATIVO — dispositivos da CLT (art. 482, 483, 484-A, 165 etc.); (3) JURISPRUDÊNCIA — quando relevante; (4) PEDIDO/CONCLUSÃO — requerimento com os reflexos cabíveis. NÃO escreva jornada, dano moral nem verbas calculadas.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em teses rescisórias. Redija o capítulo COMPLETO em prosa jurídica fluida e argumentativa.' },
   // jornada e sumula331 DESATIVADOS (revisão da especialista, ago/2026): o
