@@ -913,6 +913,43 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18m) REFLEXOS NA FUNDAMENTAÇÃO: mesma lista em todo capítulo, e nenhum
+  // reflexo sobre penalidade.
+  //
+  // O cálculo aplica cinco rubricas a toda verba salarial — DSR 7,25%, aviso
+  // prévio 4%, 13º 6%, férias + 1/3 7% e FGTS + 40% 10,5%. O texto do modelo,
+  // porém, enumerava de forma diferente em cada capítulo: SEIS enumerações
+  // esqueciam o aviso prévio e uma delas esquecia também o FGTS + 40%. Como o
+  // pedido só alcança o que a causa de pedir sustentou (art. 840, §1º da CLT), a
+  // fundamentação mais estreita que o cálculo derruba reflexo já calculado.
+  //
+  // E o capítulo da multa convencional pedia reflexos sobre a PRÓPRIA MULTA:
+  // penalidade tem natureza sancionatória, não integra a remuneração e não gera
+  // reflexo — a especialista pede a multa sem reflexo. Ali a enumeração sai.
+  const REFLEXOS_CANONICOS = 'DSR, aviso prévio, 13º salário, férias + 1/3 e FGTS + 40%';
+  const REFLEXOS_TEXTO_MODELO = [
+    // multa convencional: reflexo NÃO cabe — a enumeração inteira é removida
+    [', com reflexos em Descanso Semanal Remunerado (DSR), férias acrescidas de 1/3, 13º salários e FGTS + 40%.', '.'],
+    // gratificação de função
+    ["reflexos legais em DSR's, férias + 1/3, 13º salários e FGTS + 40%.", `reflexos legais em ${REFLEXOS_CANONICOS}.`],
+    // adicional noturno (1º parágrafo)
+    ['seus reflexos nos Dsr\u2019s e a integração nas férias + 1/3, 13º salários e FGTS + 40%.', `seus reflexos em ${REFLEXOS_CANONICOS}.`],
+    // adicional noturno (2º parágrafo) — era o mais incompleto: sem aviso e sem FGTS
+    ['com reflexos nos DSR\u2019s, férias + 1/3, 13º.', `com reflexos em ${REFLEXOS_CANONICOS}.`],
+    // periculosidade sobre as horas extras
+    ["com integrações e reflexos nos DSR's, férias + 1/3, 13º salários e FGTS + 40%.", `com integrações e reflexos em ${REFLEXOS_CANONICOS}.`],
+    // folgas trabalhadas / valores pagos por fora
+    ['bem como seus reflexos, nos DSR\u2019s, férias + 1/3, 13º salários, FGTS + 40%.', `bem como seus reflexos em ${REFLEXOS_CANONICOS}.`],
+    // bonificação de assiduidade
+    ['com reflexos no Descanso Semanal Remunerado (DSR), férias acrescidas de 1/3, 13º salário e FGTS + 40%,', `com reflexos em ${REFLEXOS_CANONICOS},`],
+  ];
+  let reflexosUniformizados = 0;
+  for (const [de, para] of REFLEXOS_TEXTO_MODELO) {
+    const antes = xml;
+    xml = _substituirFraseTagTolerant(xml, de, para);
+    if (xml !== antes) reflexosUniformizados++;
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -972,5 +1009,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     linhasAposTitulo,
     qualificacaoAjustada,
     reclamada3Adicionada,
+    reflexosUniformizados,
   };
 }
