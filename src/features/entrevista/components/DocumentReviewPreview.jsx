@@ -16,6 +16,7 @@ const M_LEFT = 113;   // 3cm
 const M_RIGHT = 76;   // 2cm
 const CONTENT_W = PAGE_W - M_LEFT - M_RIGHT;
 const CONTENT_H = PAGE_H - M_TOP - M_BOTTOM;
+const GAP = 24; // espaço entre folhas (era a classe gap-6)
 
 const SHEET_CSS = `
 .docx-content {
@@ -40,7 +41,40 @@ const SHEET_CSS = `
 
 export default function DocumentReviewPreview({ html, dimmed }) {
   const measurerRef = useRef(null);
+  const wrapRef = useRef(null);
   const [pages, setPages] = useState([]);
+  // ESCALA DA FOLHA. A paginação é medida a 605px de largura de conteúdo (a
+  // largura real de uma A4 com margens de 3/2cm). Antes a folha era desenhada com
+  // `width: 794px; maxWidth: 100%`: em qualquer painel mais estreito que isso ela
+  // ENCOLHIA, o texto reflowava numa largura menor, passava a ocupar mais altura
+  // do que a medida — e o miolo, com `maxHeight: PAGE_H` e `overflow: hidden`,
+  // CORTAVA o excedente. Daí os capítulos aparecerem incompletos na revisão e
+  // completos no .docx exportado, que não passa por este componente.
+  //
+  // Agora a folha mantém os 794px reais e é reduzida por transform: scale(), como
+  // fazem os visualizadores de PDF. A proporção e a paginação continuam válidas;
+  // só o tamanho aparente muda, e nada é cortado.
+  const [escala, setEscala] = useState(1);
+  const [larguraDisponivel, setLarguraDisponivel] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const medir = () => {
+      const w = el.clientWidth;
+      if (!w) return;
+      setLarguraDisponivel(w);
+      setEscala(Math.min(1, w / PAGE_W));
+    };
+    medir();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', medir);
+      return () => window.removeEventListener('resize', medir);
+    }
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = measurerRef.current;
@@ -82,7 +116,25 @@ export default function DocumentReviewPreview({ html, dimmed }) {
         aria-hidden="true"
       />
 
-      <div className="flex flex-col items-center gap-6">
+      {/* A altura do contêiner é a altura escalada: um elemento com transform
+          continua ocupando o tamanho ORIGINAL no layout, o que deixaria um vão
+          em branco embaixo e faria a folha de 794px estourar a largura do painel
+          (voltando a barra de rolagem horizontal). */}
+      <div
+        ref={wrapRef}
+        className="w-full"
+        style={{ height: pages.length ? Math.round((pages.length * PAGE_H + (pages.length - 1) * GAP) * escala) : 0, overflow: 'hidden' }}
+      >
+      <div
+        className="flex flex-col items-center"
+        style={{
+          width: PAGE_W,
+          gap: GAP,
+          transform: `scale(${escala})`,
+          transformOrigin: 'top left',
+          marginLeft: Math.max(0, Math.round((larguraDisponivel - PAGE_W * escala) / 2)),
+        }}
+      >
         {pages.map((pageHtml, i) => (
           <div
             key={i}
@@ -103,6 +155,7 @@ export default function DocumentReviewPreview({ html, dimmed }) {
             </span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
