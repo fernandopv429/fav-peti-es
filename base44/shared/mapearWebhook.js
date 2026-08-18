@@ -215,9 +215,30 @@ export function mapearCasoDeWebhook(data) {
   // que a especialista redige ("gira em torno de R$ 130,00"). Sem esta linha o
   // token VALOR_POR_FORA ficava vazio e as TRÊS peças saíram com
   // "[A PREENCHER: VALOR_POR_FORA]" no corpo E no rol de pedidos.
+  // VALOR_POR_FORA agora é campo próprio no formulário. Ele COMPLEMENTA: quando
+  // informado, é o valor mensal pago por fora e prevalece — o val_ft é valor POR
+  // FOLGA e servia só como aproximação. A dedução antiga fica como fallback,
+  // para as entrevistas que não trazem o campo.
+  const porForaInformado = parseRange(pick(d, 'VALOR_POR_FORA', 'valor_por_fora'));
+  if (porForaInformado) {
+    caso.valor_por_fora = porForaInformado;
+    caso.tem_integracao_por_fora = true;
+  }
   if (caso.tem_integracao_por_fora && !caso.valor_por_fora && caso.val_ft) {
     caso.valor_por_fora = caso.val_ft;
   }
+
+  // SALÁRIOS EM ABERTO: o cálculo (mathUtils) e o capítulo do modelo já
+  // existiam, faltava a pergunta. `salarios_aberto` é o texto que sai na peça
+  // ("outubro e novembro/2025"); `salarios_aberto_qtd` é o que multiplica pelo
+  // salário. A flag liga com qualquer um dos dois — se vier só o texto, o
+  // capítulo sai e o valor fica a apurar, que é a estratégia já usada nas
+  // demais verbas sem número.
+  const salAbertoTxt = String(pick(d, 'SALARIOS_ABERTO', 'salarios_aberto') || '').trim();
+  const salAbertoQtd = parseRange(pick(d, 'SALARIOS_ABERTO_QTD', 'salarios_aberto_qtd'));
+  if (salAbertoTxt) caso.salarios_aberto = salAbertoTxt;
+  if (salAbertoQtd) caso.salarios_aberto_qtd = salAbertoQtd;
+  if (salAbertoTxt || salAbertoQtd) caso.tem_salarios_aberto = true;
 
   // O formulário de entrevista tem UMA pergunta ("funções acumuladas") para
   // um conceito que a CCT trata como DOIS institutos distintos por categoria:
