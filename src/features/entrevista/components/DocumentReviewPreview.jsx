@@ -139,7 +139,10 @@ export default function DocumentReviewPreview({ html, dimmed }) {
           <div
             key={i}
             className="relative bg-white shadow-[0_2px_12px_rgba(32,33,36,0.18)] rounded-[2px] flex-shrink-0"
-            style={{ width: PAGE_W, minHeight: PAGE_H, maxWidth: '100%' }}
+            // SEM maxWidth: a folha tem de manter os 794px reais. Era o
+            // `maxWidth: '100%'` que a encolhia e desalinhava a paginação;
+            // o ajuste ao painel agora é feito pela escala, não pela largura.
+            style={{ width: PAGE_W, minHeight: PAGE_H }}
           >
             <div
               className="docx-content overflow-hidden"
