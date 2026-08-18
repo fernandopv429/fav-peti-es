@@ -835,6 +835,75 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18l) 3ª RECLAMADA na qualificação. O modelo só tinha parágrafos para a 1ª e a
+  // 2ª, então um caso com três partes saía com duas — a terceira era mapeada do
+  // payload (mapearWebhook) e descartada aqui. Visto no caso do José Carlos.
+  //
+  // O parágrafo novo é clonado do da 2ª reclamada, para herdar exatamente a mesma
+  // formatação (inclusive o negrito só na identificação, da etapa 18k), e entra
+  // envolvido em {{#tem_reclamada3}} — sem terceira parte, nada é impresso.
+  //
+  // O fecho "pelos motivos de fato e de direito…" fica na ÚLTIMA reclamada: no
+  // parágrafo da 2ª ele passa a ser condicional a NÃO haver terceira.
+  let reclamada3Adicionada = false;
+  {
+    const FECHO = /,?\s*pelos motivos de fato e de direito[^.;]*[.;]/i;
+    const ps = _paras(xml);
+    const i2 = ps.findIndex((p) => _textoPara(p.raw).includes('{{RECLAMADA2_RAZAO}}'));
+    const jaTem = xml.includes('{{RECLAMADA3_RAZAO}}');
+    if (i2 >= 0 && !jaTem) {
+      const raw2 = ps[i2].raw;
+      const txt2 = _textoPara(raw2);
+      const mFecho = FECHO.exec(txt2);
+      // Texto da 3ª: mesma moldura da 2ª, com as tags trocadas e o fecho mantido.
+      const txt3 = txt2
+        .replace(/2\u00aa\s*RECLAMADA/i, '3\u00aa RECLAMADA')
+        .replace(/RECLAMADA2_/g, 'RECLAMADA3_');
+      const pPr2 = _pPr(raw2);
+      const rPrs = raw2.match(/<w:rPr>[\s\S]*?<\/w:rPr>/g) || [];
+      const rNegrito = rPrs[0] || '';
+      const rNormal = (rPrs[1] || rNegrito).replace(/<w:b\/>/g, '').replace(/<w:bCs\/>/g, '');
+      // Corte do negrito no mesmo ponto da 2ª: até o CNPJ (etapa 18k).
+      const corte = (() => {
+        const pos = txt3.indexOf('{{RECLAMADA3_CNPJ}}');
+        if (pos < 0) return 0;
+        let c = pos + '{{RECLAMADA3_CNPJ}}'.length;
+        if (txt3[c] === ',') c++;
+        while (txt3[c] === ' ') c++;
+        return c;
+      })();
+      const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const p3 = corte > 0
+        ? `<w:p>${pPr2}<w:r>${rNegrito}<w:t xml:space="preserve">${esc(txt3.slice(0, corte))}</w:t></w:r>`
+          + `<w:r>${rNormal}<w:t xml:space="preserve">${esc(txt3.slice(corte))}</w:t></w:r></w:p>`
+        : _paraTx(esc(txt3), pPr2);
+      // Fecho condicional no parágrafo da 2ª (só quando NÃO houver terceira).
+      let novo2 = raw2;
+      if (mFecho) {
+        const semFecho = txt2.replace(FECHO, ';');
+        const cond = `{{^tem_reclamada3}}${mFecho[0]}{{/tem_reclamada3}}`;
+        const txt2Novo = semFecho.replace(/;\s*$/, '') + cond;
+        const corte2 = (() => {
+          const pos = txt2Novo.indexOf('{{RECLAMADA2_CNPJ}}');
+          if (pos < 0) return 0;
+          let c = pos + '{{RECLAMADA2_CNPJ}}'.length;
+          if (txt2Novo[c] === ',') c++;
+          while (txt2Novo[c] === ' ') c++;
+          return c;
+        })();
+        novo2 = corte2 > 0
+          ? `<w:p>${pPr2}<w:r>${rNegrito}<w:t xml:space="preserve">${esc(txt2Novo.slice(0, corte2))}</w:t></w:r>`
+            + `<w:r>${rNormal}<w:t xml:space="preserve">${esc(txt2Novo.slice(corte2))}</w:t></w:r></w:p>`
+          : _paraTx(esc(txt2Novo), pPr2);
+      }
+      const vazio = _paraTx('', pPr2);
+      xml = xml.slice(0, ps[i2].start)
+        + novo2 + _paraTx('{{#tem_reclamada3}}') + vazio + p3 + _paraTx('{{/tem_reclamada3}}')
+        + xml.slice(ps[i2].end);
+      reclamada3Adicionada = true;
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -893,5 +962,6 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     titulosPadronizados,
     linhasAposTitulo,
     qualificacaoAjustada,
+    reclamada3Adicionada,
   };
 }
