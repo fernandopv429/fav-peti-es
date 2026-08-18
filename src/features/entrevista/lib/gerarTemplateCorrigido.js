@@ -461,15 +461,24 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // apurar em liquidação". A peça saiu pedindo art. 71, noturno, 10 minutos e
   // periculosidade DUAS VEZES — uma com valor e outra sem. Aqui removemos as
   // linhas sem valor cuja verba agora está quantificada. As de horas extras
-  // (descaracterização da 12x36 e excedentes da 8ª/44ª) e o DSR autônomo FICAM:
-  // são teses próprias na peça da especialista e a decisão de fundi-las é do
-  // escritório, não minha.
+  //
+  // ATUALIZAÇÃO (análise do escritório): as três que ficavam — descaracterização
+  // da escala, excedentes da 8ª/44ª e DSR autônomo — TAMBÉM saem. Dois motivos,
+  // ambos apontados na revisão: (a) art. 840, §1º da CLT — pedido ilíquido com
+  // "e reflexos" sem valor arrisca extinção sem resolução de mérito daquele item;
+  // (b) as duas de horas extras se sobrepõem ao pedido de prorrogação da jornada,
+  // que já é líquido e com reflexos discriminados, gerando bis in idem nos
+  // reflexos. A especialista consolida tudo num pedido líquido só.
   const ROL_DUPLICADOS = [
     'intervalo intrajornada (art. 71 da CLT) e reflexos, a apurar em liquidação',
     'adicional noturno (20%) e hora noturna reduzida e reflexos, a apurar em liquidação',
     '10 (dez) minutos de descanso (cláusula 33ª) como hora extra e reflexos, a apurar em liquidação',
     'diferenças do adicional de periculosidade nas horas extras e reflexos, a apurar em liquidação',
     'minutos que antecedem/sucedem a jornada e reflexos, a apurar em liquidação',
+    'horas extras pela descaracterização da escala 12x36 e reflexos, a apurar em liquidação',
+    'horas extras pela descaracterização da escala {{ESCALA}} e reflexos, a apurar em liquidação',
+    'horas extras excedentes da 8ª diária/44ª semanal e reflexos, a apurar em liquidação',
+    'DSR e reflexos, a apurar em liquidação',
   ];
   let rolDuplicadosRemovidos = 0;
   {
