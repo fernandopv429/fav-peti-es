@@ -22,6 +22,11 @@ const CALC_CAMPO = {
   'Dano moral (10x remuneração)': 'VALOR_DANO_MORAL_10X',
   'Folgas trabalhadas (100%)': 'VALOR_FT',
   'Reflexo DSR sobre FT (1/6)': 'VALOR_DSR',
+  // As folgas e a integração passaram a levar a matriz inteira de reflexos
+  // (mathUtils), como no rol da especialista — antes as folgas tinham só DSR a
+  // 1/6 e a integração saía sem reflexo nenhum.
+  'Reflexos de Folgas trabalhadas (100%)': 'VALOR_FT_REFLEXOS',
+  'Reflexos de Integração de valores por fora': 'VALOR_INTEGRACAO_REFLEXOS',
   'Acúmulo de função (20%)': 'VALOR_ACUMULO',
   'Bonificação de assiduidade (diferença)': 'VALOR_ASSIDUIDADE',
   'Integração de valores por fora': 'VALOR_INTEGRACAO',
@@ -84,6 +89,8 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_HE_PRORROGACAO_REFLEXOS_TEXTO', 'VALOR_ART71_REFLEXOS_TEXTO',
   'VALOR_NOTURNO_REFLEXOS_TEXTO', 'VALOR_DEZ_MINUTOS_REFLEXOS_TEXTO',
   'VALOR_PERICULOSIDADE_HE_REFLEXOS_TEXTO', 'VALOR_MULTAS_CONV',
+  'VALOR_FT_REFLEXOS', 'VALOR_FT_REFLEXOS_TEXTO',
+  'VALOR_INTEGRACAO_REFLEXOS', 'VALOR_INTEGRACAO_REFLEXOS_TEXTO',
 ];
 
 export const FLAGS_TEMPLATE = [
@@ -528,11 +535,10 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // especialista as folgas levam a matriz inteira. Discriminado, o critério
   // usado fica à vista em vez de sair embutido num número solto.
   const itFt = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_FT');
-  const itDsr = (calculos || []).find((c) => CALC_CAMPO[c.item] === 'VALOR_DSR');
   const vFt = Number(itFt && itFt.valor) || 0;
-  const vDsr = Number(itDsr && itDsr.valor) || 0;
-  if (vFt > 0 && vDsr > 0) {
-    dados.FT_100 = `valor principal estimado de ${formatBRL(vFt)}, acrescido do reflexo em DSR (${formatBRL(vDsr)}), totalizando o valor estimado de ${formatBRL(round2(vFt + vDsr))}`;
+  if (vFt > 0 && dados.VALOR_FT_REFLEXOS_TEXTO) {
+    // Matriz inteira, no mesmo formato das demais verbas do rol.
+    dados.FT_100 = `valor principal estimado de ${formatBRL(vFt)}, ${dados.VALOR_FT_REFLEXOS_TEXTO}`;
   } else if (dados.VALOR_FT || dados.VALOR_DSR) {
     dados.FT_100 = `valor estimado de ${[dados.VALOR_FT, dados.VALOR_DSR].filter(Boolean).join(' + ')}`;
   } else {
