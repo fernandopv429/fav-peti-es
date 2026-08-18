@@ -63,6 +63,7 @@ export const CAMPOS_TEMPLATE = [
   'RECL_PIS', 'RECL_CTPS', 'RECL_SERIE', 'RECL_NASCIMENTO', 'RECL_FILIACAO', 'RECL_ENDERECO', 'RECL_EMAIL',
   'RECLAMADA1_RAZAO', 'RECLAMADA1_CNPJ', 'RECLAMADA1_ENDERECO',
   'RECLAMADA2_RAZAO', 'RECLAMADA2_CNPJ', 'RECLAMADA2_ENDERECO',
+  'RECLAMADA3_RAZAO', 'RECLAMADA3_CNPJ', 'RECLAMADA3_ENDERECO',
   'LOCAL_PRESTACAO_ENDERECO', 'DATA_ADMISSAO', 'DATA_RESCISAO', 'SALARIO',
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
@@ -86,7 +87,7 @@ export const CAMPOS_TEMPLATE = [
 ];
 
 export const FLAGS_TEMPLATE = [
-  'tem_tomadora', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
+  'tem_tomadora', 'tem_reclamada3', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
@@ -390,6 +391,14 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.RECLAMADA2_RAZAO = caso.recl2_nome || (r2 && r2.razao_social) || '';
   dados.RECLAMADA2_CNPJ = (r2 && r2.cnpj) || caso.recl2_cnpj || '';
   dados.RECLAMADA2_ENDERECO = caso.recl2_logradouro || (r2 && r2.endereco) || '';
+  // 3ª RECLAMADA. O mapeamento do webhook já gravava recl3_nome/cnpj/logradouro
+  // (mapearWebhook.js), mas aqui não havia token nenhum e o modelo não tinha
+  // parágrafo: a parte era lida do payload e descartada em silêncio — o caso do
+  // José Carlos entrou com três reclamadas e a peça saiu com duas.
+  const r3 = receita(caso.recl3_cnpj);
+  dados.RECLAMADA3_RAZAO = caso.recl3_nome || (r3 && r3.razao_social) || '';
+  dados.RECLAMADA3_CNPJ = (r3 && r3.cnpj) || caso.recl3_cnpj || '';
+  dados.RECLAMADA3_ENDERECO = caso.recl3_logradouro || (r3 && r3.endereco) || '';
 
   // 6) Contrato / rescisão
   const tipo = caso.tipo_dispensa || attrs.tipo_dispensa || 'sem_justa_causa';
@@ -474,6 +483,8 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     ? '3% (três por cento) sobre o salário normativo da categoria'
     : '20% (vinte por cento) por cláusula descumprida';
   dados.tem_tomadora = temTomadora;
+  // Acende o parágrafo da 3ª reclamada na qualificação.
+  dados.tem_reclamada3 = flag(dados.RECLAMADA3_RAZAO);
   dados.sem_justa_causa = tipo === 'sem_justa_causa';
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
   dados.coacao_demissao = tipo === 'nulidade_pedido_demissao';
