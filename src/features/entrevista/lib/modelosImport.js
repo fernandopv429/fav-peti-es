@@ -17,8 +17,8 @@ export function anonimizarTexto(txt) {
   t = t.replace(/[\w.\-]+@[\w.\-]+\.\w+/g, '[EMAIL]');
   t = t.replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '[CNPJ]');
   t = t.replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '[CPF]');
-  t = t.replace(/\bCEP:?\s*\d{5}-?\d{3}\b/gi, 'CEP: [CEP]');
-  t = t.replace(/\b\d{5}-\d{3}\b/g, '[CEP]');
+  t = t.replace(/\bCEP:?\s*\d{2}\.?\d{3}-?\d{3}\b/gi, 'CEP: [CEP]');
+  t = t.replace(/\b\d{2}\.?\d{3}-\d{3}\b/g, '[CEP]');
   t = t.replace(/(PIS:?\s*)[\d.\-]+/gi, '$1[PIS]');
   t = t.replace(/(S[ée]rie:?\s*)[\d.\-]+/gi, '$1[SERIE]');
   t = t.replace(/(CTPS:?\s*)[\d.\-]+/gi, '$1[CTPS]');
