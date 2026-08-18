@@ -39,10 +39,13 @@ export default function GerarPorEntrevista() {
         onRename={renameSession}
       />
       <div className="flex-1 min-h-0 flex flex-col">
+        {/* flex-col (não flex-row) no filho ativo: em coluna o conteúdo estica
+            na largura (stretch no eixo cruzado). Em linha, a sessão ficava com
+            a largura do conteúdo e sobrava uma faixa vazia à direita da tela. */}
         {sessions.map((s) => (
           <div
             key={s.id}
-            className={s.id === activeId ? 'flex-1 flex min-h-0' : 'hidden'}
+            className={s.id === activeId ? 'flex-1 flex flex-col min-h-0' : 'hidden'}
           >
             <EntrevistaSession sessionId={s.id} active={s.id === activeId} />
           </div>

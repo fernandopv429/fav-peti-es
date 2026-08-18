@@ -129,6 +129,10 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   // Enquanto não houver documento, esconder o chat deixaria a página sem
   // nenhuma forma de enviar a entrevista.
   const podeRecolherChat = !!docHtml;
+  // O painel do documento só entra na tela quando há algo para mostrar: a peça
+  // preenchida ou o aviso de template ausente. Antes ele reservava metade da
+  // largura desde o início, vazio.
+  const mostrarDocumento = !!docHtml || !temTemplate;
 
   useEffect(() => {
     base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
@@ -536,7 +540,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           className={
             podeRecolherChat && !chatAberto
               ? 'hidden'
-              : 'flex flex-col min-h-0 min-w-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border'
+              : mostrarDocumento
+                ? 'flex flex-col min-h-0 min-w-0 flex-1 lg:flex-none w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-border'
+                : 'flex flex-col min-h-0 min-w-0 flex-1 w-full'
           }
         >
           {/* overscroll-contain: ao chegar no fim da rolagem, o gesto NÃO passa
@@ -657,7 +663,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
           </div>
         </div>
 
-        {/* Documento */}
+        {/* Documento — entra na tela só quando há peça gerada (ou aviso de
+            template ausente); antes disso a conversa usa a largura toda. */}
+        {mostrarDocumento && (
         <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-muted">
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             {podeRecolherChat && (
@@ -736,6 +744,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
             )}
           </div>
         </div>
+        )}
       </div>
       <FilaWebhooks open={filaOpen} onOpenChange={setFilaOpen} onSelecionar={abrirCasoPronto} />
       <SessionLogsModal open={logsOpen} onOpenChange={setLogsOpen} messages={[...messages, ...consoleLogs]} />
