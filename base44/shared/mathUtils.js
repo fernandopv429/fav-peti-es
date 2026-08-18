@@ -441,12 +441,60 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     itens.push({ item: 'Dano moral (10x remuneração)', memoria: '10x a maior remuneração na função', valor: danoMoral10x(maiorRem) });
   }
 
-  if (caso.val_ft) {
-    const porFolga = Number(caso.val_ft);
-    const totalFT = folgasMes && meses ? round2(porFolga * folgasMes * meses) : round2(porFolga);
-    itens.push({ item: 'Folgas trabalhadas (100%)', memoria: folgasMes && meses ? `${formatBRL(porFolga)}/folga × ${folgasMes}/mês × ${meses} meses` : 'valor informado', valor: totalFT });
-    const dsr = dsrSobreValor(totalFT);
-    if (dsr) itens.push({ item: 'Reflexo DSR sobre FT (1/6)', memoria: 'Súm. 172 TST', valor: dsr });
+  // ---- Hora normal e reflexos: definidos ANTES dos itens ----
+  // As folgas trabalhadas e a integração dos valores pagos por fora também são
+  // verbas SALARIAIS e levam a matriz inteira de reflexos, como no rol da
+  // especialista. Antes o helper vivia dentro do bloco das verbas por hora e só
+  // elas tinham reflexo discriminado.
+  const horaNormal = salario ? round2(salario / PARAMS_HORAS.divisor_mensal) : null;
+  const addComReflexos = (item, memoria, valor) => {
+    const v = round2(valor);
+    if (!(v > 0)) return;
+    itens.push({ item, memoria, valor: v });
+    const r = reflexosSobre(v);
+    if (r) {
+      itens.push({
+        item: `Reflexos de ${item}`,
+        memoria: `${(REFLEXOS_TOTAL_PCT * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
+        valor: r.valor,
+        // Frase pronta com as rubricas abertas, consumida pelo rol de pedidos.
+        texto: r.texto,
+      });
+    }
+  };
+
+  // FOLGAS/FERIADOS TRABALHADOS (100%).
+  //
+  // (a) PRINCIPAL POR HORAS. Era `val_ft × folgas × meses`, onde val_ft é o
+  //     "valor por folga" informado na entrevista — um erro ali multiplica por
+  //     44: com val_ft = R$ 1.802,00 as folgas saíram R$ 79.288,00, dez vezes o
+  //     devido, e o valor da causa foi a R$ 168 mil contra R$ 70 mil da
+  //     especialista (risco de sucumbência e de "estimativa manifestamente
+  //     exagerada"). A folga trabalhada é hora extra a 100%: 12h × hora normal
+  //     × 2. O valor informado só prevalece se for plausível (até 1,5× a conta
+  //     por horas) — abaixo disso ele é mais conservador e vale respeitar.
+  //
+  // (b) MATRIZ INTEIRA. Levava só DSR, e a 1/6 (16,67%), enquanto as outras
+  //     cinco verbas usavam 7,25% — incoerência interna na mesma peça. Sobre o
+  //     principal, faltavam aviso prévio, 13º, férias + 1/3 e FGTS + 40%: pelo
+  //     art. 840, §1º da CLT, reflexo não pedido é dinheiro fora da mesa.
+  const folgasTotais = folgasMes && meses ? round2(folgasMes * meses) : null;
+  const porFolgaHoras = horaNormal
+    ? round2(PARAMS_HORAS.horas_jornada_dia * horaNormal * 2)
+    : null;
+  const porFolgaInformado = Number(caso.val_ft) || null;
+  const informadoPlausivel = porFolgaInformado && porFolgaHoras
+    ? porFolgaInformado <= porFolgaHoras * 1.5
+    : !!porFolgaInformado;
+  const porFolga = informadoPlausivel ? porFolgaInformado : porFolgaHoras;
+  if (porFolga && folgasTotais) {
+    const memoria = informadoPlausivel
+      ? `${formatBRL(porFolga)}/folga (informado) × ${folgasMes}/mês × ${meses} meses`
+      : `${PARAMS_HORAS.horas_jornada_dia}h × hora normal ${formatBRL(horaNormal)} × 2 (100%) = ${formatBRL(porFolga)}/folga × ${folgasTotais} folgas`
+        + (porFolgaInformado ? ` — valor informado de ${formatBRL(porFolgaInformado)}/folga DESCARTADO por implausibilidade` : '');
+    addComReflexos('Folgas trabalhadas (100%)', memoria, porFolga * folgasTotais);
+  } else if (porFolgaInformado) {
+    addComReflexos('Folgas trabalhadas (100%)', 'valor informado', porFolgaInformado);
   }
 
   if (temAcumulo && salario && meses) {
@@ -480,9 +528,11 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     itens.push({ item: 'Bonificação de assiduidade (diferença)', memoria: `${formatBRL(dif)}/mês × ${meses} meses`, valor: round2(dif * meses) });
   }
 
+  // Integração dos valores pagos por fora: verba salarial, leva a matriz. A
+  // fundamentação já pedia os reflexos; o rol saía com o valor seco.
   if (caso.tem_integracao_por_fora && caso.valor_por_fora && meses) {
     const vpf = Number(caso.valor_por_fora);
-    itens.push({ item: 'Integração de valores por fora', memoria: `${formatBRL(vpf)}/mês × ${meses} meses`, valor: round2(vpf * meses) });
+    addComReflexos('Integração de valores por fora', `${formatBRL(vpf)}/mês × ${meses} meses`, round2(vpf * meses));
   }
 
   if (caso.tem_auxilio_alimentacao && caso.valor_aux_alimentacao && folgasMes && meses) {
@@ -500,9 +550,6 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   }
 
   // ---- Verbas que dependem de contagem de horas ----
-  // Cada item entra com principal + reflexos (matriz do escritório) e com a
-  // conta inteira na memória. Antes, todas saíam "a apurar em liquidação".
-  const horaNormal = salario ? round2(salario / PARAMS_HORAS.divisor_mensal) : null;
   if (horaNormal && meses) {
     const ehVigilante = ehVigilanteFuncao;
     const adicConv = ehVigilante
@@ -514,22 +561,6 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     const diasMes = eh12x36 ? PARAMS_HORAS.dias_mes_12x36 : PARAMS_HORAS.dias_mes_padrao;
     const diasTotais = diasMes * meses;
     const base = `hora normal ${formatBRL(horaNormal)} (salário ÷ ${PARAMS_HORAS.divisor_mensal})`;
-
-    const addComReflexos = (item, memoria, valor) => {
-      const v = round2(valor);
-      if (!(v > 0)) return;
-      itens.push({ item, memoria, valor: v });
-      const r = reflexosSobre(v);
-      if (r) {
-        itens.push({
-          item: `Reflexos de ${item}`,
-          memoria: `${(REFLEXOS_TOTAL_PCT * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
-          valor: r.valor,
-          // Frase pronta com as rubricas abertas, consumida pelo rol de pedidos.
-          texto: r.texto,
-        });
-      }
-    };
 
     // 1) Horas extras pela prorrogação habitual (minutos que antecedem/sucedem)
     if (caso.jornada_extrapola || caso.prorrogacao_jornada) {
