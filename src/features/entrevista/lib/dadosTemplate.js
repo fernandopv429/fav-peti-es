@@ -146,9 +146,12 @@ function corrigirMunicipio(nome) {
   return CORRECOES_MUNICIPIO[String(nome).toUpperCase()] || nome;
 }
 
+// Aceita "04902-170", "04902170" e "04.902-170" — este último não casava com
+// `\d{5}` e fazia a comparação com o CEP consultado falhar (mesma correção
+// aplicada às regex de base44/shared/consultas.js).
 function cepDoEndereco(end) {
-  const m = /(\d{5})-?(\d{3})/.exec(String(end || ''));
-  return m ? `${m[1]}${m[2]}` : null;
+  const m = /(\d{2})\.?(\d{3})-?(\d{3})/.exec(String(end || ''));
+  return m ? `${m[1]}${m[2]}${m[3]}` : null;
 }
 
 // Competência = local da PRESTAÇÃO DE SERVIÇOS (art. 651 CLT), NÃO a residência
