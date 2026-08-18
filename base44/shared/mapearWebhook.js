@@ -75,6 +75,32 @@ const pick = (d, ...chaves) => {
 
 const juntar = (...partes) => partes.filter((p) => p && String(p).trim()).join(', ');
 
+// Endereço + complemento, sem repetir o que já está no logradouro.
+//
+// O payload costuma mandar o CEP nas DUAS chaves: RECL1_LOGRADOURO já termina em
+// "… São Paulo/SP, CEP: 04.902-170" e RECL1_ENDCOMPL vem com "CEP: 04.902-170".
+// Com `juntar` a peça saiu com "…, CEP: 04.902-170, CEP: 04.902-170" nas duas
+// reclamadas e também no capítulo da competência, que reaproveita o endereço.
+//
+// Duas checagens: complemento inteiro já contido no logradouro, e complemento
+// que é só um CEP cujos dígitos já aparecem lá (pega o caso em que um lado tem
+// o rótulo "CEP:" e o outro não).
+const soAlnum = (s) => String(s || '').toLowerCase().replace(/[^0-9a-zà-ÿ]/g, '');
+function juntarEndereco(base, complemento) {
+  const b = String(base || '').trim();
+  const c = String(complemento || '').trim();
+  if (!c) return b;
+  if (!b) return c;
+  const nb = soAlnum(b);
+  const nc = soAlnum(c);
+  if (!nc || nb.includes(nc)) return b;
+  if (/^(?:cep)?\d{8}$/.test(nc)) {
+    const digitos = nc.replace(/\D/g, '');
+    if (digitos.length === 8 && nb.includes(digitos)) return b;
+  }
+  return `${b}, ${c}`;
+}
+
 function inferirGenero(d) {
   const ec = String(d.RECL_ESTADOCIVIL || d.estado_civil || '').toLowerCase().trim();
   if (/a$/.test(ec)) return 'F';
@@ -130,13 +156,13 @@ export function mapearCasoDeWebhook(data) {
 
   caso.recl1_nome = pick(d, 'RECL1_NOME') || r1.razao_social || '';
   caso.recl1_cnpj = pick(d, 'RECL1_CNPJ') || r1.cnpj || '';
-  caso.recl1_logradouro = juntar(pick(d, 'RECL1_LOGRADOURO') || r1.endereco, pick(d, 'RECL1_ENDCOMPL'));
+  caso.recl1_logradouro = juntarEndereco(pick(d, 'RECL1_LOGRADOURO') || r1.endereco, pick(d, 'RECL1_ENDCOMPL'));
   caso.recl2_nome = pick(d, 'RECL2_NOME') || r2.razao_social || '';
   caso.recl2_cnpj = pick(d, 'RECL2_CNPJ') || r2.cnpj || '';
-  caso.recl2_logradouro = juntar(pick(d, 'RECL2_LOGRADOURO') || r2.endereco, pick(d, 'RECL2_ENDCOMPL'));
+  caso.recl2_logradouro = juntarEndereco(pick(d, 'RECL2_LOGRADOURO') || r2.endereco, pick(d, 'RECL2_ENDCOMPL'));
   caso.recl3_nome = pick(d, 'RECL3_NOME') || r3.razao_social || '';
   caso.recl3_cnpj = pick(d, 'RECL3_CNPJ') || r3.cnpj || '';
-  caso.recl3_logradouro = juntar(pick(d, 'RECL3_LOGRADOURO') || r3.endereco, pick(d, 'RECL3_ENDCOMPL'));
+  caso.recl3_logradouro = juntarEndereco(pick(d, 'RECL3_LOGRADOURO') || r3.endereco, pick(d, 'RECL3_ENDCOMPL'));
   caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
 
   caso.data_admissao = normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
