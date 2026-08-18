@@ -170,9 +170,42 @@ function localPrestacao(caso, dadosCep = []) {
   return null;
 }
 
+// `comarca_uf` é gravado por mapearWebhook.extrairUF, que devolve "Cidade/UF"
+// quando consegue identificar a cidade e só a UF quando não — os dois formatos
+// têm de ser aceitos. Antes o código fazia
+// `comarca_uf.replace(/[^A-Za-z]/g,'').slice(0,2)`, que em "São Paulo/SP"
+// devolvia "SO" (e "IT" em "Itapecerica da Serra/SP"): UF errada e, como
+// TRT_POR_UF["SO"] não existe, a peça saía sem a região do TRT.
+function partesComarca(valor) {
+  const s = String(valor || '').trim();
+  if (!s) return { municipio: '', uf: '' };
+  const m = /^(.*?)\s*\/\s*([A-Za-z]{2})$/.exec(s);
+  if (m) return { municipio: m[1].trim(), uf: m[2].toUpperCase() };
+  if (/^[A-Za-z]{2}$/.test(s)) return { municipio: '', uf: s.toUpperCase() };
+  return { municipio: s, uf: '' };
+}
+
+// Último recurso: lê "Cidade/UF" ou "Cidade - UF" de dentro de um endereço.
+function cidadeUfDoEndereco(end) {
+  const m = /([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.\s']{2,40})\s*[-/]\s*([A-Z]{2})\b/.exec(String(end || ''));
+  return m ? { municipio: m[1].trim(), uf: m[2].toUpperCase() } : { municipio: '', uf: '' };
+}
+
+// O município da vara vinha SÓ da consulta de CEP (`local`) ou de `caso.comarca`
+// — campo que NÃO EXISTE no contrato do caso (o campo é `comarca_uf`). Quando a
+// consulta de CEP não resolvia, ou quando o endereço da tomadora veio da Receita
+// em vez do parser (e por isso não está em recl2_logradouro/local_prestacao), o
+// município saía vazio e a peça imprimia "[VARA / CIDADE / REGIÃO]" no
+// endereçamento E no capítulo da competência — visto na peça do Carlos Gabriel,
+// que trazia o endereço completo da tomadora em São Paulo/SP logo abaixo.
+// Agora há cadeia de fallback: CEP consultado → comarca_uf → endereço do caso.
 function montarVaraCidadeRegiao(caso, local) {
-  const municipio = corrigirMunicipio(local?.municipio || caso.comarca || '');
-  const uf = (local?.uf || (caso.comarca_uf || '').replace(/[^A-Za-z]/g, '')).toUpperCase().slice(0, 2);
+  const daComarca = partesComarca(caso.comarca_uf);
+  const doEndereco = cidadeUfDoEndereco(
+    caso.local_prestacao || caso.recl2_logradouro || caso.recl1_logradouro || ''
+  );
+  const municipio = corrigirMunicipio(local?.municipio || daComarca.municipio || doEndereco.municipio || '');
+  const uf = String(local?.uf || daComarca.uf || doEndereco.uf || '').toUpperCase().slice(0, 2);
   if (!municipio) return '';
   const regiao = TRT_POR_UF[uf];
   return `${municipio.toUpperCase()}${uf ? `/${uf}` : ''}${regiao ? ` – ${regiao}` : ''}`;
