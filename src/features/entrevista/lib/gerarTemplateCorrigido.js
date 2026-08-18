@@ -940,6 +940,10 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     ["com integrações e reflexos nos DSR's, férias + 1/3, 13º salários e FGTS + 40%.", `com integrações e reflexos em ${REFLEXOS_CANONICOS}.`],
     // folgas trabalhadas / valores pagos por fora
     ['bem como seus reflexos, nos DSR\u2019s, férias + 1/3, 13º salários, FGTS + 40%.', `bem como seus reflexos em ${REFLEXOS_CANONICOS}.`],
+    // intervalo intrajornada (art. 71, §4º)
+    ['com reflexos nos Dsr\u2019s e integração nas férias + 1/3, 13º salários, FGTS + 40%.', `com reflexos em ${REFLEXOS_CANONICOS}.`],
+    // minutos que antecedem/sucedem a jornada
+    ['e seus reflexos nos DSR\u2019s, além de sua integração nas férias + 1/3, 13º salários e FGTS + 40%.', `e seus reflexos em ${REFLEXOS_CANONICOS}.`],
     // bonificação de assiduidade
     ['com reflexos no Descanso Semanal Remunerado (DSR), férias acrescidas de 1/3, 13º salário e FGTS + 40%,', `com reflexos em ${REFLEXOS_CANONICOS},`],
   ];
