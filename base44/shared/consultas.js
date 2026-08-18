@@ -4,8 +4,13 @@
 // incompatíveis com o contexto do webhook (sem usuário).
 
 const CNPJ_RE = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g;
-const CEP_LABEL_RE = /CEP:?\s*(\d{5}-?\d{3})/gi;
-const CEP_DASH_RE = /\b\d{5}-\d{3}\b/g;
+// CEP escrito com PONTO também conta: "04.902-170" é formato comum nos cadastros
+// e nos payloads do webhook. Com `\d{5}` os cinco primeiros dígitos precisavam ser
+// seguidos, então "04.902-170" não casava, o CEP não era extraído, não era
+// consultado no ViaCEP e o município ficava sem fonte — foi um dos motivos de a
+// peça do Carlos Gabriel sair com "[VARA / CIDADE / REGIÃO]".
+const CEP_LABEL_RE = /CEP:?\s*(\d{2}\.?\d{3}-?\d{3})/gi;
+const CEP_DASH_RE = /\b\d{2}\.?\d{3}-\d{3}\b/g;
 
 export function extrairCnpjs(texto) {
   const encontrados = new Set();
