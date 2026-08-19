@@ -440,7 +440,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // 8) Jornada
   dados.JORNADA_HORARIOS = caso.jornada_horario || '[HORÁRIOS]';
   dados.ESCALA = caso.escala || '[ESCALA]';
-  dados.INTERVALO_USUFRUIDO = caso.intervalo_usufruido || '';
+  // O formulário do MARCOS chegou com INTERVALO_USUFRUIDO e INTERVALO_GOZADO
+  // VAZIOS (a entrevistadora só marcou "intervalo suprimido"), então o token
+  // saía em branco na peça. Sem duração declarada, entra a redação padrão do
+  // intervalo parcial — o pedido do art. 71 já é integral de qualquer forma.
+  dados.INTERVALO_USUFRUIDO = caso.intervalo_usufruido
+    || (caso.intervalo_gozado === false ? 'período inferior a 1 (uma) hora' : '');
   dados.PRORROGACAO_JORNADA = caso.prorrogacao_jornada || '';
   // Texto declarado na entrevista ("5 a 6 vezes por mês") tem preferência sobre
   // a média numérica: imprimir a média gerava "em média de 5.5 vezes por mês"
