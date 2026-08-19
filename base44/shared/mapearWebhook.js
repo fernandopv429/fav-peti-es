@@ -135,6 +135,7 @@ export function mapearCasoDeWebhook(data) {
   const r1 = (d.reclamadas && d.reclamadas[0]) || {};
   const r2 = (d.reclamadas && d.reclamadas[1]) || {};
   const r3 = (d.reclamadas && d.reclamadas[2]) || {};
+  const r4 = (d.reclamadas && d.reclamadas[3]) || {};
 
   caso.recl_nome = pick(d, 'RECL_NOME', 'nome_cliente');
   caso.recl_nacionalidade = pick(d, 'RECL_NACIONALIDADE', 'nacionalidade');
@@ -156,23 +157,49 @@ export function mapearCasoDeWebhook(data) {
 
   caso.recl1_nome = pick(d, 'RECL1_NOME') || r1.razao_social || '';
   caso.recl1_cnpj = pick(d, 'RECL1_CNPJ') || r1.cnpj || '';
-  caso.recl1_logradouro = juntarEndereco(pick(d, 'RECL1_LOGRADOURO') || r1.endereco, pick(d, 'RECL1_ENDCOMPL'));
+  // O endereço de cada reclamada vem em TRÊS chaves: logradouro, complemento e
+  // agora RECLn_CEP (campo novo do formulário). juntarEndereco cuida de não
+  // repetir o CEP quando ele já aparece no logradouro ou no complemento.
+  const endReclamada = (n, r) =>
+    juntarEndereco(
+      juntarEndereco(pick(d, `RECL${n}_LOGRADOURO`) || r.endereco, pick(d, `RECL${n}_ENDCOMPL`)),
+      pick(d, `RECL${n}_CEP`) && `CEP ${pick(d, `RECL${n}_CEP`)}`,
+    );
+
+  caso.recl1_logradouro = endReclamada(1, r1);
   caso.recl2_nome = pick(d, 'RECL2_NOME') || r2.razao_social || '';
   caso.recl2_cnpj = pick(d, 'RECL2_CNPJ') || r2.cnpj || '';
-  caso.recl2_logradouro = juntarEndereco(pick(d, 'RECL2_LOGRADOURO') || r2.endereco, pick(d, 'RECL2_ENDCOMPL'));
+  caso.recl2_logradouro = endReclamada(2, r2);
   caso.recl3_nome = pick(d, 'RECL3_NOME') || r3.razao_social || '';
   caso.recl3_cnpj = pick(d, 'RECL3_CNPJ') || r3.cnpj || '';
-  caso.recl3_logradouro = juntarEndereco(pick(d, 'RECL3_LOGRADOURO') || r3.endereco, pick(d, 'RECL3_ENDCOMPL'));
+  caso.recl3_logradouro = endReclamada(3, r3);
+  // 4ª RECLAMADA — campo novo do formulário. Sem isto uma quarta tomadora era
+  // lida do payload e descartada em silêncio, como já havia ocorrido com a 3ª.
+  caso.recl4_nome = pick(d, 'RECL4_NOME') || r4.razao_social || '';
+  caso.recl4_cnpj = pick(d, 'RECL4_CNPJ') || r4.cnpj || '';
+  caso.recl4_logradouro = endReclamada(4, r4);
+  // Tempo laborado em cada tomadora (campo novo) — usado para delimitar o
+  // período de responsabilidade subsidiária de cada reclamada.
+  for (const n of [1, 2, 3, 4]) {
+    const t = pick(d, `RECL${n}_TEMPO_LABORADO`);
+    if (t) caso[`recl${n}_tempo_laborado`] = String(t).trim();
+  }
   caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
 
   caso.data_admissao = normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
-  caso.data_rescisao = normalizarData(pick(d, 'DATA_RESCISAO', 'demissao', 'ultimo_dia'));
+  caso.data_rescisao = normalizarData(pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia'));
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
   caso.tipo_dispensa = mapearTipoDispensa(pick(d, 'tipo_dispensa', 'TIPO_DISPENSA'));
 
-  caso.escala = pick(d, 'escala', 'ESCALA') || r1.escala || '';
-  caso.jornada_horario = pick(d, 'JORNADA_HORARIO', 'jornada_horario');
+  // RECL1_ESCALA_HORARIO (campo novo) traz escala + horário juntos
+  // ("12x36 — das 19h às 07h") e serve de reserva para os dois campos.
+  const escalaHorario1 = String(pick(d, 'RECL1_ESCALA_HORARIO') || '').trim();
+  caso.escala = pick(d, 'escala', 'ESCALA') || r1.escala
+    || (/(\d+\s*x\s*\d+)/i.exec(escalaHorario1)?.[1] || '').replace(/\s+/g, '')
+    || '';
+  caso.jornada_horario = pick(d, 'JORNADA_HORARIO', 'jornada_horario')
+    || escalaHorario1.split(/[—–-]/).slice(1).join('-').trim();
   if (d.horas_extras) {
     caso.jornada_extrapola = true;
     caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
@@ -193,7 +220,7 @@ export function mapearCasoDeWebhook(data) {
     // aceita DURAÇÃO. Na peça do Marcos a entrevista havia posto "Rádio HT
     // sempre ligado" neste campo e a frase saiu sem sentido no documento.
     // Detalhe que não é duração vai para observação, não para o texto da peça.
-    const det = String(pick(d, 'INTERVALO_GOZADO', 'intervalo_detalhes') || '').trim();
+    const det = String(pick(d, 'INTERVALO_USUFRUIDO', 'INTERVALO_GOZADO', 'intervalo_detalhes') || '').trim();
     if (det && /\d|minut|hora|meia/i.test(det)) caso.intervalo_usufruido = det;
     else if (det) caso.intervalo_observacao = det.slice(0, 200);
   }
@@ -259,6 +286,25 @@ export function mapearCasoDeWebhook(data) {
 
   if (d.periculosidade || d.tem_periculosidade) caso.tem_periculosidade = true;
   if (d.insalubridade || d.tem_insalubridade) caso.tem_insalubridade = true;
+  // Percentuais informados na entrevista (campos novos) — quando ausentes o
+  // cálculo segue com o grau legal padrão.
+  const pctInsal = parseRange(pick(d, 'insalubridade_porcentagem'));
+  if (pctInsal) caso.insalubridade_percentual = pctInsal;
+  const pctPeric = parseRange(pick(d, 'periculosidade_porcentagem'));
+  if (pctPeric) caso.periculosidade_percentual = pctPeric;
+
+  // DESCONTOS INDEVIDOS (campos novos): entram como fato do dano moral e como
+  // pedido de restituição. `desconto_qual` descreve o desconto.
+  if (d.desconto_indevido) {
+    caso.tem_desconto_indevido = true;
+    const qual = String(pick(d, 'desconto_qual') || '').trim();
+    if (qual) caso.desconto_descricao = qual.slice(0, 300);
+  }
+
+  // Superior hierárquico apontado na entrevista (campo novo) — é quem a
+  // narrativa do dano moral identifica como autor da perseguição.
+  const responsavel = String(pick(d, 'RESPONSAVEL_HIERARQUICO', 'dano_supervisor') || '').trim();
+  if (responsavel) caso.dano_supervisor = responsavel;
   if (d.adicional_noturno || d.tem_adic_noturno) caso.tem_adic_noturno = true;
 
   if (d.vale_transporte) caso.tem_vale_transporte = true;

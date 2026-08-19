@@ -69,6 +69,9 @@ export const CAMPOS_TEMPLATE = [
   'RECLAMADA1_RAZAO', 'RECLAMADA1_CNPJ', 'RECLAMADA1_ENDERECO',
   'RECLAMADA2_RAZAO', 'RECLAMADA2_CNPJ', 'RECLAMADA2_ENDERECO',
   'RECLAMADA3_RAZAO', 'RECLAMADA3_CNPJ', 'RECLAMADA3_ENDERECO',
+  'RECLAMADA4_RAZAO', 'RECLAMADA4_CNPJ', 'RECLAMADA4_ENDERECO',
+  'RECLAMADA1_TEMPO_LABORADO', 'RECLAMADA2_TEMPO_LABORADO',
+  'RECLAMADA3_TEMPO_LABORADO', 'RECLAMADA4_TEMPO_LABORADO', 'DESCONTO_DESCRICAO',
   'LOCAL_PRESTACAO_ENDERECO', 'DATA_ADMISSAO', 'DATA_RESCISAO', 'SALARIO',
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
@@ -94,7 +97,7 @@ export const CAMPOS_TEMPLATE = [
 ];
 
 export const FLAGS_TEMPLATE = [
-  'tem_tomadora', 'tem_reclamada3', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
+  'tem_tomadora', 'tem_reclamada3', 'tem_reclamada4', 'desconto_indevido', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
@@ -406,6 +409,17 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.RECLAMADA3_RAZAO = caso.recl3_nome || (r3 && r3.razao_social) || '';
   dados.RECLAMADA3_CNPJ = (r3 && r3.cnpj) || caso.recl3_cnpj || '';
   dados.RECLAMADA3_ENDERECO = caso.recl3_logradouro || (r3 && r3.endereco) || '';
+  // 4ª RECLAMADA — mesma situação da 3ª: o formulário passou a enviar uma quarta
+  // tomadora (RECL4_*) e sem estes tokens a parte não chegava ao documento.
+  const r4 = receita(caso.recl4_cnpj);
+  dados.RECLAMADA4_RAZAO = caso.recl4_nome || (r4 && r4.razao_social) || '';
+  dados.RECLAMADA4_CNPJ = (r4 && r4.cnpj) || caso.recl4_cnpj || '';
+  dados.RECLAMADA4_ENDERECO = caso.recl4_logradouro || (r4 && r4.endereco) || '';
+  // Tempo laborado em cada reclamada (campo novo do formulário) — delimita o
+  // período de responsabilidade de cada tomadora na qualificação.
+  for (const n of [1, 2, 3, 4]) {
+    dados[`RECLAMADA${n}_TEMPO_LABORADO`] = caso[`recl${n}_tempo_laborado`] || '';
+  }
 
   // 6) Contrato / rescisão
   const tipo = caso.tipo_dispensa || attrs.tipo_dispensa || 'sem_justa_causa';
@@ -492,6 +506,10 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.tem_tomadora = temTomadora;
   // Acende o parágrafo da 3ª reclamada na qualificação.
   dados.tem_reclamada3 = flag(dados.RECLAMADA3_RAZAO);
+  dados.tem_reclamada4 = flag(dados.RECLAMADA4_RAZAO);
+  // Descontos indevidos (campo novo): acende o capítulo/pedido de restituição.
+  dados.desconto_indevido = flag(caso.tem_desconto_indevido);
+  dados.DESCONTO_DESCRICAO = caso.desconto_descricao || '';
   dados.sem_justa_causa = tipo === 'sem_justa_causa';
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
   dados.coacao_demissao = tipo === 'nulidade_pedido_demissao';
