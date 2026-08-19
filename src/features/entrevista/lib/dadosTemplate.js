@@ -606,8 +606,15 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     const hor = caso.jornada_horario || '[HORÁRIOS]';
     const esc = caso.escala || (dados.escala_12x36 ? '12x36' : dados.escala_4x2 ? '4x2' : '[ESCALA]');
     const prorrog = caso.prorrogacao_jornada ? `, prorrogando a jornada em ${caso.prorrogacao_jornada}` : '';
-    const intervaloTxt = caso.intervalo_usufruido
-      ? `concessão parcial do intervalo para refeição e descanso de ${caso.intervalo_usufruido}`
+    // O campo pode ser DURAÇÃO ("15 minutos") ou CONDIÇÃO ("sempre à disposição
+    // com rádio HT ligado") — a preposição muda, senão sai "de sempre à
+    // disposição...".
+    const iv = caso.intervalo_usufruido;
+    const ivDuracao = iv && /\d|minut|hora|meia/i.test(iv);
+    const intervaloTxt = iv
+      ? (ivDuracao
+        ? `concessão parcial do intervalo para refeição e descanso de ${iv}`
+        : `concessão parcial do intervalo para refeição e descanso, uma vez que ${iv.charAt(0).toLowerCase()}${iv.slice(1)}`)
       : 'concessão parcial do intervalo intrajornada';
     dados.BLOCO_JORNADA =
       `Para elucidação dos direitos aqui pleiteados, o reclamante laborou no seguinte horário: ${hor}, dependendo das necessidades dos serviços${prorrog}, sob pena de advertência, ou até mesmo justa causa, em escala ${esc}, com a ${intervaloTxt}. ` +

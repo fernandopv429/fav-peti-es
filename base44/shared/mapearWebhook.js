@@ -220,9 +220,13 @@ export function mapearCasoDeWebhook(data) {
     // aceita DURAÇÃO. Na peça do Marcos a entrevista havia posto "Rádio HT
     // sempre ligado" neste campo e a frase saiu sem sentido no documento.
     // Detalhe que não é duração vai para observação, não para o texto da peça.
+    // O campo do formulário pode trazer DURAÇÃO ("15 minutos") ou a CONDIÇÃO em
+    // que o intervalo era usufruído ("sempre à disposição com rádio HT ligado").
+    // Antes só a duração era aproveitada e a condição virava observação: o token
+    // {{INTERVALO_USUFRUIDO}} saía vazio na peça (caso do Carlos Gabriel). Agora
+    // os dois casos preenchem o campo — quem ajusta a frase é dadosTemplate.
     const det = String(pick(d, 'INTERVALO_USUFRUIDO', 'INTERVALO_GOZADO', 'intervalo_detalhes') || '').trim();
-    if (det && /\d|minut|hora|meia/i.test(det)) caso.intervalo_usufruido = det;
-    else if (det) caso.intervalo_observacao = det.slice(0, 200);
+    if (det) caso.intervalo_usufruido = det.slice(0, 300);
   }
 
   if (d.folgas_trabalhadas || d.finais_semana) {
