@@ -6,6 +6,7 @@ import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos';
 import { blocoRegrasCriticas } from './regrasCriticas';
 import { blocoReferencias, attrsDoCaso } from '../../../../base44/shared/referencias.js';
 import { formatBRL, temDanoMoralConcreto } from './mathUtils';
+import { removerTravessoes } from '../../../../base44/shared/texto.js';
 
 // ============================================================
 // REDAÇÃO POR IA — ANÁLISE ÚNICA (um único LLM para todos os capítulos)
@@ -35,7 +36,7 @@ import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 // preservada aqui chega ao .docx. Espelha base44/shared/redacao.js.
 function sanitizarValoresIA(texto) {
   if (!texto) return texto;
-  return texto
+  return removerTravessoes(texto)
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
     .replace(/R\$\s*\d[\d.,]*/gi, '')
     // TRAVESSÃO (—): marca registrada de texto de IA, e estranha à prosa do
@@ -43,12 +44,6 @@ function sanitizarValoresIA(texto) {
     // regras de limpeza logo abaixo desfazem a pontuação dobrada resultante.
     // Atinge só o travessão (U+2014/U+2015): o traço médio (–) FICA, porque o
     // modelo .docx o usa em títulos ("DOS HONORÁRIOS ADVOCATÍCIOS – SUCUMBÊNCIA").
-    // Antes de conjunção não entra vírgula ("aviso prévio — e demais verbas"
-    // viraria "aviso prévio, e demais verbas"): ali o travessão só desaparece.
-    .replace(/\s*[\u2014\u2015]\s*(?=(?:e|ou)\s)/g, ' ')
-    .replace(/\s*[\u2014\u2015]\s*/g, ', ')
-    .replace(/^\s*,\s*/gm, '')
-    .replace(/,\s*([.;:)])/g, '$1')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+([,.;:])/g, '$1')
     .replace(/[ \t]+\n/g, '\n')

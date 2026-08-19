@@ -1,4 +1,5 @@
 import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto } from './mathUtils';
+import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 
 // ============================================================
 // FONTE ÚNICA DE DADOS DA PETIÇÃO
@@ -709,5 +710,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     dados.VALOR_MULTAS_CONV = 'a apurar em liquidação';
   }
 
+  // REDE FINAL do travessão: o relato da entrevista e campos como
+  // DESVIO_ATIVIDADES entram na peça literalmente, sem passar pelo
+  // sanitizador da IA. Limpar aqui pega todos os tokens de uma vez.
+  limparTravessoesDosDados(dados);
   return dados;
 }

@@ -9,6 +9,7 @@ import { BLOCO_REGRAS_QUALIDADE } from './regrasQualidadeFav.js';
 import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos.js';
 import { blocoRegrasCriticas } from './regrasCriticas.js';
 import { blocoReferencias, attrsDoCaso } from './referencias.js';
+import { removerTravessoes } from './texto.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -18,7 +19,7 @@ import { blocoReferencias, attrsDoCaso } from './referencias.js';
 // com linebreaks: true, então a quebra preservada aqui chega ao .docx.
 function sanitizarValoresIA(texto) {
   if (!texto) return texto;
-  return texto
+  return removerTravessoes(texto)
     // Valor COM o extenso entre parênteses tratado como UMA unidade. Sem isto
     // o numeral saía e o extenso ficava órfão no meio da frase
     // ("... (vinte e um mil quatrocentos e oitenta e dois reais) ...").
@@ -35,12 +36,6 @@ function sanitizarValoresIA(texto) {
     // regras de limpeza logo abaixo desfazem a pontuação dobrada resultante.
     // Atinge só o travessão (U+2014/U+2015): o traço médio (–) FICA, porque o
     // modelo .docx o usa em títulos ("DOS HONORÁRIOS ADVOCATÍCIOS – SUCUMBÊNCIA").
-    // Antes de conjunção não entra vírgula ("aviso prévio — e demais verbas"
-    // viraria "aviso prévio, e demais verbas"): ali o travessão só desaparece.
-    .replace(/\s*[\u2014\u2015]\s*(?=(?:e|ou)\s)/g, ' ')
-    .replace(/\s*[\u2014\u2015]\s*/g, ', ')
-    .replace(/^\s*,\s*/gm, '')
-    .replace(/,\s*([.;:)])/g, '$1')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+([,.;:])/g, '$1')
     .replace(/([,;])\s*\1+/g, '$1')
