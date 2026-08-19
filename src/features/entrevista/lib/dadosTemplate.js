@@ -266,7 +266,7 @@ export function narrativaDanoMoral(caso) {
   const fatos = [];
   if (caso.tem_desvio && caso.desvio_atividades) {
     const atv = String(caso.desvio_atividades).replace(/[.\s]+$/, '').toLowerCase().slice(0, 140);
-    fatos.push(`compelido a exercer, de forma habitual, atribuições alheias à função contratada (desvio de função — ${atv}) sem qualquer contraprestação pecuniária`);
+    fatos.push(`compelido a exercer, de forma habitual, atribuições alheias à função contratada (desvio de função: ${atv}) sem qualquer contraprestação pecuniária`);
   }
   if (caso.tem_ft && (caso.tem_integracao_por_fora || /pix|dinheiro/i.test(raw))) {
     fatos.push(`laborado em dias de folga mediante pagamento informal (via PIX/dinheiro), à margem da folha salarial e dos recolhimentos previdenciários`);

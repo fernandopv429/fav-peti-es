@@ -38,6 +38,14 @@ function sanitizarValoresIA(texto) {
   return texto
     .replace(/R\$\s*\d[\d.\s]*,\d{2}/gi, '')
     .replace(/R\$\s*\d[\d.,]*/gi, '')
+    // TRAVESSÃO (—): marca registrada de texto de IA, e estranha à prosa do
+    // escritório, que separa com vírgula ou parênteses. Vira vírgula, e as
+    // regras de limpeza logo abaixo desfazem a pontuação dobrada resultante.
+    // Atinge só o travessão (U+2014/U+2015): o traço médio (–) FICA, porque o
+    // modelo .docx o usa em títulos ("DOS HONORÁRIOS ADVOCATÍCIOS – SUCUMBÊNCIA").
+    .replace(/\s*[\u2014\u2015]\s*/g, ', ')
+    .replace(/^\s*,\s*/gm, '')
+    .replace(/,\s*([.;:)])/g, '$1')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+([,.;:])/g, '$1')
     .replace(/[ \t]+\n/g, '\n')
