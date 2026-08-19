@@ -106,6 +106,16 @@ function _substituirFraseTagTolerant(xml, frase, destino) {
   return xml.replace(new RegExp(pattern, 'gi'), destino);
 }
 
+// Variante tolerante a tag NO MEIO DA PALAVRA. _substituirFraseTagTolerant só
+// aceita tags entre palavras (ele quebra a frase nos espaços); quando o Word
+// fecha um <w:t> no meio de um termo — "Dsr" + "’s" — a frase não casa e a
+// substituição falha em silêncio. Aqui cada caractere pode vir seguido de tags.
+function _substituirFraseCharTolerant(xml, frase, destino) {
+  const partes = [...frase].map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = partes.join('(?:<[^>]+>)*');
+  return xml.replace(new RegExp(pattern, 'i'), destino);
+}
+
 // Remove os parágrafos cujo texto É exatamente uma das tags dadas. Usado para
 // desativar um bloco de IA sem tocar no texto determinístico que estava dentro
 // do fallback invertido. Percorre de trás para frente para os offsets de
@@ -951,6 +961,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   for (const [de, para] of REFLEXOS_TEXTO_MODELO) {
     const antes = xml;
     xml = _substituirFraseTagTolerant(xml, de, para);
+    if (xml === antes) xml = _substituirFraseCharTolerant(xml, de, para);
     if (xml !== antes) reflexosUniformizados++;
   }
 
