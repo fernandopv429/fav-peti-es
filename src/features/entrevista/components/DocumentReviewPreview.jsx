@@ -56,6 +56,22 @@ export default function DocumentReviewPreview({ html, dimmed }) {
   // só o tamanho aparente muda, e nada é cortado.
   const [escala, setEscala] = useState(1);
   const [larguraDisponivel, setLarguraDisponivel] = useState(0);
+  // Altura REAL das folhas empilhadas. Como uma folha pode crescer além da A4
+  // (para não cortar texto), a altura não pode mais ser calculada por
+  // páginas × PAGE_H — isso deixava o fim do documento fora da área visível.
+  const folhasRef = useRef(null);
+  const [alturaFolhas, setAlturaFolhas] = useState(0);
+
+  useEffect(() => {
+    const el = folhasRef.current;
+    if (!el) return undefined;
+    const medir = () => setAlturaFolhas(el.scrollHeight);
+    medir();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pages]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -123,9 +139,10 @@ export default function DocumentReviewPreview({ html, dimmed }) {
       <div
         ref={wrapRef}
         className="w-full"
-        style={{ height: pages.length ? Math.round((pages.length * PAGE_H + (pages.length - 1) * GAP) * escala) : 0, overflow: 'hidden' }}
+        style={{ height: alturaFolhas ? Math.round(alturaFolhas * escala) : 0, overflow: 'hidden' }}
       >
       <div
+        ref={folhasRef}
         className="flex flex-col items-center"
         style={{
           width: PAGE_W,
@@ -144,12 +161,14 @@ export default function DocumentReviewPreview({ html, dimmed }) {
             // o ajuste ao painel agora é feito pela escala, não pela largura.
             style={{ width: PAGE_W, minHeight: PAGE_H }}
           >
+            {/* SEM maxHeight/overflow: o miolo cortava tudo o que passasse de
+                uma folha, então capítulos longos redigidos pela IA apareciam
+                truncados na revisão. A folha agora cresce em vez de cortar. */}
             <div
-              className="docx-content overflow-hidden"
+              className="docx-content"
               style={{
                 padding: `${M_TOP}px ${M_RIGHT}px ${M_BOTTOM}px ${M_LEFT}px`,
                 minHeight: PAGE_H - 1,
-                maxHeight: PAGE_H,
               }}
               dangerouslySetInnerHTML={{ __html: pageHtml }}
             />

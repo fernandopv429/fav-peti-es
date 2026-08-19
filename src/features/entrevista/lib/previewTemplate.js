@@ -76,6 +76,19 @@ const MARCADORES_COLCHETES = {
   'ESCALA': 'ESCALA',
 };
 
+// Valor longo redigido pela IA vinha inteiro dentro de UM <p> (só com <br/>),
+// virando um bloco mais alto que a folha — e a paginação, que quebra por bloco,
+// não tinha onde cortar. Cada parágrafo do texto passa a ser um <p> próprio.
+function valorParaHtml(v, highlight) {
+  const partes = String(v).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return partes
+    .map((p) => {
+      const txt = escapeHtml(p).replace(/\n/g, '<br/>');
+      return highlight ? `<mark class="tpl-filled">${txt}</mark>` : txt;
+    })
+    .join('</p><p>');
+}
+
 // Um valor é "pendente" quando ausente, vazio ou ainda é um marcador [ENTRE COLCHETES].
 const pendente = (v) => v == null || v === '' || /^\s*\[.*\]\s*$/.test(String(v));
 
@@ -88,6 +101,12 @@ function corrigirTextoNoHtml(html) {
     t = t.replace(/Súmula\s+425\s+do\s+Tribunal\s+Superior\s+do\s+Trabalho/gi, 'artigo 791-A da CLT');
     t = t.replace(/Súmula\s+425\s+TST/gi, 'artigo 791-A da CLT');
     t = t.replace(/Itapecerica\s+da\s+Terra/gi, 'Itapecerica da Serra');
+    // Travessões (— e –) não entram na peça: viram vírgula quando separam
+    // trechos e desaparecem quando abrem/fecham linha.
+    t = t.replace(/\s*[—–]\s*$/g, '');
+    t = t.replace(/^\s*[—–]\s*/g, '');
+    t = t.replace(/\s*[—–]\s*/g, ', ');
+    t = t.replace(/,\s*,/g, ',');
     return `>${t}<`;
   });
 }
@@ -100,8 +119,7 @@ function resolverColchetes(html, dados, highlight) {
     if (v == null || v === '' || pendente(v)) {
       return highlight ? `<mark class="tpl-pending">${escapeHtml(match)}</mark>` : escapeHtml(match);
     }
-    const texto = escapeHtml(String(v)).replace(/\n/g, '<br/>');
-    return highlight ? `<mark class="tpl-filled">${texto}</mark>` : texto;
+    return valorParaHtml(v, highlight);
   });
 }
 
@@ -117,8 +135,7 @@ export function preencherEsqueleto(html, dados = {}, { highlight = true } = {}) 
       const rotulo = v ? String(v) : `{{${chave}}}`;
       return highlight ? `<mark class="tpl-pending">${escapeHtml(rotulo)}</mark>` : escapeHtml(v ? String(v) : '');
     }
-    const texto = escapeHtml(String(v)).replace(/\n/g, '<br/>');
-    return highlight ? `<mark class="tpl-filled">${texto}</mark>` : texto;
+    return valorParaHtml(v, highlight);
   });
   // Suporte a [MARCADOR] (template nativo do escritório)
   out = resolverColchetes(out, dados, highlight);
