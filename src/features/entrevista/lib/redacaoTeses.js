@@ -43,6 +43,9 @@ function sanitizarValoresIA(texto) {
     // regras de limpeza logo abaixo desfazem a pontuação dobrada resultante.
     // Atinge só o travessão (U+2014/U+2015): o traço médio (–) FICA, porque o
     // modelo .docx o usa em títulos ("DOS HONORÁRIOS ADVOCATÍCIOS – SUCUMBÊNCIA").
+    // Antes de conjunção não entra vírgula ("aviso prévio — e demais verbas"
+    // viraria "aviso prévio, e demais verbas"): ali o travessão só desaparece.
+    .replace(/\s*[\u2014\u2015]\s*(?=(?:e|ou)\s)/g, ' ')
     .replace(/\s*[\u2014\u2015]\s*/g, ', ')
     .replace(/^\s*,\s*/gm, '')
     .replace(/,\s*([.;:)])/g, '$1')
