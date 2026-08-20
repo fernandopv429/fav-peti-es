@@ -965,6 +965,51 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     if (xml !== antes) reflexosUniformizados++;
   }
 
+  // 18n) INTERVALO INTRAJORNADA: a peça afirmava supressão mesmo quando a
+  // entrevista dizia que o intervalo era gozado.
+  //
+  // (a) A frase da jornada era fixa: "com a concessão parcial do intervalo para
+  //     refeição e descanso de aproximadamente {{INTERVALO_USUFRUIDO}}". Com a
+  //     resposta NÃO à supressão, o token ficava vazio e saía "de aproximadamente
+  //     ." — além de afirmar concessão parcial de um intervalo regularmente
+  //     gozado. A frase inteira passa a vir de {{INTERVALO_FRASE}}, montada no
+  //     dadosTemplate conforme o estado real.
+  //
+  // (b) O capítulo "DO ARTIGO 71 DA CLT" era INCONDICIONAL e afirma "jamais
+  //     usufruiu do intervalo ... fazendo no máximo entre 10 a 15 minutos", com
+  //     pedido de condenação. Num caso sem supressão isso é alegação de fato que
+  //     não ocorreu, e sem valor no cálculo (o mathUtils só liquida o art. 71
+  //     quando há supressão). Passa a depender de {{#tem_intervalo_suprimido}}.
+  let intervaloFraseTokenizada = false;
+  let art71Condicionado = false;
+  {
+    const FRASE = 'com a concessão parcial do intervalo para refeição e descanso de aproximadamente {{INTERVALO_USUFRUIDO}}';
+    if (xml.includes('{{INTERVALO_USUFRUIDO}}') && !xml.includes('{{INTERVALO_FRASE}}')) {
+      const antes = xml;
+      xml = _substituirFraseTagTolerant(xml, FRASE, '{{INTERVALO_FRASE}}');
+      if (xml === antes) xml = _substituirFraseCharTolerant(xml, FRASE, '{{INTERVALO_FRASE}}');
+      intervaloFraseTokenizada = xml !== antes;
+    }
+    // Envolve título + corpo do capítulo do art. 71 na condicional.
+    const ps = _paras(xml);
+    const iTit = ps.findIndex((p) => _textoPara(p.raw).trim() === 'DO ARTIGO 71 DA CLT');
+    const jaCondicionado = iTit > 0 && _textoPara(ps[iTit - 1].raw).includes('{{#tem_intervalo_suprimido}}');
+    if (iTit >= 0 && !jaCondicionado) {
+      let fim = ps.length - 1;
+      for (let i = iTit + 1; i < ps.length; i++) {
+        if (_tituloCapitulo(_textoPara(ps[i].raw)) || _soTagsAbertura(_textoPara(ps[i].raw))) { fim = i - 1; break; }
+      }
+      if (fim > iTit) {
+        xml = xml.slice(0, ps[iTit].start)
+          + _paraTx('{{#tem_intervalo_suprimido}}')
+          + xml.slice(ps[iTit].start, ps[fim].end)
+          + _paraTx('{{/tem_intervalo_suprimido}}')
+          + xml.slice(ps[fim].end);
+        art71Condicionado = true;
+      }
+    }
+  }
+
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
@@ -1025,5 +1070,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     qualificacaoAjustada,
     reclamada3Adicionada,
     reflexosUniformizados,
+    intervaloFraseTokenizada,
+    art71Condicionado,
   };
 }
