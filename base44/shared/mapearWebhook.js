@@ -214,6 +214,10 @@ export function mapearCasoDeWebhook(data) {
       caso.prorrogacao_jornada = `${antes || depois} ${antes ? 'antes' : 'depois'}`;
     }
   }
+  // "Não" no formulário é resposta, não ausência de dado: registra o estado
+  // POSITIVO para a peça poder dizer que o intervalo era regularmente gozado.
+  // Sem isto, intervalo_gozado ficava undefined e o token saía vazio.
+  if (d.intervalo_suprimido === false) caso.intervalo_gozado = true;
   if (d.intervalo_suprimido) {
     caso.intervalo_gozado = false;
     // O campo entra na frase "concessão parcial do intervalo ... de X", então só

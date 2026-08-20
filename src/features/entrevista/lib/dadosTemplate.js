@@ -75,7 +75,7 @@ export const CAMPOS_TEMPLATE = [
   'RECLAMADA3_TEMPO_LABORADO', 'RECLAMADA4_TEMPO_LABORADO', 'DESCONTO_DESCRICAO',
   'LOCAL_PRESTACAO_ENDERECO', 'DATA_ADMISSAO', 'DATA_RESCISAO', 'SALARIO',
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
-  'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
+  'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
   'DOENCA_DESCRICAO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
   'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA',
@@ -98,7 +98,7 @@ export const CAMPOS_TEMPLATE = [
 ];
 
 export const FLAGS_TEMPLATE = [
-  'tem_tomadora', 'tem_reclamada3', 'tem_reclamada4', 'desconto_indevido', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
+  'tem_tomadora', 'tem_reclamada3', 'tem_intervalo_suprimido', 'tem_reclamada4', 'desconto_indevido', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
@@ -446,6 +446,29 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // intervalo parcial — o pedido do art. 71 já é integral de qualquer forma.
   dados.INTERVALO_USUFRUIDO = caso.intervalo_usufruido
     || (caso.intervalo_gozado === false ? 'período inferior a 1 (uma) hora' : '');
+
+  // INTERVALO: a frase do capítulo da jornada era fixa no modelo ("com a
+  // concessão parcial do intervalo ... de aproximadamente {{INTERVALO_USUFRUIDO}}").
+  // Quando a entrevista responde NÃO à supressão, o token ficava vazio e a peça
+  // saía com "de aproximadamente ." — e, pior, afirmando concessão PARCIAL de um
+  // intervalo que foi regularmente gozado. Agora a frase inteira é montada aqui,
+  // conforme os três estados possíveis, e o modelo recebe {{INTERVALO_FRASE}}.
+  const ivSuprimido = caso.intervalo_gozado === false || !!caso.intervalo_usufruido || !!caso.tem_intervalo_suprimido;
+  const ivRegular = caso.intervalo_gozado === true && !caso.intervalo_usufruido;
+  const ivTxt = caso.intervalo_usufruido;
+  const ivEhDuracao = ivTxt && /\d|minut|hora|meia/i.test(ivTxt);
+  dados.INTERVALO_FRASE = ivRegular
+    ? 'com a regular concessão do intervalo para refeição e descanso de 1 (uma) hora'
+    : ivSuprimido
+      ? (ivEhDuracao
+        ? `com a concessão parcial do intervalo para refeição e descanso de aproximadamente ${ivTxt}`
+        : ivTxt
+          ? `com a concessão parcial do intervalo para refeição e descanso, uma vez que ${String(ivTxt).charAt(0).toLowerCase()}${String(ivTxt).slice(1)}`
+          : 'com a concessão parcial do intervalo para refeição e descanso')
+      : 'com o intervalo para refeição e descanso a ser apurado';
+  // Acende o capítulo do art. 71, que no modelo era incondicional e afirmava
+  // "jamais usufruiu do intervalo" mesmo quando a entrevista dizia o contrário.
+  dados.tem_intervalo_suprimido = flag(ivSuprimido);
   dados.PRORROGACAO_JORNADA = caso.prorrogacao_jornada || '';
   // Texto declarado na entrevista ("5 a 6 vezes por mês") tem preferência sobre
   // a média numérica: imprimir a média gerava "em média de 5.5 vezes por mês"
