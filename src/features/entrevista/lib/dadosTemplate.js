@@ -102,7 +102,7 @@ export const FLAGS_TEMPLATE = [
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
-  'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas',
+  'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora',
 ];
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -748,6 +748,15 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // REDE FINAL do travessão: o relato da entrevista e campos como
   // DESVIO_ATIVIDADES entram na peça literalmente, sem passar pelo
   // sanitizador da IA. Limpar aqui pega todos os tokens de uma vez.
+  // O reflexo em DSR é discriminado DENTRO de cada verba por hora. Quando
+  // existe qualquer uma delas, o item genérico "DSR e reflexos, a apurar em
+  // liquidação" do rol pede a mesma coisa duas vezes — é o pedido repetido
+  // apontado na revisão. Este flag desliga o genérico nesse caso.
+  dados.tem_verba_por_hora = flag(
+    dados.VALOR_HE_PRORROGACAO || dados.VALOR_ART71 || dados.VALOR_NOTURNO ||
+    dados.VALOR_DEZ_MINUTOS || dados.VALOR_PERICULOSIDADE_HE || dados.FT_100
+  );
+
   limparTravessoesDosDados(dados);
   return dados;
 }
