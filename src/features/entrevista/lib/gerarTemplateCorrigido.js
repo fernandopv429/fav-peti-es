@@ -112,7 +112,12 @@ function _substituirFraseTagTolerant(xml, frase, destino) {
 // substituição falha em silêncio. Aqui cada caractere pode vir seguido de tags.
 function _substituirFraseCharTolerant(xml, frase, destino) {
   const partes = [...frase].map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const pattern = partes.join('(?:<[^>]+>)*');
+  // As tags aceitas entre caracteres são só INLINE. Permitir qualquer tag fazia
+  // o casamento atravessar </w:p><w:p>, e a substituição FUNDIA os dois
+  // parágrafos: foi assim que o {{#adicional_noturno}}, que era parágrafo
+  // próprio, acabou grudado no fim do corpo do art. 71 e cruzou as seções.
+  const INLINE = '(?:<(?!/?w:p[ >/])[^>]+>)*';
+  const pattern = partes.join(INLINE);
   return xml.replace(new RegExp(pattern, 'i'), destino);
 }
 
@@ -997,7 +1002,10 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     if (iTit >= 0 && !jaCondicionado) {
       let fim = ps.length - 1;
       for (let i = iTit + 1; i < ps.length; i++) {
-        if (_tituloCapitulo(_textoPara(ps[i].raw)) || _soTagsAbertura(_textoPara(ps[i].raw))) { fim = i - 1; break; }
+        const t = _textoPara(ps[i].raw);
+        // Para também quando a abertura vem EMBUTIDA no texto do parágrafo:
+        // fechar depois dela cruzaria as seções.
+        if (_tituloCapitulo(t) || /\{\{[#^][A-Za-z_0-9.]+\}\}/.test(t)) { fim = i - 1; break; }
       }
       if (fim > iTit) {
         xml = xml.slice(0, ps[iTit].start)
@@ -1018,6 +1026,24 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     const r = _numerarRol(xml, numIdRol);
     xml = r.xml;
     rolNumerado = r.alterados;
+  }
+
+  // TRAVA DE SEGURANÇA: seções cruzadas fazem o docxtemplater abortar, e a peça
+  // não exporta ("Não foi possível exportar o documento"). Contagem de abre ×
+  // fecha NÃO detecta isso — só a ORDEM detecta. Aborta aqui, com o template
+  // intacto, em vez de entregar um .docx que quebra no export.
+  {
+    const pilha = [];
+    let erro = null;
+    for (const m of xml.matchAll(/\{\{([#^/])([A-Za-z_0-9.]+)\}\}/g)) {
+      const [, tipo, nome] = m;
+      if (tipo === '#' || tipo === '^') pilha.push(nome);
+      else if (!pilha.length) { erro = `fecha {{/${nome}}} sem abertura`; break; }
+      else if (pilha[pilha.length - 1] !== nome) { erro = `fecha {{/${nome}}} mas a seção aberta é {{#${pilha[pilha.length - 1]}}}`; break; }
+      else pilha.pop();
+    }
+    if (!erro && pilha.length) erro = `seção sem fechamento: {{#${pilha[0]}}}`;
+    if (erro) throw new Error(`Template corrigido NÃO gerado — seções em ordem inválida (${erro}). Nenhum arquivo foi baixado.`);
   }
 
   zip.file('word/document.xml', xml);
