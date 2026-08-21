@@ -176,6 +176,46 @@ function _numIdDecimalLivre(zip, xmlDoc) {
   return null;
 }
 
+// ROL EM LETRAS. A peça da especialista numera os pedidos com "a)", "b)", "c)"
+// (numFmt lowerLetter, lvlText "%1)"), e só o fecho — a partir de "Dos pedidos
+// acima apontados..." — usa lista decimal. O nosso rol saía todo em decimal.
+//
+// O numId do rol vem de _numIdDecimalLivre, e o abstractNum dele é COMPARTILHADO
+// com outra lista do modelo: mexer no abstract existente mudaria a numeração
+// dessa outra lista também. Então criamos um abstractNum novo, em letras, e
+// apenas repontamos o <w:num> do rol para ele. O document.xml não muda.
+function _listaEmLetras(zip, numId) {
+  const arq = zip.file('word/numbering.xml');
+  if (!arq || !numId) return false;
+  let xmlNum = arq.asText();
+  const alvo = new RegExp(`(<w:num\\b[^>]*w:numId="${numId}"[^>]*>\\s*<w:abstractNumId\\s+w:val=")(\\d+)("\\s*/>)`);
+  if (!alvo.test(xmlNum)) return false;
+  const ids = [...xmlNum.matchAll(/<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"/g)].map((m) => Number(m[1]));
+  const novoId = (ids.length ? Math.max(...ids) : 0) + 1;
+  // Nove níveis: o Word aceita abstractNum parcial, mas alguns leitores
+  // (LibreOffice inclusive) reindentam a lista quando falta nível.
+  const niveis = Array.from({ length: 9 }, (_, i) => {
+    const fmt = i === 0 ? 'lowerLetter' : i % 3 === 1 ? 'decimal' : i % 3 === 2 ? 'lowerRoman' : 'lowerLetter';
+    const texto = i === 0 ? '%1)' : `%${i + 1}.`;
+    const esq = 720 + i * 720;
+    return (
+      `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/>` +
+      `<w:lvlText w:val="${texto}"/><w:lvlJc w:val="left"/>` +
+      `<w:pPr><w:ind w:left="${esq}" w:hanging="360"/></w:pPr></w:lvl>`
+    );
+  }).join('');
+  const abstrato =
+    `<w:abstractNum w:abstractNumId="${novoId}">` +
+    `<w:multiLevelType w:val="hybridMultilevel"/>${niveis}</w:abstractNum>`;
+  // Ordem do schema: todos os <w:abstractNum> antes de qualquer <w:num>.
+  const posNum = xmlNum.indexOf('<w:num ');
+  if (posNum < 0) return false;
+  xmlNum = xmlNum.slice(0, posNum) + abstrato + xmlNum.slice(posNum);
+  xmlNum = xmlNum.replace(alvo, `$1${novoId}$3`);
+  zip.file('word/numbering.xml', xmlNum);
+  return true;
+}
+
 // Converte os itens do rol de "• texto" para parágrafos NUMERADOS. A revisora
 // apontou "pedidos incompletos, fora da estrutura": o rol saía com bullet
 // literal enquanto a peça dela numera cada pedido.
@@ -1021,11 +1061,15 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
   // 19) ROL NUMERADO: troca o bullet literal "•" por lista numerada própria,
   // como na peça da especialista ("pedidos incompletos, fora da estrutura").
   let rolNumerado = 0;
+  let rolEmLetras = false;
   const numIdRol = _numIdDecimalLivre(zip, xml);
   if (numIdRol) {
     const r = _numerarRol(xml, numIdRol);
     xml = r.xml;
     rolNumerado = r.alterados;
+    // 19b) ROL EM LETRAS: "a)", "b)", "c)" até (exclusive) "Dos pedidos acima
+    // apontados...", que _numerarRol já deixa fora da lista do rol.
+    rolEmLetras = _listaEmLetras(zip, numIdRol);
   }
 
   // TRAVA DE SEGURANÇA: seções cruzadas fazem o docxtemplater abortar, e a peça
@@ -1079,6 +1123,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     avosTokenizados,
     rolHorasAdicionado,
     rolNumerado,
+    rolEmLetras,
     contratoNumerado,
     multasEmItens,
     rolDuplicadosRemovidos,
