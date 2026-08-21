@@ -623,6 +623,39 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     }
   }
 
+  // 18o) PEDIDO REPETIDO no rol: verba ilíquida que JÁ foi pedida com valor.
+  // A peça saiu com três pedidos de hora extra — "prorrogação da jornada" (com
+  // valor e reflexos), "descaracterização da escala 12x36" e "excedentes da 8ª
+  // diária/44ª semanal", os dois últimos "a apurar em liquidação" — e ainda um
+  // "DSR e reflexos, a apurar em liquidação" enquanto o DSR já vem discriminado
+  // como reflexo dentro de CADA verba por hora.
+  //
+  // A peça da especialista pede hora extra UMA vez, num item só ("prorrogações
+  // habituais da jornada E do labor prestado além da escala 12x36"), e nenhum
+  // item dela é ilíquido.
+  //
+  // Não apagamos: o genérico vira rede de segurança, condicionado à AUSÊNCIA do
+  // item com valor. Havendo valor, só o item com valor aparece; não havendo,
+  // o pedido não se perde.
+  const ROL_ILIQUIDOS = [
+    ['horas extras pela descaracterização da escala 12x36 e reflexos, a apurar em liquidação', 'VALOR_HE_PRORROGACAO'],
+    ['horas extras pela descaracterização da escala {{ESCALA}} e reflexos, a apurar em liquidação', 'VALOR_HE_PRORROGACAO'],
+    ['horas extras excedentes da 8ª diária/44ª semanal e reflexos, a apurar em liquidação', 'VALOR_HE_PRORROGACAO'],
+    ['DSR e reflexos, a apurar em liquidação', 'tem_verba_por_hora'],
+  ];
+  let rolIliquidosCondicionados = 0;
+  for (const [frase, tag] of ROL_ILIQUIDOS) {
+    const ps = _paras(xml);
+    const i = ps.findIndex((pp) => _textoPara(pp.raw).includes(frase));
+    if (i < 0) continue;
+    // Já condicionado por uma passada anterior? Não repetir o envelope.
+    const antes = i > 0 ? _textoPara(ps[i - 1].raw).trim() : '';
+    if (antes === `{{^${tag}}}`) continue;
+    const novo = _paraTx(`{{^${tag}}}`) + ps[i].raw + _paraTx(`{{/${tag}}}`);
+    xml = xml.slice(0, ps[i].start) + novo + xml.slice(ps[i].end);
+    rolIliquidosCondicionados++;
+  }
+
   // 18e) ORDEM DOS CAPÍTULOS — conferida título a título contra a peça da
   // especialista no caso Marcos ("Feita pela especialista.docx", 32 capítulos).
   // A ordem da peça é a ordem das tags no .docx; não havia array de
@@ -1131,6 +1164,7 @@ export async function baixarTemplateCorrigido(url, nomeArquivo = 'MODELO_PRINCIP
     capitulosReordenados,
     ordemPendente,
     rolGenericosRemovidos,
+    rolIliquidosCondicionados,
     reflexosDiscriminados,
     ftDiscriminada,
     rolMultaComValor,
