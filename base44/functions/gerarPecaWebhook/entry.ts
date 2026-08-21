@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
-import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
+import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
 // ============================================================
@@ -240,11 +240,19 @@ export default async function(req) {
     const avisosDados = [];
     if (!caso.salario) {
       const piso = dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null;
-      if (piso) {
-        caso.salario = piso;
-        caso.salario_origem = 'piso da CCT consultada';
+      // Segunda fonte: o campo `pisos` da CCT cadastrada, curado por função.
+      // Sem ela, quando a consulta à API não devolvia a cláusula do piso a peça
+      // saía sem base de cálculo nenhuma — foi o caso do Aluizio.
+      const pisoBase = piso ? null : pisoDaBaseCct(cctCadastrada, caso.funcao);
+      if (piso || pisoBase) {
+        const valor = piso || pisoBase.valor;
+        const fonte = piso
+          ? 'piso da CCT consultada'
+          : `piso da CCT cadastrada (${pisoBase.chave})`;
+        caso.salario = valor;
+        caso.salario_origem = fonte;
         avisosDados.push(
-          `Salário não informado no evento: adotado o piso da CCT consultada (R$ ${Number(piso).toFixed(2).replace('.', ',')}). CONFIRMAR com holerite/CTPS antes de protocolar — todo o rol de pedidos depende deste valor.`
+          `Salário não informado no evento: adotado o ${fonte} (R$ ${Number(valor).toFixed(2).replace('.', ',')}). CONFIRMAR com holerite/CTPS antes de protocolar — todo o rol de pedidos depende deste valor.`
         );
       } else {
         caso.salario_origem = 'ausente';
