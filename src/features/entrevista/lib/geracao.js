@@ -39,6 +39,8 @@ import {
   montarTermosDatajud,
   enriquecerCct,
   extrairPisoCct,
+  pisoDaBaseCct,
+  categoriaEntidadeCct,
 } from './consultas';
 
 // ============================================================
@@ -263,12 +265,30 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
     }
   }
 
-  // Piso salarial da CCT como fallback quando o salário não foi informado
-  if (!caso.salario && dadosCct) {
-    const piso = extrairPisoCct(dadosCct, caso.funcao);
-    if (piso) {
-      caso.salario = piso;
-      notify(`Salário não informado na entrevista — adotando piso salarial da CCT (${dadosCct.meta?.titulo || 'categoria'}): R$ ${piso.toFixed(2).replace('.', ',')}.`);
+  // Piso salarial como base de cálculo quando o salário não foi informado.
+  // Duas fontes, nesta ordem: (1) a cláusula da CCT consultada na API;
+  // (2) o campo `pisos` da CCT cadastrada, curado por função. Sem a segunda,
+  // quando a API não devolve a cláusula a peça sai sem base nenhuma e todo o
+  // rol de pedidos vem a zero.
+  if (!caso.salario) {
+    const piso = dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null;
+    let valor = piso;
+    let fonte = piso ? `piso da CCT consultada (${dadosCct?.meta?.titulo || 'categoria'})` : '';
+    if (!valor) {
+      const categoriaEnt = categoriaEntidadeCct(caso, attrs);
+      const registro = categoriaEnt
+        ? (await base44.entities.CCT.filter({ categoria: categoriaEnt, ativo: true }, '-vigencia_inicio', 5).catch(() => []))?.[0] || null
+        : null;
+      const daBase = pisoDaBaseCct(registro, caso.funcao);
+      if (daBase) {
+        valor = daBase.valor;
+        fonte = `piso da CCT cadastrada${registro?.nome ? ` (${registro.nome})` : ''} — ${daBase.chave}`;
+      }
+    }
+    if (valor) {
+      caso.salario = valor;
+      caso.salario_origem = fonte;
+      notify(`Salário não informado na entrevista — adotando ${fonte}: R$ ${valor.toFixed(2).replace('.', ',')}. CONFIRMAR com holerite/CTPS antes de protocolar.`);
     }
   }
 
