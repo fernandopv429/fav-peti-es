@@ -307,6 +307,47 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   };
 }
 
+// PISO DA BASE CURADA DE CCTs (entidade CCT, campo `pisos`).
+//
+// Segunda fonte do salário quando a entrevista não informa e a consulta à API
+// não devolve a cláusula do piso. Antes só existia a primeira fonte: sem ela, a
+// peça saía sem base de cálculo (caso do Aluizio). O campo `pisos` já vinha
+// preenchido à mão nas três categorias, por função — só não era lido.
+//
+// É melhor fonte que PISOS_FALLBACK porque é conferível e versionada por
+// vigência na própria entidade, em vez de chapada no código.
+const RX_PISO_VALOR = /R\$\s*([\d.]+,\d{2})/;
+// Chaves/valores que NÃO servem de piso da função comum: cargos de chefia,
+// tempo parcial, administrativo, notas de reajuste e piso expressamente vedado.
+const PISO_INSERVIVEL = /vedado|supervisor|coordenador|inspetor|encarregado|lider|tempo_parcial|administrativ|reajuste|^obs$/i;
+
+function valorDoPiso(texto) {
+  const m = RX_PISO_VALOR.exec(String(texto || ''));
+  if (!m) return null;
+  const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(v) && v > 500 && v < 20000 ? v : null;
+}
+
+export function pisoDaBaseCct(registroCct, funcao = '') {
+  const pisos = registroCct?.pisos;
+  if (!pisos || typeof pisos !== 'object') return null;
+  const nn = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const candidatas = Object.entries(pisos)
+    .map(([chave, texto]) => ({ chave, nk: nn(chave), valor: valorDoPiso(texto), texto: String(texto || '') }))
+    .filter((e) => e.valor && !PISO_INSERVIVEL.test(e.chave) && !PISO_INSERVIVEL.test(e.texto));
+  if (!candidatas.length) return null;
+  // 1) a função aparece na chave — entre as que casam, a chave mais CURTA é a
+  //    do cargo base ("vigilante" antes de "vigilante_condutor_veiculos").
+  const termos = nn(funcao).split(/[^a-z0-9]+/).filter((t) => t.length > 3);
+  const casaFuncao = candidatas
+    .filter((e) => termos.some((t) => e.nk.includes(t)))
+    .sort((a, b) => a.nk.length - b.nk.length);
+  if (casaFuncao.length) return { valor: casaFuncao[0].valor, chave: casaFuncao[0].chave };
+  // 2) piso normativo/mínimo da categoria
+  const generica = candidatas.find((e) => /normativ|minim|demais_funcoes/.test(e.nk));
+  return generica ? { valor: generica.valor, chave: generica.chave } : null;
+}
+
 // Pisos de último recurso. NÃO são usados por padrão — ver extrairPisoCct.
 const PISOS_FALLBACK = {
   vigilante_2025: 2127.66,
