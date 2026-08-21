@@ -255,6 +255,47 @@ export async function enriquecerCct(caso, attrs, config, local = {}) {
 }
 
 // ============================================================
+// Categoria da entidade CCT cadastrada (espelha base44/shared/consultas.js).
+const CATEGORIA_ENTIDADE = {
+  vigilancia: 'vigilante',
+  asseio_conservacao: 'porteiro_siemaco',
+  terceirizados: 'porteiro_sindeepres',
+};
+
+export function categoriaEntidadeCct(caso = {}, attrs = {}) {
+  return CATEGORIA_ENTIDADE[categoriaCct(caso, attrs)] || null;
+}
+
+// PISO DA BASE CURADA DE CCTs (entidade CCT, campo `pisos`).
+// Segunda fonte do salário, entre a cláusula consultada e a desistência.
+// Espelha base44/shared/consultas.js — editar as duas juntas.
+const RX_PISO_VALOR = /R\$\s*([\d.]+,\d{2})/;
+const PISO_INSERVIVEL = /vedado|supervisor|coordenador|inspetor|encarregado|lider|tempo_parcial|administrativ|reajuste|^obs$/i;
+
+function valorDoPiso(texto) {
+  const m = RX_PISO_VALOR.exec(String(texto || ''));
+  if (!m) return null;
+  const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(v) && v > 500 && v < 20000 ? v : null;
+}
+
+export function pisoDaBaseCct(registroCct, funcao = '') {
+  const pisos = registroCct?.pisos;
+  if (!pisos || typeof pisos !== 'object') return null;
+  const nn = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const candidatas = Object.entries(pisos)
+    .map(([chave, texto]) => ({ chave, nk: nn(chave), valor: valorDoPiso(texto), texto: String(texto || '') }))
+    .filter((e) => e.valor && !PISO_INSERVIVEL.test(e.chave) && !PISO_INSERVIVEL.test(e.texto));
+  if (!candidatas.length) return null;
+  const termos = nn(funcao).split(/[^a-z0-9]+/).filter((t) => t.length > 3);
+  const casaFuncao = candidatas
+    .filter((e) => termos.some((t) => e.nk.includes(t)))
+    .sort((a, b) => a.nk.length - b.nk.length);
+  if (casaFuncao.length) return { valor: casaFuncao[0].valor, chave: casaFuncao[0].chave };
+  const generica = candidatas.find((e) => /normativ|minim|demais_funcoes/.test(e.nk));
+  return generica ? { valor: generica.valor, chave: generica.chave } : null;
+}
+
 // Extrai o piso salarial da CCT aplicável quando o salário do
 // reclamante não foi informado na entrevista. Procura nas cláusulas
 // por menções a "piso", "salário normativo", "salário base" e
@@ -272,7 +313,7 @@ const PISOS_FALLBACK = {
   asseio_2026: 1805.00,
 };
 
-export function extrairPisoCct(dadosCct, funcao = '') {
+export function extrairPisoCct(dadosCct, funcao = '', { permitirFallback = false } = {}) {
   if (!dadosCct?.clausulas?.length) return null;
   const PADROES_PISO = /piso\s*salarial|sal[áa]rio\s*normativo|sal[áa]rio\s*base|sal[áa]rio\s*m[íi]nimo\s*(?:da\s*categoria|convencional)/i;
   for (const c of dadosCct.clausulas) {
@@ -285,7 +326,10 @@ export function extrairPisoCct(dadosCct, funcao = '') {
       if (Number.isFinite(v) && v > 500 && v < 20000) return v;
     }
   }
-  // Fallback empírico por categoria/ano
+  // Fallback empírico por categoria/ano — LTIMO recurso, desligado por
+  // padrão: valor chapado no código já produziu duas peças com base de
+  // cálculo errada. Só entra com permitirFallback: true.
+  if (!permitirFallback) return null;
   const ano = dadosCct.meta?.ano_base ? String(dadosCct.meta.ano_base) : String(new Date().getFullYear());
   const cat = dadosCct.categoria || categoriaCct({ funcao }, {});
   const ehVig = /vigilante|vigil/i.test(funcao || '');
