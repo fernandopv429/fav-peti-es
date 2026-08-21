@@ -257,7 +257,7 @@ export default async function(req) {
       } else {
         caso.salario_origem = 'ausente';
         avisosDados.push(
-          'Salário não informado no evento e piso não localizado nas cláusulas da CCT: a peça está SEM base de cálculo. Preencher o salário antes de exportar.'
+          'Salário não informado no evento e piso não localizado (nem nas cláusulas da CCT consultada, nem na base de CCTs cadastradas): a peça está SEM base de cálculo. Preencher o salário antes de exportar.'
         );
       }
     } else {
