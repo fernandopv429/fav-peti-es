@@ -369,6 +369,13 @@ export default async function(req) {
       status: 'gerado',
       analise_status: 'concluida',
       auditado_em: new Date().toISOString(),
+      // A CasoTrabalhista é criada ANTES de o piso da CCT ser resolvido (o
+      // salário só é adotado na etapa 7), então a coluna ficava com o null que
+      // veio do evento para sempre — foi o que apareceu no caso do Aluizio, dando
+      // a impressão de que o piso não tinha sido usado. A peça, montada a partir
+      // de analise_json.caso, já usava o piso; a coluna é que ficava atrasada.
+      salario: caso.salario || undefined,
+      data_rescisao: caso.data_rescisao || undefined,
       analise_json: analiseJsonFinal,
     });
 
