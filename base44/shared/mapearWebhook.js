@@ -1,3 +1,4 @@
+import { presumirRescisaoNaElaboracao } from './mathUtils.js';
 // Mapeamento determinístico do payload do webhook → objeto `caso`.
 // Fonte unica do contrato do webhook (a copia do frontend foi removida por ser morta).
 
@@ -377,6 +378,10 @@ export function mapearCasoDeWebhook(data) {
   else if (relato) caso.dano_observacao = relato;
 
   caso.comarca_uf = extrairUF(caso.local_prestacao || caso.recl_endereco);
+
+  // Sem data de rescisão, a data da elaboração faz as vezes dela (contrato
+  // ainda não encerrado formalmente). Sem isto o cálculo inteiro cai.
+  presumirRescisaoNaElaboracao(caso);
 
   return caso;
 }

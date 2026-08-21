@@ -368,6 +368,26 @@ function cruzaNoturno(jornadaTxt) {
   return fim < inicio;
 }
 
+// RESCISÃO SEM DATA: a data da ELABORAÇÃO faz as vezes dela.
+//
+// Acontece quando o contrato não foi formalmente encerrado — típico de rescisão
+// indireta e de dispensa cuja baixa só será reconhecida em juízo ("parada na
+// data da audiência"). O caso do Aluizio chegou assim, e sem data TUDO trava:
+// mesesContrato devolve null, e com isso caem aviso prévio, 13º, férias, FGTS,
+// multas e todas as verbas por hora. A peça saiu com R$ 629,23 de alçada, contra
+// as dezenas de milhares que o contrato comporta, e com "[DATA DE RESCISÃO]"
+// impresso no lugar da data.
+//
+// Marca `data_rescisao_presumida` para quem exibe a peça poder avisar que aquela
+// data é a da elaboração, não uma data informada pelo cliente.
+export function presumirRescisaoNaElaboracao(caso, hoje = new Date()) {
+  if (!caso || caso.data_rescisao || !caso.data_admissao) return caso;
+  const iso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  caso.data_rescisao = iso;
+  caso.data_rescisao_presumida = true;
+  return caso;
+}
+
 export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const itens = [];
   const salario = Number(caso.salario) || null;

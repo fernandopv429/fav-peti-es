@@ -9,6 +9,7 @@ import { montarDadosTemplate } from './dadosTemplate';
 import { redigirTesesIA } from './redacaoTeses';
 import { listarModelosAtivos, rankearModelos } from './matching';
 import { gerarFaltantesTexto } from './guiaCampos';
+import { presumirRescisaoNaElaboracao } from './mathUtils';
 
 // Extrai texto puro de arquivos .docx anexados como entrevista.
 // A IA NÃO lê .docx por visão (só PDF/imagem) — sem isto, os dados de um
@@ -285,6 +286,8 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
   // consultada para corrigir cláusula/percentual de desvio/acúmulo/
   // gratificação pela categoria real do caso (vigilância/asseio/terceirizados).
+  // Sem data de rescisão, usa a data da elaboração (ver mathUtils).
+  presumirRescisaoNaElaboracao(caso);
   const calculos = calcularVerbasCaso(caso || {}, dadosCct);
   // Aviso de campos críticos ausentes após toda a extração (guia de campos)
   const faltantes = gerarFaltantesTexto(caso);
