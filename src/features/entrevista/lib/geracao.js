@@ -1,3 +1,4 @@
+import { base44 } from '@/api/base44Client';
 import { runtimeCacheKey, withRuntimeCache } from './runtimeCache';
 import mammoth from 'mammoth';
 import { sanitizarTextoEntrevista } from './pdfSanitizer';
