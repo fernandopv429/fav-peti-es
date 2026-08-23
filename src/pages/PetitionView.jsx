@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import PetitionRenderer from "@/features/peticoes/PetitionRenderer";
 import PetitionCorrectionChat from "@/features/peticoes/PetitionCorrectionChat";
 import ReescreverCapitulo from "@/features/peticoes/ReescreverCapitulo";
+import ReferenciasPeticao from "@/features/peticoes/ReferenciasPeticao";
 import { formatarData } from "@/lib/formatarData";
 
 export default function PetitionView() {
@@ -338,6 +339,9 @@ export default function PetitionView() {
           onAplicar={handleSaveContent}
         />
       )}
+
+      {/* Referências e precedentes vinculados */}
+      <ReferenciasPeticao petitionId={id} />
 
       {/* Review Section */}
       <ReviewSectionPanel

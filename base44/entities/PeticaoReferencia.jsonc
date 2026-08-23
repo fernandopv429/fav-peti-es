@@ -1,0 +1,28 @@
+{
+  "name": "PeticaoReferencia",
+  "type": "object",
+  "description": "V\u00ednculo entre uma peti\u00e7\u00e3o e um modelo de refer\u00eancia/precedente da biblioteca, com anota\u00e7\u00f5es do advogado.",
+  "properties": {
+    "petition_id": {
+      "type": "string",
+      "description": "ID da peti\u00e7\u00e3o"
+    },
+    "modelo_id": {
+      "type": "string",
+      "description": "ID do ModeloReferencia vinculado"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo do modelo/precedente no momento do v\u00ednculo"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Anota\u00e7\u00f5es do advogado sobre o uso deste precedente na peti\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "petition_id",
+    "modelo_id",
+    "titulo"
+  ]
+}
