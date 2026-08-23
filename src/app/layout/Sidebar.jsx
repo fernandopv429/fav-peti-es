@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Home, BookOpen, Scale, LogOut, FileText, FolderOpen, BookMarked,
-  Calculator, Shield, TrendingUp, ShieldCheck, BarChart2, MessagesSquare, Webhook,
+  Home, Scale, LogOut, FileText, FolderOpen, MessagesSquare, Webhook,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -11,10 +10,7 @@ import { useAuth } from "@/app/auth/AuthContext";
 const NAV = [
   {
     group: "Principal",
-    items: [
-      { label: "Início", icon: Home, path: "/" },
-      { label: "Catálogo de Especialistas", icon: BookOpen, path: "/catalogo" },
-    ],
+    items: [{ label: "Início", icon: Home, path: "/" }],
   },
   {
     group: "Petições",
@@ -22,23 +18,7 @@ const NAV = [
       { label: "Gerar por Entrevista", icon: MessagesSquare, path: "/entrevista" },
       { label: "Minhas Petições", icon: FileText, path: "/peticoes" },
       { label: "Modelos", icon: FolderOpen, path: "/modelos" },
-      { label: "Precedentes", icon: BookMarked, path: "/precedentes" },
-    ],
-  },
-  {
-    group: "Ferramentas Trabalhistas",
-    items: [
-      { label: "Calculadora de Verbas", icon: Calculator, path: "/calculadora-verbas" },
-      { label: "Defesa / Contestação", icon: Shield, path: "/defesa" },
-      { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo" },
-    ],
-  },
-  {
-    group: "Ferramentas",
-    items: [
-      { label: "Painel / Análise", icon: BarChart2, path: "/analise" },
       { label: "Webhooks", icon: Webhook, path: "/webhooks" },
-      { label: "Backup e Restauração", icon: ShieldCheck, path: "/backup" },
     ],
   },
 ];
