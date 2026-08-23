@@ -11,6 +11,7 @@ import { buildPetitionTemplate, buildShortAIPrompt } from "@/features/peticoes/p
 import { toast } from "sonner";
 import PetitionRenderer from "@/features/peticoes/PetitionRenderer";
 import PetitionCorrectionChat from "@/features/peticoes/PetitionCorrectionChat";
+import ReescreverCapitulo from "@/features/peticoes/ReescreverCapitulo";
 import { formatarData } from "@/lib/formatarData";
 
 export default function PetitionView() {
@@ -127,6 +128,23 @@ export default function PetitionView() {
   const handleCancelEdit = () => {
     setEditing(false);
     setEditContent("");
+  };
+
+  // Persiste um novo conteúdo da peça (edição manual ou capítulo reescrito).
+  const handleSaveContent = async (texto) => {
+    setSaving(true);
+    try {
+      const blob = new Blob([texto], { type: "text/plain" });
+      const file = new File([blob], "peticao.txt", { type: "text/plain" });
+      const { file_url: contentUrl } = await base44.integrations.Core.UploadFile({ file });
+      await base44.entities.Petition.update(id, { generated_content: contentUrl });
+      setPetitionContent(texto);
+      toast.success("Petição atualizada!");
+    } catch (err) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -310,6 +328,16 @@ export default function PetitionView() {
         )}
         <LetterheadFooter config={petitionConfig} />
       </Card>
+
+      {/* Reescrita limitada a um capítulo */}
+      {petitionContent && !editing && (
+        <ReescreverCapitulo
+          conteudo={petitionContent}
+          petition={petition}
+          salvando={saving}
+          onAplicar={handleSaveContent}
+        />
+      )}
 
       {/* Review Section */}
       <ReviewSectionPanel
