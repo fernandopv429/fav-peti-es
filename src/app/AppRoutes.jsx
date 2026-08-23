@@ -5,17 +5,10 @@ import { useAuth } from "@/app/auth/AuthContext";
 import UserNotRegisteredError from "@/app/auth/UserNotRegisteredError";
 
 import Home from "@/pages/Home";
-import Catalogo from "@/pages/Catalogo";
 import NewPetition from "@/pages/NewPetition";
 import PetitionsList from "@/pages/PetitionsList";
 import PetitionView from "@/pages/PetitionView";
 import Modelos from "@/pages/Modelos";
-import Precedents from "@/pages/Precedents";
-import CalculadoraVerbas from "@/pages/CalculadoraVerbas";
-import Defesa from "@/pages/Defesa";
-import AtualizacaoCalculo from "@/pages/AtualizacaoCalculo";
-import BackupRestauracao from "@/pages/BackupRestauracao";
-import Analise from "@/pages/Analise";
 import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
 import Webhooks from "@/pages/Webhooks";
 import NotFound from "@/pages/NotFound";
@@ -53,7 +46,6 @@ export default function AppRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/catalogo" element={<Catalogo />} />
 
         {/* Petições */}
         <Route path="/entrevista" element={<GerarPorEntrevista />} />
@@ -66,17 +58,9 @@ export default function AppRoutes() {
         {/* Rota antiga: cai na mesma página unificada */}
         {/* Mantido como redirect: a tela virou aba dentro de /modelos. */}
         <Route path="/modelos-referencia" element={<Navigate to="/modelos" replace />} />
-        <Route path="/precedentes" element={<Precedents />} />
-
-        {/* Ferramentas trabalhistas */}
-        <Route path="/calculadora-verbas" element={<CalculadoraVerbas />} />
-        <Route path="/defesa" element={<Defesa />} />
-        <Route path="/atualizacao-calculo" element={<AtualizacaoCalculo />} />
 
         {/* Ferramentas */}
         <Route path="/webhooks" element={<Webhooks />} />
-        <Route path="/analise" element={<Analise />} />
-        <Route path="/backup" element={<BackupRestauracao />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

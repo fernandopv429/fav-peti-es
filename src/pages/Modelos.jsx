@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Templates from "@/pages/Templates";
 import ModelosReferencia from "@/pages/ModelosReferencia";
-import EspecialistasIA from "@/pages/EspecialistasIA";
 
 /**
  * Página única de modelos: reúne os modelos de petição (DOCX tokenizados)
@@ -10,7 +9,6 @@ import EspecialistasIA from "@/pages/EspecialistasIA";
 const ABAS = [
   { id: "peticao", label: "Modelos de Petição" },
   { id: "referencia", label: "Referências e Integrações" },
-  { id: "redacao_ia", label: "Redação por IA" },
 ];
 
 export default function Modelos() {
@@ -36,13 +34,7 @@ export default function Modelos() {
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {aba === "peticao" ? (
-          <Templates />
-        ) : aba === "referencia" ? (
-          <ModelosReferencia />
-        ) : (
-          <EspecialistasIA />
-        )}
+        {aba === "peticao" ? <Templates /> : <ModelosReferencia />}
       </div>
     </div>
   );

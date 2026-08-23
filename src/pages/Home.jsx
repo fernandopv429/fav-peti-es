@@ -1,31 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Wand2, Calculator, Shield, TrendingUp, ArrowRight, ArrowUpRight,
-  BookOpen, FileText, AlertTriangle, PackageCheck, Users,
+  Wand2, ArrowRight, ArrowUpRight, FileText, AlertTriangle, PackageCheck,
+  FolderOpen, Webhook,
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/app/auth/AuthContext";
 import PainelPeticoesRecentes from "@/features/peticoes/PainelPeticoesRecentes";
 
-const AREAS_ORDER = [
-  "Gestão & Prazos", "Atendimento & Clientes", "Pesquisa Jurídica", "Cível",
-  "Recursos", "Trabalhista", "Família & Sucessões", "Criminal", "Tributário",
-  "Empresarial & Contratos", "Imobiliário & Locação", "Previdenciário", "Execução & Cálculo",
-];
-
-const AREA_ICONS = {
-  "Gestão & Prazos": "📋", "Atendimento & Clientes": "🤝", "Pesquisa Jurídica": "🔍",
-  "Cível": "⚖️", "Recursos": "📤", "Trabalhista": "👷", "Família & Sucessões": "👨‍👩‍👧",
-  "Criminal": "🔒", "Tributário": "💰", "Empresarial & Contratos": "🏢",
-  "Imobiliário & Locação": "🏠", "Previdenciário": "🛡️", "Execução & Cálculo": "📊",
-};
-
 const TOOLS = [
-  { label: "Entrevistas recebidas",  icon: Wand2,      path: "/entrevista",           desc: "Processar eventos e gerar a peça" },
-  { label: "Calculadora de Verbas",  icon: Calculator, path: "/calculadora-verbas",   desc: "Rescisórias trabalhistas" },
-  { label: "Defesa / Contestação",   icon: Shield,     path: "/defesa",               desc: "Contestação do empregador" },
-  { label: "Atualização de Cálculo", icon: TrendingUp, path: "/atualizacao-calculo",  desc: "Correção monetária e juros" },
+  { label: "Entrevistas recebidas", icon: Wand2, path: "/entrevista", desc: "Processar eventos e gerar a peça" },
+  { label: "Minhas Petições", icon: FileText, path: "/peticoes", desc: "Peças geradas e em revisão" },
+  { label: "Modelos", icon: FolderOpen, path: "/modelos", desc: "Modelo-mestre e referências" },
+  { label: "Webhooks", icon: Webhook, path: "/webhooks", desc: "Eventos recebidos do formulário" },
 ];
 
 function saudacao(nome) {
@@ -44,33 +31,20 @@ function iniciais(nome) {
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [especialistas, setEspecialistas] = useState([]);
   const [petitions, setPetitions] = useState([]);
-  const [loadingEsp, setLoadingEsp] = useState(true);
   const [loadingPet, setLoadingPet] = useState(true);
 
   useEffect(() => {
-    base44.entities.Especialista.filter({ ativo: true })
-      .then(setEspecialistas)
-      .catch(() => {})
-      .finally(() => setLoadingEsp(false));
-
     base44.entities.Petition.list("-created_date", 200)
       .then(setPetitions)
       .catch(() => {})
       .finally(() => setLoadingPet(false));
   }, []);
 
-  const countByArea = {};
-  especialistas.forEach((e) => {
-    countByArea[e.area] = (countByArea[e.area] || 0) + 1;
-  });
-
   const resumo = [
-    { label: "Petições",      value: petitions.length,                                                  icon: FileText,      tone: "text-primary-ink",     bg: "bg-primary/10",     to: "/peticoes" },
-    { label: "Em revisão",   value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
-    { label: "Prontas",      value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success",    bg: "bg-success/10",     to: "/peticoes" },
-    { label: "Especialistas", value: especialistas.length,                                            icon: Users,         tone: "text-accent",      bg: "bg-accent/10",      to: "/catalogo" },
+    { label: "Petições", value: petitions.length, icon: FileText, tone: "text-primary-ink", bg: "bg-primary/10", to: "/peticoes" },
+    { label: "Em revisão", value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
+    { label: "Prontas", value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success", bg: "bg-success/10", to: "/peticoes" },
   ];
 
   return (
@@ -103,7 +77,7 @@ export default function Home() {
         </div>
 
         {/* Resumo rápido */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {resumo.map((s) => (
             <button
               key={s.label}
@@ -117,17 +91,17 @@ export default function Home() {
                 <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary-ink transition-colors" strokeWidth={2.25} />
               </div>
               <p className="text-2xl font-bold text-foreground mt-4 leading-none">
-                {loadingPet || loadingEsp ? "—" : s.value}
+                {loadingPet ? "—" : s.value}
               </p>
               <p className="text-xs text-muted-foreground mt-1.5">{s.label}</p>
             </button>
           ))}
         </div>
 
-        {/* Ferramentas */}
+        {/* Atalhos */}
         <div>
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
-            Ferramentas rápidas
+            Atalhos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             {TOOLS.map((t) => (
@@ -147,58 +121,20 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Áreas do Direito */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Áreas do Direito
-            </h2>
-            <button
-              onClick={() => navigate("/catalogo")}
-              className="text-xs font-semibold text-primary-ink hover:underline flex items-center gap-1"
-            >
-              Ver catálogo <ArrowRight className="w-3 h-3" strokeWidth={2.25} />
-            </button>
-          </div>
-          {loadingEsp ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
-              {Array.from({ length: 13 }).map((_, i) => (
-                <div key={i} className="h-24 rounded-3xl bg-card/60 animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
-              {AREAS_ORDER.map((area) => (
-                <button
-                  key={area}
-                  onClick={() => navigate(`/catalogo?area=${encodeURIComponent(area)}`)}
-                  className="text-left bg-card rounded-3xl p-4 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
-                >
-                  <span className="text-2xl block mb-2">{AREA_ICONS[area] || "⚖️"}</span>
-                  <p className="text-xs font-semibold text-foreground leading-tight">{area}</p>
-                  <p className="text-[11px] text-primary-ink font-medium mt-1">
-                    {countByArea[area] || 0} especialistas
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Chamada para o catálogo */}
+        {/* Chamada para a entrevista */}
         <div className="rounded-3xl hero-rays p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-bold text-primary-foreground">Não sabe por onde começar?</p>
+            <p className="font-bold text-primary-foreground">Tem entrevista na fila?</p>
             <p className="text-primary-foreground/85 text-sm mt-0.5">
-              Escolha o especialista certo para o seu caso no catálogo.
+              Abra a tela de geração e transforme o evento recebido em petição.
             </p>
           </div>
           <button
-            onClick={() => navigate("/catalogo")}
+            onClick={() => navigate("/entrevista")}
             className="shrink-0 inline-flex items-center gap-2 h-11 px-5 rounded-2xl bg-foreground text-primary text-sm font-bold hover:opacity-90 transition-opacity"
           >
-            <BookOpen className="w-4 h-4" strokeWidth={2.25} />
-            Abrir catálogo
+            <Wand2 className="w-4 h-4" strokeWidth={2.25} />
+            Gerar por entrevista
           </button>
         </div>
       </div>
