@@ -10,7 +10,6 @@ import { LetterheadHeader, LetterheadFooter } from "@/features/peticoes/Petition
 import { buildPetitionTemplate, buildShortAIPrompt } from "@/features/peticoes/petitionBuilder";
 import { toast } from "sonner";
 import PetitionRenderer from "@/features/peticoes/PetitionRenderer";
-import PetitionCorrectionChat from "@/features/peticoes/PetitionCorrectionChat";
 import ReescreverCapitulo from "@/features/peticoes/ReescreverCapitulo";
 import ReferenciasPeticao from "@/features/peticoes/ReferenciasPeticao";
 import { formatarData } from "@/lib/formatarData";
@@ -349,25 +348,6 @@ export default function PetitionView() {
         onStatusChange={(newStatus) => setPetition(prev => ({ ...prev, status: newStatus }))}
       />
 
-      {/* Chat de correção por comando — só quando há conteúdo gerado */}
-      {petitionContent && (
-        <PetitionCorrectionChat
-          petition={petition}
-          petitionConfig={petitionConfig}
-          onFieldsUpdated={(correctedFields) => {
-            setPetition(prev => ({ ...prev, ...correctedFields }));
-            // Se o generated_content foi corrigido, atualiza a exibição
-            if (correctedFields.generated_content) {
-              const c = correctedFields.generated_content;
-              if (typeof c === "string" && c.startsWith("http")) {
-                fetch(c).then(r => r.text()).then(setPetitionContent).catch(() => {});
-              } else if (typeof c === "string") {
-                setPetitionContent(c);
-              }
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
