@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Paperclip, Send, X, FileText, Bot, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Wand2,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import ToolTraceMessage from '@/features/entrevista/components/ToolTraceMessage';
@@ -25,6 +25,7 @@ import {
 import ConfirmacaoGeracao from '@/features/entrevista/components/ConfirmacaoGeracao';
 import AuditoriaMinuta from '@/features/entrevista/components/AuditoriaMinuta';
 import ComentarioTrecho from '@/features/entrevista/components/ComentarioTrecho';
+import EscolherTopico from '@/features/entrevista/components/EscolherTopico';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
 import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
@@ -114,6 +115,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
   const [docHtml, setDocHtml] = useState('');
   // Trecho selecionado no documento para comentário/correção pontual
   const [trechoSelecionado, setTrechoSelecionado] = useState('');
+  // Capítulo escolhido em lista ({ campo, rotulo, texto }) — alternativa à seleção
+  const [topicoEscolhido, setTopicoEscolhido] = useState(null);
+  const [listaTopicosAberta, setListaTopicosAberta] = useState(false);
   const endRef = useRef(null);
 
   // Template do caso aberto pela fila de webhooks (vem no evento). Quando
@@ -390,6 +394,7 @@ export default function EntrevistaSession({ sessionId, active = true }) {
     }
     setReviewConfirmed(false);
     setTrechoSelecionado('');
+    setTopicoEscolhido(null);
   };
 
   const handleKeyDown = (e) => {
@@ -693,7 +698,14 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         {/* Documento — entra na tela só quando há peça gerada (ou aviso de
             template ausente); antes disso a conversa usa a largura toda. */}
         {mostrarDocumento && (
-        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-muted">
+        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-muted">
+          {listaTopicosAberta && docHtml && (
+            <EscolherTopico
+              dados={ultimaGeracao?.dados || {}}
+              onEscolher={(c) => { setTopicoEscolhido(c); setListaTopicosAberta(false); }}
+              onFechar={() => setListaTopicosAberta(false)}
+            />
+          )}
           <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
             {podeRecolherChat && (
               <button
@@ -716,6 +728,15 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Atualizar</span>
+              </button>
+            )}
+            {docHtml && (
+              <button
+                onClick={() => setListaTopicosAberta((v) => !v)}
+                title="Escolher um capítulo redigido pela IA para refazer"
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <Wand2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Refazer tópico</span>
               </button>
             )}
             {docHtml && !reviewConfirmed && (
@@ -761,6 +782,9 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                   textoEntrevista={userText || casoWebhook?.entrevista_texto || ''}
                   documentoTexto={docHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
                 />
+                <p className="mb-3 text-[11px] text-muted-foreground">
+                  Para corrigir, selecione o trecho no documento ou use “Refazer tópico” acima.
+                </p>
                 <div onMouseUp={capturarSelecao} onTouchEnd={capturarSelecao}>
                   <DocumentReviewPreview html={docHtml} dimmed={generating} />
                 </div>
@@ -783,13 +807,15 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
         )}
       </div>
-      {trechoSelecionado && (
+      {(trechoSelecionado || topicoEscolhido) && (
         <ComentarioTrecho
-          trecho={trechoSelecionado}
+          trecho={topicoEscolhido ? topicoEscolhido.texto : trechoSelecionado}
+          campoFixo={topicoEscolhido?.campo}
+          rotulo={topicoEscolhido?.rotulo}
           dados={ultimaGeracao?.dados || {}}
           caso={ultimaGeracao?.caso || {}}
           onAplicar={aplicarCorrecao}
-          onFechar={() => setTrechoSelecionado('')}
+          onFechar={() => { setTrechoSelecionado(''); setTopicoEscolhido(null); }}
         />
       )}
       <FilaWebhooks open={filaOpen} onOpenChange={setFilaOpen} onSelecionar={abrirCasoPronto} />

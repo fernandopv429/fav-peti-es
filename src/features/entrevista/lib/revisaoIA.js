@@ -40,6 +40,29 @@ export function localizarCampoDoTrecho(dados = {}, trecho = '') {
   return null;
 }
 
+// Nome do capítulo como o advogado o conhece na peça.
+export const ROTULO_CAPITULO = {
+  BLOCO_JORNADA: 'Da jornada de trabalho',
+  BLOCO_DANO_MORAL: 'Do dano moral',
+  DANO_MORAL_FATO_ESPECIFICO: 'Do dano moral (fatos)',
+  BLOCO_ENQUADRAMENTO: 'Do enquadramento funcional',
+  BLOCO_MULTAS_CONVENCIONAIS: 'Das multas convencionais',
+  BLOCO_INSALUBRIDADE: 'Da insalubridade',
+  BLOCO_SUMULA_331: 'Da responsabilidade subsidiária',
+  BLOCO_ESPINHA_RESCISAO: 'Da rescisão contratual',
+};
+
+// Capítulos redigidos presentes nesta peça — alimenta a escolha de tópico.
+export function listarCapitulos(dados = {}) {
+  return Object.entries(dados)
+    .filter(([k, v]) => typeof v === 'string' && REESCREVIVEL.test(k) && v.trim().length > 40)
+    .map(([campo, texto]) => ({
+      campo,
+      texto,
+      rotulo: ROTULO_CAPITULO[campo] || campo.replace(/^BLOCO_/, '').replace(/_/g, ' ').toLowerCase(),
+    }));
+}
+
 const CORRECAO_SCHEMA = {
   type: 'object',
   required: ['texto_corrigido'],

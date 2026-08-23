@@ -8,13 +8,14 @@ import { localizarCampoDoTrecho, corrigirTrechoIA } from '@/features/entrevista/
 // reescreve SÓ aquele capítulo; a proposta é exibida para aprovação
 // antes de entrar no documento.
 // ============================================================
-export default function ComentarioTrecho({ trecho, dados, caso, onAplicar, onFechar }) {
+export default function ComentarioTrecho({ trecho, dados, caso, campoFixo, rotulo, onAplicar, onFechar }) {
   const [comentario, setComentario] = useState('');
   const [loading, setLoading] = useState(false);
   const [proposta, setProposta] = useState(null);
   const [erro, setErro] = useState('');
 
-  const campo = localizarCampoDoTrecho(dados, trecho);
+  // Tópico escolhido em lista tem preferência; senão, é deduzido do trecho.
+  const campo = campoFixo || localizarCampoDoTrecho(dados, trecho);
 
   const pedirCorrecao = async () => {
     if (!comentario.trim() || !campo) return;
@@ -42,14 +43,18 @@ export default function ComentarioTrecho({ trecho, dados, caso, onAplicar, onFec
     <div className="fixed bottom-4 right-4 z-40 w-[min(420px,calc(100vw-2rem))] bg-card border border-border rounded-xl shadow-lg">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <Wand2 className="w-4 h-4 text-primary-ink" />
-        <span className="text-sm font-medium text-foreground flex-1">Corrigir trecho</span>
+        <span className="text-sm font-medium text-foreground flex-1 truncate">
+          {rotulo ? `Refazer: ${rotulo}` : 'Corrigir trecho'}
+        </span>
         <button onClick={onFechar} className="p-1 text-muted-foreground hover:text-foreground" title="Fechar">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       <div className="p-3 space-y-2.5 max-h-[60vh] overflow-y-auto">
-        <p className="text-[11px] text-muted-foreground">Trecho selecionado</p>
+        <p className="text-[11px] text-muted-foreground">
+          {campoFixo ? 'Capítulo selecionado' : 'Trecho selecionado'}
+        </p>
         <p className="text-xs text-foreground bg-muted rounded-lg p-2 line-clamp-4">{trecho}</p>
 
         {!campo ? (
