@@ -23,7 +23,7 @@ export default function ReferenciasPeticao({ petitionId }) {
 
   const termo = busca.trim().toLowerCase();
   const resultados = useMemo(
-    () => (termo ? modelos.filter((m) => textoBusca(m).includes(termo)).slice(0, 8) : []),
+    () => (termo ? modelos.filter((m) => textoBusca(m).includes(termo)) : modelos).slice(0, 8),
     [modelos, termo],
   );
 
