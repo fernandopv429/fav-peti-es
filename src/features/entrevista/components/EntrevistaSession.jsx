@@ -23,6 +23,8 @@ import {
   textoDaPeca,
 } from '@/features/entrevista/lib/previewTemplate';
 import ConfirmacaoGeracao from '@/features/entrevista/components/ConfirmacaoGeracao';
+import AuditoriaMinuta from '@/features/entrevista/components/AuditoriaMinuta';
+import ComentarioTrecho from '@/features/entrevista/components/ComentarioTrecho';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
 import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
@@ -110,6 +112,8 @@ export default function EntrevistaSession({ sessionId, active = true }) {
 
   // Documento vivo (painel à direita) — preview do template .docx preenchido
   const [docHtml, setDocHtml] = useState('');
+  // Trecho selecionado no documento para comentário/correção pontual
+  const [trechoSelecionado, setTrechoSelecionado] = useState('');
   const endRef = useRef(null);
 
   // Template do caso aberto pela fila de webhooks (vem no evento). Quando
@@ -363,6 +367,29 @@ export default function EntrevistaSession({ sessionId, active = true }) {
       setMessages((m) => [...m, { role: 'assistant', text: 'Erro ao processar. Tente novamente.' }]);
     }
     setSending(false);
+  };
+
+  // Seleção de texto no preview abre o comentário de correção. Só a partir de
+  // 12 caracteres, para clique simples não abrir o painel.
+  const capturarSelecao = () => {
+    const s = window.getSelection?.()?.toString().replace(/\s+/g, ' ').trim() || '';
+    if (s.length >= 12) setTrechoSelecionado(s);
+  };
+
+  // Aplica o capítulo reescrito pela IA: troca só aquele campo dos dados e
+  // repreenche o template (os valores determinísticos ficam intactos).
+  const aplicarCorrecao = async (campo, textoNovo) => {
+    const dados = { ...(ultimaGeracao?.dados || {}), [campo]: textoNovo };
+    if (campo === 'BLOCO_DANO_MORAL') dados.DANO_MORAL_FATO_ESPECIFICO = textoNovo;
+    setUltimaGeracao((g) => ({ ...(g || {}), dados }));
+    try {
+      const esqueleto = await carregarEsqueletoTemplate(templateUrl);
+      setDocHtml(preencherEsqueleto(esqueleto, dados, { highlight: true }));
+    } catch (e) {
+      console.error(e);
+    }
+    setReviewConfirmed(false);
+    setTrechoSelecionado('');
   };
 
   const handleKeyDown = (e) => {
@@ -727,7 +754,17 @@ export default function EntrevistaSession({ sessionId, active = true }) {
                 </p>
               </div>
             ) : docHtml ? (
-              <DocumentReviewPreview html={docHtml} dimmed={generating} />
+              <>
+                <AuditoriaMinuta
+                  caso={ultimaGeracao?.caso}
+                  dados={ultimaGeracao?.dados}
+                  textoEntrevista={userText || casoWebhook?.entrevista_texto || ''}
+                  documentoTexto={docHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
+                />
+                <div onMouseUp={capturarSelecao} onTouchEnd={capturarSelecao}>
+                  <DocumentReviewPreview html={docHtml} dimmed={generating} />
+                </div>
+              </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <FileText className="w-10 h-10 text-border mb-3" />
@@ -746,6 +783,15 @@ export default function EntrevistaSession({ sessionId, active = true }) {
         </div>
         )}
       </div>
+      {trechoSelecionado && (
+        <ComentarioTrecho
+          trecho={trechoSelecionado}
+          dados={ultimaGeracao?.dados || {}}
+          caso={ultimaGeracao?.caso || {}}
+          onAplicar={aplicarCorrecao}
+          onFechar={() => setTrechoSelecionado('')}
+        />
+      )}
       <FilaWebhooks open={filaOpen} onOpenChange={setFilaOpen} onSelecionar={abrirCasoPronto} />
       <SessionLogsModal open={logsOpen} onOpenChange={setLogsOpen} messages={[...messages, ...consoleLogs]} />
     </div>
