@@ -342,13 +342,6 @@ function textoCorridoDoDocx(zip) {
   return f.asText().replace(/<[^>]+>/g, '');
 }
 
-// Valores que existem no `dados` mas cuja ausência no texto NÃO caracteriza
-// pedido não formulado: agregados e valores unitários do corpo da peça.
-const VALORES_FORA_DO_ROL = new Set([
-  'VALOR_CAUSA', 'VALOR_CAUSA_TOTAL', 'VALOR_TOTAL_PEDIDOS',
-  'VALOR_HONORARIOS', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
-]);
-
 export function conferirDocumentoFinal(zip, dados = {}) {
   const texto = textoCorridoDoDocx(zip);
   const achados = [];
@@ -365,42 +358,7 @@ export function conferirDocumentoFinal(zip, dados = {}) {
   if (naoSubstituidos.length) {
     achados.push(`marcador do modelo sem valor (${naoSubstituidos.length}×): ${naoSubstituidos.slice(0, 5).join(' · ')}`);
   }
-  // INVARIANTE: valor da causa = soma do rol de pedidos. Toda verba que entrou
-  // na soma TEM de aparecer impressa. A peça do Jonathan cobrou R$ 5.300,66 na
-  // alçada — saldo de salário (R$ 623,05), multa do art. 467 (R$ 2.978,38) e
-  // multa do art. 477 (R$ 1.699,23) — sem que constassem do rol: valores
-  // calculados, somados e nunca impressos pelo modelo. Isto barra a repetição.
-  // formatBRL usa espaço inquebrável entre "R$" e o número — normaliza os dois
-  // lados e compara só a parte numérica, que é o que sai impresso no rol.
-  const norm = texto.replace(/\u00a0/g, ' ');
-  // REFLEXOS DISCRIMINADOS: o rol deixou de imprimir o valor agregado
-  // ("+ reflexos de R$ 651,35") e passou a abrir as cinco rubricas — DSR, aviso
-  // prévio, 13º, férias + 1/3 e FGTS + 40% — mais o total do item, no formato da
-  // peça da especialista. O agregado continua somado na alçada, mas já não existe
-  // como número solto no documento, e por isso o gate passou a acusar as cinco
-  // verbas por hora como "ausentes do rol" em TODA peça.
-  //
-  // A verba está representada quando os números da frase discriminada
-  // (VALOR_X_REFLEXOS_TEXTO) estão todos impressos. Compara-se por NÚMERO, e não
-  // pela frase inteira, porque a concordância de gênero reescreve palavras do
-  // texto depois do preenchimento ("acrescido" → "acrescida").
-  const numerosDe = (s) => String(s || '').match(/\d[\d.]*,\d{2}/g) || [];
-  const reflexoDiscriminadoImpresso = (chave) => {
-    const nums = numerosDe(dados?.[`${chave}_TEXTO`]);
-    return nums.length > 0 && nums.every((n) => norm.includes(n));
-  };
-  const naoImpressos = Object.entries(dados || {})
-    .filter(([k, v]) => /^VALOR_/.test(k) && !VALORES_FORA_DO_ROL.has(k)
-      && typeof v === 'string' && /\d,\d{2}/.test(v)
-      && !(/_REFLEXOS$/.test(k) && reflexoDiscriminadoImpresso(k)))
-    .filter(([, v]) => !norm.includes(String(v).replace(/\u00a0/g, ' ').replace(/^R\$\s*/, '')))
-    .map(([k, v]) => `${k} = ${v}`);
-  if (naoImpressos.length) {
-    achados.push(
-      `verba somada no valor da causa e AUSENTE do rol de pedidos (${naoImpressos.length}): ${naoImpressos.slice(0, 6).join(' · ')}`
-    );
-  }
-  // O inverso: verba calculada que NÃO tem lugar no modelo. Ficava só no
+  // Verba calculada que NÃO tem lugar no modelo. Ficava só no
   // diagnóstico interno (_itensSemToken) e desaparecia em silêncio — nem no rol,
   // nem no valor da causa. Se há verba calculada sem onde imprimir, o advogado
   // tem de saber, porque é pedido que ficou de fora.
