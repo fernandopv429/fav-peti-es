@@ -17,7 +17,6 @@ import {
   preencherEsqueleto,
   textoDaPeca,
 } from '@/features/entrevista/lib/previewTemplate';
-import AuditoriaMinuta from '@/features/entrevista/components/AuditoriaMinuta';
 import ComentarioTrecho from '@/features/entrevista/components/ComentarioTrecho';
 import EscolherTopico from '@/features/entrevista/components/EscolherTopico';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
@@ -412,12 +411,6 @@ export default function EntrevistaSession() {
               </div>
             ) : docHtml ? (
               <>
-                <AuditoriaMinuta
-                  caso={ultimaGeracao?.caso}
-                  dados={ultimaGeracao?.dados}
-                  textoEntrevista={userText || casoWebhook?.entrevista_texto || ''}
-                  documentoTexto={docHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
-                />
                 <p className="mb-3 text-[11px] text-muted-foreground">
                   Para corrigir, selecione o trecho no documento ou use “Refazer tópico” acima.
                 </p>
