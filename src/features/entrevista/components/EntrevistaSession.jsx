@@ -50,6 +50,8 @@ export default function EntrevistaSession() {
 
   // Documento vivo — preview do template .docx preenchido
   const [docHtml, setDocHtml] = useState('');
+  // URL do template efetivamente usada para montar o preview atual
+  const [urlPreview, setUrlPreview] = useState('');
   // Trecho selecionado no documento para comentário/correção pontual
   const [trechoSelecionado, setTrechoSelecionado] = useState('');
   // Capítulo escolhido em lista ({ campo, rotulo, texto }) — alternativa à seleção
@@ -115,6 +117,7 @@ export default function EntrevistaSession() {
           const esqueleto = await carregarEsqueletoTemplate(templateUrl);
           html = preencherEsqueleto(esqueleto, dados, { highlight: true });
           documentoTexto = textoDaPeca(esqueleto, dados);
+          setUrlPreview(templateUrl);
         } catch (e) {
           console.error(e);
           setMessages((m) => [...m, { role: 'assistant', text: `Não consegui carregar o template .docx para o preview: ${e.message || 'verifique o arquivo em Configurações.'}` }]);
@@ -182,11 +185,17 @@ export default function EntrevistaSession() {
     const dados = { ...(ultimaGeracao?.dados || {}), [campo]: textoNovo };
     if (campo === 'BLOCO_DANO_MORAL') dados.DANO_MORAL_FATO_ESPECIFICO = textoNovo;
     setUltimaGeracao((g) => ({ ...(g || {}), dados }));
+    // O preview tem de ser repreenchido com a MESMA URL usada para montá-lo.
+    // Usando só `templateUrl`, um caso aberto pela fila (que resolve a URL do
+    // próprio evento) recarregava um template diferente — ou nenhum — e a
+    // correção aprovada não aparecia no documento em revisão.
+    const url = urlPreview || templateUrl;
     try {
-      const esqueleto = await carregarEsqueletoTemplate(templateUrl);
+      const esqueleto = await carregarEsqueletoTemplate(url);
       setDocHtml(preencherEsqueleto(esqueleto, dados, { highlight: true }));
     } catch (e) {
       console.error(e);
+      setMessages((m) => [...m, { role: 'assistant', text: `Não consegui atualizar o documento com a correção: ${e?.message || 'template indisponível.'}` }]);
     }
     setReviewConfirmed(false);
     setTrechoSelecionado('');
@@ -223,6 +232,7 @@ export default function EntrevistaSession() {
       try {
         const esqueleto = await carregarEsqueletoTemplate(urlCaso);
         html = preencherEsqueleto(esqueleto, dados, { highlight: true });
+        setUrlPreview(urlCaso);
       } catch (e) { console.error(e); }
     }
     setDocHtml(html);
