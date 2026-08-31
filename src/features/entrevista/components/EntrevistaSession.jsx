@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2,
+  ArrowLeft, Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import SessionLogsModal from '@/features/entrevista/components/SessionLogsModal';
@@ -48,7 +48,9 @@ export default function EntrevistaSession() {
   // Id do CasoTrabalhista aberto pela fila — usado para marcar a revisão confirmada
   const [casoDbId, setCasoDbId] = useState(null);
   const [filaOpen, setFilaOpen] = useState(false);
+  const [filaModo, setFilaModo] = useState('pendentes');
   const [filaCount, setFilaCount] = useState(0);
+  const [confirmadasCount, setConfirmadasCount] = useState(0);
 
   // Documento vivo — preview do template .docx preenchido
   const [docHtml, setDocHtml] = useState('');
@@ -86,7 +88,11 @@ export default function EntrevistaSession() {
 
   const atualizarFilaCount = () => {
     base44.entities.CasoTrabalhista.list('-created_date', 50)
-      .then((l) => setFilaCount((l || []).filter((c) => c.analise_json?.origem === 'webhook').length))
+      .then((l) => {
+        const webhooks = (l || []).filter((c) => c.analise_json?.origem === 'webhook');
+        setFilaCount(webhooks.filter((c) => c.status !== 'pronto').length);
+        setConfirmadasCount(webhooks.filter((c) => c.status === 'pronto').length);
+      })
       .catch(() => {});
   };
   useEffect(() => { atualizarFilaCount(); const t = setInterval(atualizarFilaCount, 15000); return () => clearInterval(t); }, []);
@@ -313,14 +319,26 @@ export default function EntrevistaSession() {
           <ScrollText className="w-4 h-4" />
         </button>
         <button
-          onClick={() => setFilaOpen(true)}
+          onClick={() => { setFilaModo('pendentes'); setFilaOpen(true); }}
           className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
-          title="Fila de entrevistas (webhook)"
+          title="Petições a revisar (webhook)"
         >
           <Inbox className="w-4 h-4" />
           {filaCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full flex items-center justify-center">
               {filaCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => { setFilaModo('confirmadas'); setFilaOpen(true); }}
+          className="relative p-2 text-muted-foreground hover:text-success hover:bg-muted rounded-full"
+          title="Petições com revisão confirmada"
+        >
+          <BadgeCheck className="w-4 h-4" />
+          {confirmadasCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-success text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
+              {confirmadasCount}
             </span>
           )}
         </button>
@@ -466,7 +484,7 @@ export default function EntrevistaSession() {
           onFechar={() => { setTrechoSelecionado(''); setTopicoEscolhido(null); }}
         />
       )}
-      <FilaWebhooks open={filaOpen} onOpenChange={setFilaOpen} onSelecionar={abrirCasoPronto} />
+      <FilaWebhooks open={filaOpen} onOpenChange={setFilaOpen} onSelecionar={abrirCasoPronto} modo={filaModo} />
       <SessionLogsModal open={logsOpen} onOpenChange={setLogsOpen} messages={[...messages, ...consoleLogs]} />
     </div>
   );

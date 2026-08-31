@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Inbox, Loader2, Search } from 'lucide-react';
+import { Inbox, Loader2, Search, BadgeCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import CasoWebhookItem from '@/features/entrevista/components/CasoWebhookItem';
 
@@ -8,7 +8,8 @@ import CasoWebhookItem from '@/features/entrevista/components/CasoWebhookItem';
 // CasoTrabalhista com analise_json.origem === 'webhook':
 // - 'em_analise' = geração em andamento (spinner)
 // - 'gerado' = pronta para revisar (abre no painel)
-export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
+export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 'pendentes' }) {
+  const confirmadasView = modo === 'confirmadas';
   const [casos, setCasos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busca, setBusca] = useState('');
@@ -25,9 +26,10 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
         return nome.includes(termo) || (digitos && cpf.includes(digitos));
       });
 
-  // Confirmadas ficam num grupo separado, abaixo das que ainda vão ser revisadas.
-  const confirmadas = casosFiltrados.filter((c) => c.status === 'pronto');
-  const pendentes = casosFiltrados.filter((c) => c.status !== 'pronto');
+  // Cada ícone abre uma lista: a fila de revisão ou as já confirmadas.
+  const lista = casosFiltrados.filter((c) =>
+    confirmadasView ? c.status === 'pronto' : c.status !== 'pronto',
+  );
 
   const carregar = async () => {
     setLoading(true);
@@ -50,7 +52,11 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Inbox className="h-5 w-5" /> Petições via webhook
+            {confirmadasView ? (
+              <><BadgeCheck className="h-5 w-5 text-success" /> Petições confirmadas</>
+            ) : (
+              <><Inbox className="h-5 w-5" /> Petições a revisar</>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -68,33 +74,17 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : casosFiltrados.length === 0 ? (
+        ) : lista.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">
-            {casos.length === 0
-              ? 'Nenhuma petição recebida via webhook ainda.'
-              : 'Nenhuma petição encontrada para esta busca.'}
+            {termo
+              ? 'Nenhuma petição encontrada para esta busca.'
+              : confirmadasView
+                ? 'Nenhuma petição com revisão confirmada ainda.'
+                : 'Nenhuma petição pendente de revisão.'}
           </p>
         ) : (
-          <div className="space-y-5">
-            <section className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                A revisar ({pendentes.length})
-              </p>
-              {pendentes.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhuma petição pendente de revisão.</p>
-              ) : (
-                pendentes.map((c) => <CasoWebhookItem key={c.id} caso={c} onSelecionar={onSelecionar} />)
-              )}
-            </section>
-
-            {confirmadas.length > 0 && (
-              <section className="space-y-2 pt-1 border-t border-border">
-                <p className="text-xs font-semibold text-success uppercase tracking-wide pt-3">
-                  Revisão confirmada ({confirmadas.length})
-                </p>
-                {confirmadas.map((c) => <CasoWebhookItem key={c.id} caso={c} onSelecionar={onSelecionar} />)}
-              </section>
-            )}
+          <div className="space-y-2">
+            {lista.map((c) => <CasoWebhookItem key={c.id} caso={c} onSelecionar={onSelecionar} />)}
           </div>
         )}
       </DialogContent>
