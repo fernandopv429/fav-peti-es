@@ -45,6 +45,8 @@ export default function EntrevistaSession() {
   // Caso aberto a partir da fila de webhooks. Quando presente, a geração
   // (Atualizar) usa estes dados estruturados em vez de reextrair texto.
   const [casoWebhook, setCasoWebhook] = useState(null);
+  // Id do CasoTrabalhista aberto pela fila — usado para marcar a revisão confirmada
+  const [casoDbId, setCasoDbId] = useState(null);
   const [filaOpen, setFilaOpen] = useState(false);
   const [filaCount, setFilaCount] = useState(0);
 
@@ -240,6 +242,7 @@ export default function EntrevistaSession() {
     setReviewConfirmed(false);
     setAttrs(caso);
     setCasoWebhook({ caso, entrevista_texto: casoDb.entrevista_texto || '' });
+    setCasoDbId(casoDb.id || null);
   };
 
   // Relê o modelo oficial NA HORA de exportar. O template era carregado uma vez,
@@ -391,7 +394,12 @@ export default function EntrevistaSession() {
             )}
             {docHtml && !reviewConfirmed && (
               <button
-                onClick={() => setReviewConfirmed(true)}
+                onClick={() => {
+                  setReviewConfirmed(true);
+                  if (casoDbId) {
+                    base44.entities.CasoTrabalhista.update(casoDbId, { status: 'pronto' }).catch(() => {});
+                  }
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-primary text-primary-ink rounded-lg text-xs font-medium hover:bg-primary/10 transition-colors"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Confirmar revisão</span>

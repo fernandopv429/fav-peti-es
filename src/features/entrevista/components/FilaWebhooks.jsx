@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Inbox, Loader2, User, Building2, Clock, CheckCircle2 } from 'lucide-react';
+import { Inbox, Loader2, User, Building2, Clock, CheckCircle2, Search, BadgeCheck } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 // Fila de petições geradas automaticamente via webhook. Lista
@@ -11,6 +11,19 @@ import { base44 } from '@/api/base44Client';
 export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
   const [casos, setCasos] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [busca, setBusca] = useState('');
+
+  // Busca por nome ou CPF: só os dígitos importam no CPF, para o termo casar
+  // esteja ele digitado com ou sem pontuação.
+  const termo = busca.trim().toLowerCase();
+  const digitos = termo.replace(/\D/g, '');
+  const casosFiltrados = !termo
+    ? casos
+    : casos.filter((c) => {
+        const nome = `${c.recl_nome || ''} ${c.titulo || ''}`.toLowerCase();
+        const cpf = (c.recl_cpf || '').replace(/\D/g, '');
+        return nome.includes(termo) || (digitos && cpf.includes(digitos));
+      });
 
   const carregar = async () => {
     setLoading(true);
@@ -37,17 +50,29 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
           </DialogTitle>
         </DialogHeader>
 
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Pesquisar por nome ou CPF"
+            className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:border-primary"
+          />
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : casos.length === 0 ? (
+        ) : casosFiltrados.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">
-            Nenhuma petição recebida via webhook ainda.
+            {casos.length === 0
+              ? 'Nenhuma petição recebida via webhook ainda.'
+              : 'Nenhuma petição encontrada para esta busca.'}
           </p>
         ) : (
           <div className="space-y-2">
-            {casos.map((c) => {
+            {casosFiltrados.map((c) => {
               const pronto = c.status === 'gerado' && c.analise_json?.dados !== undefined || c.status === 'gerado';
               const gerando = c.status === 'em_analise';
               return (
@@ -59,8 +84,16 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar }) {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        {c.recl_nome || c.titulo || '(sem nome)'}
+                        <span className="truncate">{c.recl_nome || c.titulo || '(sem nome)'}</span>
+                        {c.status === 'pronto' && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-semibold flex-shrink-0">
+                            <BadgeCheck className="h-3 w-3" /> Revisão confirmada
+                          </span>
+                        )}
                       </p>
+                      {c.recl_cpf && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">CPF {c.recl_cpf}</p>
+                      )}
                       <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                         <Building2 className="h-3 w-3 flex-shrink-0" />
                         {c.recl1_nome || '—'}
