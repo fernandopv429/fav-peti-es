@@ -6,7 +6,6 @@ import UserNotRegisteredError from "@/app/auth/UserNotRegisteredError";
 
 import Home from "@/pages/Home";
 import NewPetition from "@/pages/NewPetition";
-import PetitionsList from "@/pages/PetitionsList";
 import PetitionView from "@/pages/PetitionView";
 import Modelos from "@/pages/Modelos";
 import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
@@ -52,7 +51,6 @@ export default function AppRoutes() {
         {/* Aposentada: sem entrada no menu, mantida acessível por URL para comparação
             com /entrevista. Remover quando a entrevista estiver validada. */}
         <Route path="/nova-peticao" element={<NewPetition />} />
-        <Route path="/peticoes" element={<PetitionsList />} />
         <Route path="/peticoes/:id" element={<PetitionView />} />
         <Route path="/modelos" element={<Modelos />} />
         {/* Rota antiga: cai na mesma página unificada */}

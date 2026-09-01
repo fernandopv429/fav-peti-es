@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Wand2, ArrowRight, ArrowUpRight, FileText, AlertTriangle, PackageCheck,
+  Wand2, ArrowRight, FileText, AlertTriangle, PackageCheck,
   FolderOpen, Webhook,
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -10,7 +10,6 @@ import PainelPeticoesRecentes from "@/features/peticoes/PainelPeticoesRecentes";
 
 const TOOLS = [
   { label: "Entrevistas recebidas", icon: Wand2, path: "/entrevista", desc: "Processar eventos e gerar a peça" },
-  { label: "Minhas Petições", icon: FileText, path: "/peticoes", desc: "Peças geradas e em revisão" },
   { label: "Modelos", icon: FolderOpen, path: "/modelos", desc: "Modelo-mestre e referências" },
   { label: "Webhooks", icon: Webhook, path: "/webhooks", desc: "Eventos recebidos do formulário" },
 ];
@@ -42,9 +41,9 @@ export default function Home() {
   }, []);
 
   const resumo = [
-    { label: "Petições", value: petitions.length, icon: FileText, tone: "text-primary-ink", bg: "bg-primary/10", to: "/peticoes" },
-    { label: "Em revisão", value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10", to: "/peticoes" },
-    { label: "Prontas", value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success", bg: "bg-success/10", to: "/peticoes" },
+    { label: "Petições", value: petitions.length, icon: FileText, tone: "text-primary-ink", bg: "bg-primary/10" },
+    { label: "Em revisão", value: petitions.filter((p) => p.status === "revisao_necessaria").length, icon: AlertTriangle, tone: "text-destructive", bg: "bg-destructive/10" },
+    { label: "Prontas", value: petitions.filter((p) => p.status === "pronto_para_protocolo").length, icon: PackageCheck, tone: "text-success", bg: "bg-success/10" },
   ];
 
   return (
@@ -79,22 +78,18 @@ export default function Home() {
         {/* Resumo rápido */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {resumo.map((s) => (
-            <button
+            <div
               key={s.label}
-              onClick={() => navigate(s.to)}
-              className="group text-left bg-card rounded-3xl p-5 card-soft hover:card-soft-lg hover:-translate-y-0.5 transition-all"
+              className="bg-card rounded-3xl p-5 card-soft"
             >
-              <div className="flex items-start justify-between">
-                <div className={`w-10 h-10 rounded-2xl ${s.bg} flex items-center justify-center`}>
-                  <s.icon className={`w-5 h-5 ${s.tone}`} strokeWidth={2.25} />
-                </div>
-                <ArrowUpRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary-ink transition-colors" strokeWidth={2.25} />
+              <div className={`w-10 h-10 rounded-2xl ${s.bg} flex items-center justify-center`}>
+                <s.icon className={`w-5 h-5 ${s.tone}`} strokeWidth={2.25} />
               </div>
               <p className="text-2xl font-bold text-foreground mt-4 leading-none">
                 {loadingPet ? "—" : s.value}
               </p>
               <p className="text-xs text-muted-foreground mt-1.5">{s.label}</p>
-            </button>
+            </div>
           ))}
         </div>
 

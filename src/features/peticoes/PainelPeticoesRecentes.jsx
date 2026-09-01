@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Search, FileText, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { formatarDataHora } from "@/lib/formatarData";
 
 const STATUS = {
@@ -21,15 +21,8 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
   return (
     <div className="flex flex-col h-full">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1">
         <h2 className="text-lg font-bold text-foreground">Petições recentes</h2>
-        <Link
-          to="/peticoes"
-          aria-label="Buscar em todas as petições"
-          className="w-9 h-9 rounded-full bg-card card-soft flex items-center justify-center text-muted-foreground hover:text-primary-ink transition-colors"
-        >
-          <Search className="w-4 h-4" strokeWidth={2.25} />
-        </Link>
       </div>
       <p className="text-xs text-muted-foreground mb-5">
         {loading ? "Carregando…" : `${petitions.length} no total`}
@@ -95,18 +88,9 @@ export default function PainelPeticoesRecentes({ petitions = [], loading = false
                 {emRevisao} petição{emRevisao > 1 ? "ões" : ""} precisa
                 {emRevisao > 1 ? "m" : ""} de revisão
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Corrija as pendências antes de protocolar.
               </p>
-              <Link
-                to="/peticoes"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-primary-ink hover:gap-3 transition-all"
-              >
-                Revisar agora
-                <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                  <ArrowRight className="w-4 h-4" strokeWidth={2.25} />
-                </span>
-              </Link>
             </>
           ) : (
             <div className="flex items-start gap-3">
