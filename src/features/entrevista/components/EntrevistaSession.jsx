@@ -20,6 +20,7 @@ import {
 import ComentarioTrecho from '@/features/entrevista/components/ComentarioTrecho';
 import EscolherTopico from '@/features/entrevista/components/EscolherTopico';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
+import AprovacaoEntrevista from '@/features/entrevista/components/AprovacaoEntrevista';
 import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
 // ============================================================
@@ -423,6 +424,7 @@ export default function EntrevistaSession() {
                 <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Confirmar revisão</span>
               </button>
             )}
+            {docHtml && casoDbId && <AprovacaoEntrevista casoId={casoDbId} />}
             <button
               onClick={exportar}
               disabled={!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting}
