@@ -28,7 +28,13 @@ export default function AprovacaoEntrevista({ casoId }) {
         window.alert(`Não foi possível enviar: ${res?.data?.erro || 'erro desconhecido'}`);
       }
     } catch (e) {
-      window.alert(`Não foi possível enviar: ${e?.message || 'falha na comunicação'}`);
+      // O erro real vem no corpo da resposta (400 sem id da entrevista, 502 do
+      // sistema externo). Sem isto o advogado só via "falha ao enviar".
+      const d = e?.response?.data || e?.data;
+      const motivoErro = d?.erro
+        ? `${d.erro}${d.detalhe ? ` — ${JSON.stringify(d.detalhe)}` : ''}`
+        : e?.message || 'falha na comunicação';
+      window.alert(`Não foi possível enviar: ${motivoErro}`);
     } finally {
       setEnviando('');
     }
