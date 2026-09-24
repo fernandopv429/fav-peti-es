@@ -9,7 +9,9 @@ import { secrets } from 'base44:runtime';
 // ============================================================
 export default async function(req) {
   try {
-    const segredo = secrets.get("WEBHOOK_SECRET");
+    // trim: um espaço/quebra de linha colado junto ao salvar o segredo nunca
+    // chega pelo cabeçalho HTTP (que é aparado), e todo envio dava 401.
+    const segredo = String(secrets.get("WEBHOOK_SECRET") || "").trim();
     if (!segredo) {
       return Response.json({ error: "Webhook não configurado" }, { status: 500 });
     }
@@ -18,7 +20,7 @@ export default async function(req) {
     const url = new URL(req.url);
     const tokenHeader = req.headers.get("x-webhook-secret") || req.headers.get("X-Webhook-Secret");
     const tokenQuery = url.searchParams.get("token");
-    const token = tokenHeader || tokenQuery;
+    const token = String(tokenHeader || tokenQuery || "").trim();
     if (!token || token !== segredo) {
       return Response.json({ error: "Não autorizado" }, { status: 401 });
     }
