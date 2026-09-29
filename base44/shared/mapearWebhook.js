@@ -191,7 +191,15 @@ export function mapearCasoDeWebhook(data) {
   caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
 
   caso.data_admissao = normalizarData(pick(d, 'RECL1_ESCALA_PERIODO_INICIO', 'DATA_ADMISSAO', 'admissao'));
-  caso.data_rescisao = normalizarData(pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia'));
+  const rescBruta = pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia');
+  // "CONTINUA_TRABALHANDO" (ou texto livre equivalente das fichas antigas) =
+  // contrato ativo: sem data, para a rescisão ser presumida na elaboração.
+  if (/continu/i.test(String(rescBruta || ''))) {
+    caso.data_rescisao = undefined;
+    caso.continua_trabalhando = true;
+  } else {
+    caso.data_rescisao = normalizarData(rescBruta);
+  }
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
   caso.tipo_dispensa = mapearTipoDispensa(pick(d, 'tipo_dispensa', 'TIPO_DISPENSA'));
