@@ -239,11 +239,11 @@ export default async function(req) {
     // cláusula da CCT consultada, sempre com aviso; sem isso, é pendência.
     const avisosDados = [];
     if (!caso.salario) {
-      const piso = dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null;
-      // Segunda fonte: o campo `pisos` da CCT cadastrada, curado por função.
-      // Sem ela, quando a consulta à API não devolvia a cláusula do piso a peça
-      // saía sem base de cálculo nenhuma — foi o caso do Aluizio.
-      const pisoBase = piso ? null : pisoDaBaseCct(cctCadastrada, caso.funcao);
+      // Prioridade: o campo `pisos` da CCT cadastrada, curado por função. O valor
+      // raspado da cláusula da API pegava o piso de outra função (vigilantes
+      // saíram com R$ 1.703,91 em vez de R$ 2.271,74). A API vira reserva.
+      const pisoBase = pisoDaBaseCct(cctCadastrada, caso.funcao);
+      const piso = pisoBase ? null : (dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null);
       if (piso || pisoBase) {
         const valor = piso || pisoBase.valor;
         const fonte = piso
