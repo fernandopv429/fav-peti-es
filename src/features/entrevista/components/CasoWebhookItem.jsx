@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck } from 'lucide-react';
+import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import DadosEventoWebhook from '@/features/entrevista/components/DadosEventoWebhook';
 
 // Um caso da fila de webhooks: identificação do reclamante, CPF, reclamada,
 // data e a ação de revisar.
 export default function CasoWebhookItem({ caso: c, onSelecionar }) {
   const gerando = c.status === 'em_analise';
   const confirmado = c.status === 'pronto';
+  const [aberto, setAberto] = useState(false);
+  const eventoId = c.analise_json?.evento_id;
   return (
     <div className="border border-border rounded-lg p-3 hover:bg-muted/40 transition-colors">
       <div className="flex items-start justify-between gap-3">
@@ -45,6 +48,13 @@ export default function CasoWebhookItem({ caso: c, onSelecionar }) {
           </Button>
         )}
       </div>
+      {eventoId && (
+        <button onClick={() => setAberto(!aberto)} className="text-[11px] text-primary-ink mt-2 flex items-center gap-1 hover:underline">
+          {aberto ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          {aberto ? 'Ocultar dados recebidos' : 'Ver dados recebidos'}
+        </button>
+      )}
+      {aberto && eventoId && <DadosEventoWebhook eventoId={eventoId} />}
     </div>
   );
 }
