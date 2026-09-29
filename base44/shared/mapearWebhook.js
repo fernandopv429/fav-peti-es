@@ -18,6 +18,9 @@ function normalizarData(s) {
   if (iso) return s.slice(0, 10);
   const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(s);
   if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  // Só mês/ano ("01/2023"): assume o dia 1º.
+  const mesAno = /^(\d{1,2})\/(\d{4})$/.exec(String(s).trim());
+  if (mesAno) return `${mesAno[2]}-${mesAno[1].padStart(2, '0')}-01`;
   return s;
 }
 
@@ -187,7 +190,7 @@ export function mapearCasoDeWebhook(data) {
   }
   caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
 
-  caso.data_admissao = normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
+  caso.data_admissao = normalizarData(pick(d, 'RECL1_ESCALA_PERIODO_INICIO', 'DATA_ADMISSAO', 'admissao'));
   caso.data_rescisao = normalizarData(pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia'));
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
