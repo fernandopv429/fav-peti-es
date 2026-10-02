@@ -204,7 +204,22 @@ export function mapearCasoDeWebhook(data) {
     caso.data_rescisao = undefined;
     caso.continua_trabalhando = true;
   } else {
-    caso.data_rescisao = normalizarData(rescBruta);
+    // Rescisão = a MAIOR data de fim entre os períodos de escala (RECLn_ESCALA_PERIODO_FIM).
+    // Mês/ano ("06/2024") vira o último dia do mês.
+    const fins = Object.keys(d)
+      .filter((k) => /^RECL\d+_ESCALA_PERIODO_FIM$/i.test(k))
+      .map((k) => {
+        const v = String(d[k] || '').trim();
+        const ma = /^(\d{1,2})\/(\d{4})$/.exec(v);
+        if (ma) {
+          const ultimo = new Date(Date.UTC(+ma[2], +ma[1], 0)).getUTCDate();
+          return `${ma[2]}-${ma[1].padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+        }
+        return normalizarData(v);
+      })
+      .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
+      .sort();
+    caso.data_rescisao = fins[fins.length - 1] || normalizarData(rescBruta);
   }
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
