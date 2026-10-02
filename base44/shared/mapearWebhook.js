@@ -190,7 +190,13 @@ export function mapearCasoDeWebhook(data) {
   }
   caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
 
-  caso.data_admissao = normalizarData(pick(d, 'RECL1_ESCALA_PERIODO_INICIO', 'DATA_ADMISSAO', 'admissao'));
+  // Admissão = a MENOR data de início entre os períodos de escala (RECLn_ESCALA_PERIODO_INICIO).
+  const inicios = Object.keys(d)
+    .filter((k) => /^RECL\d+_ESCALA_PERIODO_INICIO$/i.test(k))
+    .map((k) => normalizarData(String(d[k] || '').trim()))
+    .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
+    .sort();
+  caso.data_admissao = inicios[0] || normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
   const rescBruta = pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia');
   // "CONTINUA_TRABALHANDO" (ou texto livre equivalente das fichas antigas) =
   // contrato ativo: sem data, para a rescisão ser presumida na elaboração.
