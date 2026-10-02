@@ -266,7 +266,9 @@ export function mapearCasoDeWebhook(data) {
     if (det) caso.intervalo_usufruido = det.slice(0, 300);
   }
 
-  if (d.folgas_trabalhadas || d.finais_semana) {
+  // O formulário pode mandar folgas_trabalhadas=false mesmo com quantidade e
+  // valor preenchidos: os dados concretos prevalecem sobre a flag.
+  if (d.folgas_trabalhadas || d.finais_semana || parseRange(pick(d, 'FT_QTD_MEDIA', 'ft_quantidade')) || parseRange(pick(d, 'VAL_FT', 'val_ft'))) {
     caso.tem_ft = true;
     const ftTxt = String(pick(d, 'FT_QTD_MEDIA', 'ft_quantidade') || '').trim();
     caso.ft_qtd_media = parseRange(ftTxt);
@@ -276,7 +278,7 @@ export function mapearCasoDeWebhook(data) {
     if (ftTxt) caso.ft_qtd_texto = ftTxt;
     caso.val_ft = parseRange(pick(d, 'VAL_FT', 'val_ft'));
   }
-  if (d.ft_pagamento && /pix|dinheiro/i.test(d.ft_pagamento)) {
+  if (d.ft_pagamento && /pix|dinheiro|por\s*fora|esp[ée]cie/i.test(d.ft_pagamento)) {
     caso.tem_integracao_por_fora = true;
   }
   // O valor pago "por fora" É o valor da FT quitada em PIX/dinheiro — é assim
