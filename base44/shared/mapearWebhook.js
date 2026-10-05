@@ -219,7 +219,9 @@ export function mapearCasoDeWebhook(data) {
       })
       .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
       .sort();
-    caso.data_rescisao = fins[fins.length - 1] || normalizarData(rescBruta);
+    // DATA_RESCISAO informada prevalece; o fim da escala é só reserva.
+    const rescInformada = normalizarData(String(rescBruta || '').trim());
+    caso.data_rescisao = /^\d{4}-\d{2}-\d{2}$/.test(rescInformada) ? rescInformada : (fins[fins.length - 1] || '');
   }
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
