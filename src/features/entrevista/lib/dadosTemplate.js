@@ -689,8 +689,23 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // Fallback da SÚMULA 331 (responsabilidade subsidiária): parágrafo padrão.
   // A IA sobrescreve via BLOCO_SUMULA_331 quando ativa.
   if (!dados.BLOCO_SUMULA_331 && dados.tem_tomadora) {
+    // Tempo laborado de cada tomadora, como veio do formulário: "todo o
+    // período", datas ("01/09/2025 - 26/03/2026") ou duração ("7 meses").
+    const periodoTomadora = (n) => {
+      const t = String(caso[`recl${n}_tempo_laborado`] || '').trim();
+      if (!t) return '';
+      if (/todo/i.test(t)) return 'durante todo o período contratual';
+      const datas = t.match(/\d{2}\/\d{2}\/\d{4}/g);
+      if (datas && datas.length >= 2) return `no período de ${datas[0]} a ${datas[1]}`;
+      return `pelo período de ${t}`;
+    };
+    const p2 = periodoTomadora(2);
+    const extras = [3, 4]
+      .filter((n) => dados[`RECLAMADA${n}_RAZAO`])
+      .map((n) => ` Da mesma forma, a ${n}ª reclamada, tomadora dos serviços${periodoTomadora(n) ? ` ${periodoTomadora(n)}` : ''}, responde subsidiariamente pelos créditos referentes ao período em que se beneficiou do labor do reclamante.`)
+      .join('');
     dados.BLOCO_SUMULA_331 =
-      `A 2ª reclamada, na qualidade de tomadora dos serviços, responde subsidiariamente pelas obrigações trabalhistas contraídas pela 1ª reclamada em relação ao reclamante, com fundamento na Súmula 331 do Tribunal Superior do Trabalho e nos artigos 4º e 5º do Decreto-Lei nº 200/1967, eis que o obreiro desempenhava suas atividades integrado à atividade-fim da tomadora, exercendo funções essenciais e permanentes, o que atrai a responsabilidade subsidiária da contratante pelos créditos deferidos nesta ação.`;
+      `A 2ª reclamada, na qualidade de tomadora dos serviços${p2 ? ` ${p2}` : ''}, responde subsidiariamente pelas obrigações trabalhistas contraídas pela 1ª reclamada em relação ao reclamante, com fundamento na Súmula 331 do Tribunal Superior do Trabalho e nos artigos 4º e 5º do Decreto-Lei nº 200/1967, eis que o obreiro desempenhava suas atividades integrado à atividade-fim da tomadora, exercendo funções essenciais e permanentes, o que atrai a responsabilidade subsidiária da contratante pelos créditos deferidos nesta ação.${extras}`;
   }
 
   // Fallback do rol de MULTAS CONVENCIONAIS: lista individualizada por caso
