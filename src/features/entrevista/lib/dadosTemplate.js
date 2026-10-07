@@ -563,8 +563,11 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.dez_minutos_cct = flag(caso.tem_dez_min_cct) || ehVigilante;
   dados.salarios_em_aberto = flag(caso.tem_salarios_aberto);
   dados.assiduidade = flag(caso.tem_assiduidade);
-  dados.vale_transporte = flag(caso.tem_vale_transporte);
-  dados.auxilio_alimentacao = flag(caso.tem_auxilio_alimentacao);
+  // Os capítulos de VT e auxílio-alimentação do modelo são "NAS FOLGAS
+  // TRABALHADAS": sem folgas, saíam com {{FOLGAS_LABORADAS_MES}} vazio.
+  const temFolgas = flag(caso.tem_ft || caso.val_ft || caso.ft_qtd_media);
+  dados.vale_transporte = flag(caso.tem_vale_transporte) && temFolgas;
+  dados.auxilio_alimentacao = flag(caso.tem_auxilio_alimentacao) && temFolgas;
   dados.doenca_ocupacional = flag(caso.tem_doenca);
   dados.estabilidade_doenca = flag(caso.tem_estabilidade || caso.tem_doenca);
   dados.pensao_vitalicia = flag(caso.tem_pensao);
