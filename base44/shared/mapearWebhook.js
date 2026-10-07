@@ -196,7 +196,16 @@ export function mapearCasoDeWebhook(data) {
     .map((k) => normalizarData(String(d[k] || '').trim()))
     .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
     .sort();
-  caso.data_admissao = inicios[0] || normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
+  // Reserva: a menor data de início dos RECLn_TEMPO_LABORADO
+  // ("16/01/2026 - 13/09/2026" ou "01/2026 - 03/2026").
+  const iniciosTempo = Object.keys(d)
+    .filter((k) => /^RECL\d+_TEMPO_LABORADO$/i.test(k))
+    .map((k) => /(\d{2}\/\d{2}\/\d{4}|\d{1,2}\/\d{4})/.exec(String(d[k] || ''))?.[1])
+    .filter(Boolean)
+    .map(normalizarData)
+    .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
+    .sort();
+  caso.data_admissao = inicios[0] || normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao')) || iniciosTempo[0] || '';
   const rescBruta = pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia');
   // "CONTINUA_TRABALHANDO" (ou texto livre equivalente das fichas antigas) =
   // contrato ativo: sem data, para a rescisão ser presumida na elaboração.
