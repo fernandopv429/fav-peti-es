@@ -421,6 +421,9 @@ export function mapearCasoDeWebhook(data) {
   const pareceAnotacao = /\balega\s+que\b|\bhavia\s+solicitad|\brelata\s+que\b|\binforma\s+que\b|^\s*[-•*\d]\s|\bPL\b|consignado/i.test(relato);
   if (relato && !pareceAnotacao) caso.dano_fatos = relato;
   else if (relato) caso.dano_observacao = relato;
+  // Relato em forma de anotação ainda pode trazer fato de dano moral
+  // (perseguição, assédio, humilhação): isso basta para pedir a verba.
+  if (/persegu|ass[ée]dio|humilh|constrang|amea[çc]|xing|retalia/i.test(relato)) caso.tem_dano_moral = true;
 
   caso.comarca_uf = extrairUF(caso.local_prestacao || caso.recl_endereco);
 
