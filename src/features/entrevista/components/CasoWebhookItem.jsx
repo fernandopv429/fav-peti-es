@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import DadosEventoWebhook from '@/features/entrevista/components/DadosEventoWebhook';
+import SeloCompletude from '@/features/entrevista/components/SeloCompletude';
 
 // Um caso da fila de webhooks: identificação do reclamante, CPF, reclamada,
 // data e a ação de revisar.
@@ -17,6 +18,7 @@ export default function CasoWebhookItem({ caso: c, onSelecionar }) {
           <p className="font-medium text-sm flex items-center gap-1.5">
             <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
             <span className="truncate">{c.recl_nome || c.titulo || '(sem nome)'}</span>
+            {!gerando && <SeloCompletude analise={c.analise_json} />}
             {confirmado && (
               <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-semibold flex-shrink-0">
                 <BadgeCheck className="h-3 w-3" /> Revisão confirmada
