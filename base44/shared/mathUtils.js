@@ -456,8 +456,10 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     });
   }
 
-  const temConteudoDanoMoral = temDanoMoralConcreto(caso);
-  if (temConteudoDanoMoral && maiorRem) {
+  // O capítulo DO DANO MORAL é incondicional no modelo (narrativa sempre
+  // preenchida), então o valor também precisa sair sempre — senão o rol fica
+  // com {{VALOR_DANO_MORAL_10X}} pendente.
+  if (maiorRem) {
     itens.push({ item: 'Dano moral (10x remuneração)', memoria: '10x a maior remuneração na função', valor: danoMoral10x(maiorRem) });
   }
 
