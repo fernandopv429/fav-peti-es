@@ -1,33 +1,40 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ShieldCheck, AlertTriangle } from 'lucide-react';
+import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
-// Campos essenciais que o evento precisa trazer para a peça sair sem pendências.
-const ESSENCIAIS = [
-  ['recl_nome', 'nome'], ['recl_cpf', 'CPF'], ['recl_rg', 'RG'], ['recl_endereco', 'endereço'],
-  ['recl1_nome', 'reclamada'], ['recl1_cnpj', 'CNPJ'], ['funcao', 'função'],
-  ['data_admissao', 'admissão'], ['data_rescisao', 'rescisão'], ['jornada_horario', 'jornada'],
-];
+// Monta os mesmos dados que preenchem a peça e conta os trechos que sairiam
+// como pendência no documento ("[RG]", "[SALÁRIO]", "[VARA / CIDADE / REGIÃO]"...).
+function pendenciasDaPeca(analise) {
+  const dados = montarDadosTemplate({
+    caso: analise.caso,
+    calculos: analise.calculos || [],
+    dadosReceita: analise.dadosReceita || [],
+    dadosCep: analise.dadosCep || [],
+  });
+  const lista = Object.entries(dados)
+    .filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && /^\[.*\]$/.test(v.trim()))
+    .map(([, v]) => v.replace(/[[\]]/g, '').toLowerCase());
+  if (analise.redacaoErro) lista.push('capítulos da IA com falha');
+  return lista;
+}
 
 export default function SeloCompletude({ analise }) {
-  const caso = analise?.caso;
-  if (!caso) return null;
-  const faltando = ESSENCIAIS.filter(([k]) => !caso[k]).map(([, r]) => r);
-  if (caso.salario_origem && caso.salario_origem !== 'informado no evento') faltando.push('salário');
-  if (analise.redacaoErro) faltando.push('redação IA');
+  const faltando = useMemo(() => (analise?.caso ? pendenciasDaPeca(analise) : null), [analise]);
+  if (!faltando) return null;
 
   if (!faltando.length) {
     return (
       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-semibold flex-shrink-0">
-        <ShieldCheck className="h-3 w-3" /> Completa
+        <ShieldCheck className="h-3 w-3" /> Peça completa
       </span>
     );
   }
   return (
     <span
-      title={`Faltando: ${faltando.join(', ')}`}
+      title={`Pendências na peça: ${faltando.join(', ')}`}
       className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-warning/10 text-warning text-[10px] font-semibold flex-shrink-0"
     >
-      <AlertTriangle className="h-3 w-3" /> Incompleta ({faltando.length})
+      <AlertTriangle className="h-3 w-3" /> Peça com pendências ({faltando.length})
     </span>
   );
 }
