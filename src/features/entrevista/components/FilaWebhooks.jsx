@@ -34,7 +34,7 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
   const carregar = async () => {
     setLoading(true);
     try {
-      const lista = await base44.entities.CasoTrabalhista.list('-created_date', 50);
+      const lista = await base44.entities.CasoTrabalhista.list('-created_date', 1000);
       setCasos((lista || []).filter((c) => c.analise_json?.origem === 'webhook'));
     } catch (e) {
       console.error(e);

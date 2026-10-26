@@ -88,7 +88,7 @@ export default function EntrevistaSession() {
   }, []);
 
   const atualizarFilaCount = () => {
-    base44.entities.CasoTrabalhista.list('-created_date', 50)
+    base44.entities.CasoTrabalhista.list('-created_date', 1000)
       .then((l) => {
         const webhooks = (l || []).filter((c) => c.analise_json?.origem === 'webhook');
         setFilaCount(webhooks.filter((c) => c.status !== 'pronto').length);
