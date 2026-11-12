@@ -141,12 +141,10 @@ export async function enriquecerDatajud(attrs, config) {
 
 // ---- CCT (cct-api / pgvector) — cláusulas por categoria + vigência ----
 // Categoria da convenção a partir da função/sindicato do caso.
-export function categoriaCct(caso = {}, attrs = {}) {
-  const t = `${caso.funcao || attrs.funcao || ''} ${caso.sindicato || ''}`.toLowerCase();
-  if (/vigilante|seevissp|sesvesp|segurança/.test(t)) return 'vigilancia';
-  if (/asseio|limpeza|conserva|siemaco|seac/.test(t)) return 'asseio_conservacao';
-  return 'terceirizados'; // porteiro / controlador de acesso / SINDEEPRES (padrão)
-}
+// Mesma regra de base44/shared/consultas.js (fonte única): função fora das
+// três convenções cadastradas devolve null, em vez de cair no SINDEEPRES.
+export { categoriaCct } from '../../../../base44/shared/consultas.js';
+import { categoriaCct } from '../../../../base44/shared/consultas.js';
 
 export async function consultarCct({ pergunta, categoria, data_fato, municipio, uf, limite = 4 }) {
   try {
@@ -214,6 +212,7 @@ function municipioDeLocal(local) {
 export async function enriquecerCct(caso, attrs, config, local = {}) {
   if (!config?.cct_ativo) return null;
   const categoria = config.cct_categoria || categoriaCct(caso, attrs);
+  if (!categoria) return null;
   const data_fato = caso?.data_rescisao || caso?.data_admissao || undefined;
   const municipio = local.municipio || municipioDeLocal(caso?.local_prestacao) || caso?.comarca || undefined;
   const uf = local.uf || undefined;
