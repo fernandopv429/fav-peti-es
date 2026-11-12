@@ -94,11 +94,28 @@ export async function enriquecerCeps(ceps) {
   }));
 }
 
+// Funções do segmento de PORTARIA (CCT SINDEEPRES — abrangência: porteiro,
+// controlador de acesso, portaria remota, vigia, atendente de público, fiscal
+// de piso/loja, recepcionista de portaria, folguista, zelador).
+const RX_PORTARIA = /porteir|portaria|controlador(?:a)?\s+de\s+acesso|controle\s+de\s+acesso|monitor(?:a)?\s+de\s+acesso|recepcionista|fiscal\s+de\s+(?:piso|loja|patrim)|\bvigia\b|folguista|zelador|atendente\s+de\s+p[úu]blico|sindeepres|sindeprestem/;
+// Funções de ASSEIO E CONSERVAÇÃO (CCT SIEMACO).
+const RX_ASSEIO = /asseio|limpeza|conserva[çc]|faxin|servente|copeir|servi[çc]os\s+gerais|\basg\b|higieniza|jardin|siemaco|seac/;
+const RX_VIGILANCIA = /vigilante|vigil[âa]ncia|seevissp|sesvesp|seguran[çc]a\s+(?:patrimonial|privada)/;
+
+// Devolve a categoria de CCT do caso, ou NULL quando a função não pertence a
+// nenhuma das três convenções cadastradas.
+//
+// Antes, tudo que não fosse vigilância nem asseio caía em 'terceirizados'
+// (SINDEEPRES): garçom, vendedor, estoquista, cuidadora, frentista saíam com o
+// piso normativo de portaria (R$ 1.805,43), auxílio-refeição e cláusulas de uma
+// convenção que não é a deles — auditoria de 12/11/2026, ~40% das entrevistas.
+// Agora essas funções voltam null e quem chama trata como "sem CCT cadastrada".
 export function categoriaCct(caso = {}, attrs = {}) {
   const t = `${caso.funcao || attrs.funcao || ''} ${caso.sindicato || ''}`.toLowerCase();
-  if (/vigilante|seevissp|sesvesp|segurança/.test(t)) return 'vigilancia';
-  if (/asseio|limpeza|conserva|siemaco|seac/.test(t)) return 'asseio_conservacao';
-  return 'terceirizados';
+  if (RX_VIGILANCIA.test(t)) return 'vigilancia';
+  if (RX_ASSEIO.test(t)) return 'asseio_conservacao';
+  if (RX_PORTARIA.test(t)) return 'terceirizados';
+  return null;
 }
 
 // ------------------------------------------------------------------
@@ -210,6 +227,9 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   if (!config?.cct_ativo) return null;
   if (!apiKey) return null;
   const categoria = config.cct_categoria || categoriaCct(caso, attrs);
+  // Função fora das convenções cadastradas: NÃO consulta. Sem categoria a busca
+  // semântica devolveria cláusulas de qualquer convenção e a peça as citaria.
+  if (!categoria) return null;
   const data_fato = caso?.data_rescisao || caso?.data_admissao || undefined;
   // caso.comarca não existe no contrato do caso — o campo é comarca_uf
   // ("Cidade/UF"), de onde tiramos só a cidade.
