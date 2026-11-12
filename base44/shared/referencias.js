@@ -198,13 +198,18 @@ export function trechoDoCapitulo(conteudo, campo, limite = 6000) {
 // ------------------------------------------------------------
 export function blocoReferencias({ modelos = [], attrs = {}, campos = [], limitePorCapitulo = 6000, limiteTotal = 20000 } = {}) {
   const ranking = rankearModelos(modelos, attrs).filter((r) => r.score > 0);
-  const candidatos = (ranking.length ? ranking.map((r) => r.modelo) : modelos).slice(0, 5);
+  const ordenados = ranking.length ? ranking.map((r) => r.modelo) : modelos;
+  const candidatos = ordenados.slice(0, 5);
 
   const exemplos = [];
   let gasto = 0;
   for (const campo of campos) {
     if (gasto >= limiteTotal) break;
-    for (const m of candidatos) {
+    // Percorre TODOS os modelos em ordem de semelhança, não só os 5 primeiros:
+    // com a prioridade do padrão vigente os 5 primeiros tendem a ser as peças
+    // novas, e o capítulo que nenhuma delas tem (ex.: insalubridade) precisa
+    // alcançar a peça antiga que o tem.
+    for (const m of ordenados) {
       const t = trechoDoCapitulo(m.conteudo, campo, Math.min(limitePorCapitulo, limiteTotal - gasto));
       if (!t) continue;
       exemplos.push({ campo, titulo: t.titulo, origem: m.titulo || '', texto: t.texto });
