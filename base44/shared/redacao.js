@@ -274,7 +274,10 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, 
     // FATOS/FUNDAMENTO/JURISPRUDÊNCIA/PEDIDO, prosa corrida e direta". A IA
     // obedecia ao prompt e imprimia "1. DOS FATOS", "2. FUNDAMENTO LEGAL" como
     // subtítulos — foi o que a revisão apontou como "fora da estrutura".
-    '- SEM SUBTÍTULOS E SEM SUBDIVISÃO NUMERADA: o capítulo é PROSA CORRIDA de 2 a 6 parágrafos. Cubra, nessa ordem e SEM rotular, os fatos do caso, o fundamento (CLT, Súmulas e cláusula da CCT citados em linha, sem transcrever ementas longas) e o pedido com os reflexos. NUNCA escreva "1. DOS FATOS", "2. FUNDAMENTO LEGAL", "3. JURISPRUDÊNCIA" nem qualquer título dentro do capítulo — o padrão do escritório proíbe expressamente essa subdivisão.',
+    // Extensão: até 12/11/2026 a regra fixava "2 a 6 parágrafos" (padrão de
+    // ago/2026). O escritório decidiu que valem as peças de set–nov/2026, mais
+    // desenvolvidas: a extensão passa a seguir o exemplo real enviado no prompt.
+    '- SEM SUBTÍTULOS E SEM SUBDIVISÃO NUMERADA: o capítulo é PROSA CORRIDA, com a extensão e a ordem de argumentos do exemplo real fornecido em "COMO O ESCRITÓRIO ESCREVE" para este capítulo (sem exemplo disponível: 2 a 6 parágrafos). Cubra, nessa ordem e SEM rotular, os fatos do caso, o fundamento (CLT, Súmulas e cláusula da CCT citados em linha, sem transcrever ementas longas) e o pedido com os reflexos. NUNCA escreva "1. DOS FATOS", "2. FUNDAMENTO LEGAL", "3. JURISPRUDÊNCIA" nem qualquer título dentro do capítulo — o padrão do escritório proíbe expressamente essa subdivisão.',
     // A regra acima proibia "qualquer título dentro do capítulo" e a IA entendeu
     // como subtítulo interno: seguiu abrindo o texto repetindo o CABEÇALHO do
     // capítulo. Na peça do Marcos "DO DANO MORAL", "DO DESVIO DE FUNÇÃO" e "DAS
