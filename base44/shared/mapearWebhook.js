@@ -12,12 +12,30 @@ function parseBRL(s) {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
+// Meses por extenso. O Fav Sales manda a admissão como "05 de setembro de 2023"
+// (é o texto que sai na entrevista assinada). Sem ler esse formato a data
+// chegava ao cálculo como texto, parseData devolvia nulo e TODAS as verbas que
+// dependem do tempo de contrato (aviso, 13º, férias, FGTS, horas) caíam —
+// auditoria de 12/11/2026: ~60% dos casos recentes.
+const MESES_EXTENSO = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
 function normalizarData(s) {
   if (!s) return '';
+  s = String(s).trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   if (iso) return s.slice(0, 10);
   const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(s);
   if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  // "05 de setembro de 2023", "5 de março de 2024", "1º de maio de 2022".
+  const ext = /^(\d{1,2})\s*[ºo°]?\s+de\s+([a-zà-ÿ]+)\s+de\s+(\d{4})/i.exec(s);
+  if (ext) {
+    const nomeMes = ext[2].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const mes = MESES_EXTENSO.indexOf(nomeMes) + 1;
+    const dia = Number(ext[1]);
+    if (mes >= 1 && dia >= 1 && dia <= 31) {
+      return `${ext[3]}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+  }
   // Só mês/ano ("01/2023"): assume o dia 1º.
   const mesAno = /^(\d{1,2})\/(\d{4})$/.exec(String(s).trim());
   if (mesAno) return `${mesAno[2]}-${mesAno[1].padStart(2, '0')}-01`;
@@ -30,6 +48,12 @@ function mapearTipoDispensa(s) {
   if (/rescis[aã]o\s+indireta/.test(t)) return 'rescisao_indireta';
   if (/coa[çc][aã]o|coagido|nulidade|pedido\s+de\s+demiss[aã]o/.test(t)) return 'nulidade_pedido_demissao';
   if (/revers[aã]o\s+(da\s+)?justa\s+causa/.test(t)) return 'reversao_justa_causa';
+  // O formulário do Fav Sales oferece a opção "Justa causa" (sem a palavra
+  // "reversão"). Ela caía no padrão abaixo e a peça saía como dispensa SEM
+  // justa causa, sem a tese de reversão. "Sem justa causa" já foi tratado na
+  // primeira linha, então qualquer "justa causa" que chega aqui é dispensa por
+  // justa causa: a tese da inicial é a reversão.
+  if (/justa\s+causa/.test(t)) return 'reversao_justa_causa';
   if (/acordo/.test(t)) return 'acordo';
   return 'sem_justa_causa';
 }
@@ -228,9 +252,43 @@ export function mapearCasoDeWebhook(data) {
       })
       .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
       .sort();
-    // DATA_RESCISAO informada prevalece; o fim da escala é só reserva.
+    // Fim do "Tempo laborado" ("05/09/2023 - 12/03/2025", "11/2023 - 11/2024").
+    // Só vale quando o texto traz DUAS datas: a segunda é o fim. Sem isto, a
+    // entrevista sem "último dia trabalhado" tinha a rescisão presumida na data
+    // da elaboração mesmo com o fim do contrato escrito no payload — caso de
+    // 12/11/2026: contrato encerrado em 12/03/2025 e rescisão gravada 20 meses
+    // depois, inflando todas as verbas por tempo.
+    const fimDoTempoLaborado = (texto) => {
+      const datas = String(texto || '').match(/\d{2}\/\d{2}\/\d{4}|\d{1,2}\/\d{4}/g) || [];
+      if (datas.length < 2) return '';
+      const v = datas[datas.length - 1];
+      const ma = /^(\d{1,2})\/(\d{4})$/.exec(v);
+      if (ma) {
+        if (+ma[1] < 1 || +ma[1] > 12) return '';
+        const ultimo = new Date(Date.UTC(+ma[2], +ma[1], 0)).getUTCDate();
+        return `${ma[2]}-${ma[1].padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+      }
+      const n = normalizarData(v);
+      return /^\d{4}-\d{2}-\d{2}$/.test(n) ? n : '';
+    };
+    // A 1ª reclamada é a empregadora: o fim do período dela é o fim do contrato.
+    // As demais (tomadoras) só entram se a 1ª não trouxer o período.
+    const fimEmpregadora = fimDoTempoLaborado(d.RECL1_TEMPO_LABORADO);
+    const finsTomadoras = Object.keys(d)
+      .filter((k) => /^RECL[2-9]_TEMPO_LABORADO$/i.test(k))
+      .map((k) => fimDoTempoLaborado(d[k]))
+      .filter(Boolean)
+      .sort();
+    // Ordem: DATA_RESCISAO informada > fim do tempo laborado da empregadora >
+    // fim da escala > fim do tempo laborado das tomadoras.
     const rescInformada = normalizarData(String(rescBruta || '').trim());
-    caso.data_rescisao = /^\d{4}-\d{2}-\d{2}$/.test(rescInformada) ? rescInformada : (fins[fins.length - 1] || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rescInformada)) {
+      caso.data_rescisao = rescInformada;
+    } else {
+      const derivada = fimEmpregadora || fins[fins.length - 1] || finsTomadoras[finsTomadoras.length - 1] || '';
+      caso.data_rescisao = derivada;
+      if (derivada) caso.data_rescisao_origem = 'derivada do período informado (tempo laborado/escala) — conferir com o TRCT';
+    }
   }
   caso.salario = parseBRL(pick(d, 'SALARIO', 'salario'));
   caso.funcao = pick(d, 'FUNCAO', 'cargo') || r1.cargo || '';
