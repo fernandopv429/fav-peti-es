@@ -8,7 +8,12 @@ import { withRuntimeCache } from './runtimeCache';
 const norm = (s) =>
   (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-export function pontuarModelo(modelo, attrs = {}) {
+// A pontuação vive em base44/shared/referencias.js (fonte única, usada também
+// pelo webhook): lá está a prioridade das peças do padrão vigente. Esta cópia
+// ficou só como referência histórica e não é mais exportada.
+export { pontuarModelo, rankearModelos } from '../../../../base44/shared/referencias.js';
+
+function pontuarModeloLegado(modelo, attrs = {}) {
   let score = 0;
   const motivos = [];
   if (attrs.tipo_dispensa && modelo.tipo_dispensa === attrs.tipo_dispensa) {
@@ -46,11 +51,7 @@ export function pontuarModelo(modelo, attrs = {}) {
   return { score, motivos };
 }
 
-export function rankearModelos(modelos, attrs) {
-  return (modelos || [])
-    .map((modelo) => ({ modelo, ...pontuarModelo(modelo, attrs) }))
-    .sort((a, b) => b.score - a.score);
-}
+void pontuarModeloLegado;
 
 export async function listarModelosAtivos() {
   return withRuntimeCache('modelos-ativos', 'lista', async () => {
