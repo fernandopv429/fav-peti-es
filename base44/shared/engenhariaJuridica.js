@@ -30,7 +30,7 @@ C) ENQUADRAMENTO FUNCIONAL (nunca cumular teses sobre os mesmos fatos):
 D) JORNADA E DANO MORAL:
 - Trate exclusivamente da escala relatada. Em 12x36, aborde a extensão habitual, a supressão do intervalo intrajornada (art. 71 CLT), os minutos de troca de uniforme antes/depois e o labor em folgas (FTS). É PROIBIDO inserir explicações, tabelas ou quadros sobre escalas 4x2, 6x2 ou qualquer jornada não trabalhada pelo obreiro.
 - Para vigilantes, incluir a tese dos 10 minutos de descanso sentado a cada hora trabalhada (cláusulas 33ª/34ª da CCT).
-- Dano moral: manter a fundamentação doutrinária padrão (inclusive a citação da Magistrada Martha Halfed Furtado) e INCORPORAR a narrativa concreta dos abusos relatados na entrevista (pagamentos por fora via PIX, ausência de descanso, desvio de função exaustivo, perseguição). Valor: exatamente 10x o último salário do reclamante.
+- Dano moral: manter a fundamentação doutrinária padrão (inclusive a citação da Magistrada Martha Halfeld Furtado) e INCORPORAR a narrativa concreta dos abusos relatados na entrevista (pagamentos por fora via PIX, ausência de descanso, desvio de função exaustivo, perseguição). Valor: exatamente 10x o último salário do reclamante.
 
 E) CÁLCULO E ROL DE PEDIDOS:
 - Quando o valor for estimativo, calcule um número proporcional e razoável (salário base × meses trabalhados × percentual aplicável).
