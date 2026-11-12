@@ -1,4 +1,5 @@
-import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto } from './mathUtils';
+import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm } from './mathUtils';
+import { categoriaEntidadeCct } from '../../../../base44/shared/consultas.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 
 // ============================================================
@@ -36,6 +37,10 @@ const CALC_CAMPO = {
   'Gratificação de função (10%)': 'VALOR_GRATIFICACAO',
   'Gratificação/bônus de função': 'VALOR_GRATIFICACAO',
   'Desvio de função (50%)': 'VALOR_DESVIO',
+  // Insalubridade (40% do salário mínimo, reflexos sem DSR). A tag existe no
+  // modelo a partir da v22 do .docx-mestre (linha do rol de pedidos).
+  'Adicional de insalubridade (40%)': 'VALOR_INSALUBRIDADE',
+  'Reflexos de Adicional de insalubridade (40%)': 'VALOR_INSALUBRIDADE_REFLEXOS',
   'Multa do art. 477 da CLT': 'VALOR_MULTA_477',
   'Salários em aberto': 'VALOR_SALARIOS_ABERTO',
   'Honorários advocatícios (15%)': 'VALOR_HONORARIOS',
@@ -529,9 +534,16 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.PERC_ART71 = ehVigilante
     ? '60% (sessenta por cento), conforme a cláusula 12ª da Convenção Coletiva da Categoria'
     : '50% (cinquenta por cento), conforme o artigo 71, §4º, da CLT';
-  dados.PERC_MULTA_CONV = ehVigilante
-    ? '3% (três por cento) sobre o salário normativo da categoria'
-    : '20% (vinte por cento) por cláusula descumprida';
+  // Multa convencional POR CONVENÇÃO (conferido nas CCTs em 12/11/2026). Antes
+  // era só vigilante × demais, e todos os não vigilantes saíam com "20% por
+  // cláusula" sobre o SALÁRIO: errado no SIEMACO (a base é o salário MÍNIMO,
+  // cl. 66ª/67ª) e no SINDEEPRES (2% sobre o montante devido, cl. 85ª).
+  const categoriaMulta = ehVigilante ? 'vigilante' : categoriaEntidadeCct(caso, attrs);
+  dados.PERC_MULTA_CONV = {
+    vigilante: '3% (três por cento) sobre o salário normativo da categoria',
+    porteiro_siemaco: '20% (vinte por cento) do salário mínimo federal vigente, por cláusula descumprida',
+    porteiro_sindeepres: '2% (dois por cento) sobre o montante devido em razão do descumprimento da Convenção',
+  }[categoriaMulta] || 'percentual previsto na Convenção Coletiva da categoria';
   dados.tem_tomadora = temTomadora;
   // Acende o parágrafo da 3ª reclamada na qualificação.
   dados.tem_reclamada3 = flag(dados.RECLAMADA3_RAZAO);
@@ -748,13 +760,20 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // critério é o da própria CCT (percentual por cláusula descumprida) e a
   // quantidade é a da lista que a peça imprime no capítulo, em pedidos_multas:
   // nada é estimado por fora, e a conta fica no próprio pedido para auditoria.
-  const pctMultaConv = ehVigilante ? 0.03 : 0.20;
-  const baseMultaConv = Number(caso.salario) || 0;
+  // Vigilância: 3% × salário por cláusula. SIEMACO: 20% × salário mínimo vigente
+  // na rescisão, por cláusula. SINDEEPRES (2% do montante devido) e categoria
+  // sem CCT: não há base por cláusula — fica a apurar e fora do valor da causa.
+  const regraMulta = {
+    vigilante: { pct: 0.03, base: Number(caso.salario) || 0, rotuloBase: 'do salário' },
+    porteiro_siemaco: { pct: 0.20, base: salarioMinimoEm(caso.data_rescisao), rotuloBase: 'do salário mínimo' },
+  }[categoriaMulta] || null;
+  const pctMultaConv = regraMulta?.pct || 0;
+  const baseMultaConv = regraMulta?.base || 0;
   const qtdMultas = Array.isArray(dados.pedidos_multas) ? dados.pedidos_multas.length : 0;
-  if (qtdMultas > 0 && baseMultaConv > 0) {
+  if (regraMulta && qtdMultas > 0 && baseMultaConv > 0) {
     const totalMultas = round2(qtdMultas * pctMultaConv * baseMultaConv);
     const plural = qtdMultas > 1 ? 's' : '';
-    dados.VALOR_MULTAS_CONV = `valor estimado de ${formatBRL(totalMultas)} (${qtdMultas} cláusula${plural} descumprida${plural} × ${(pctMultaConv * 100).toFixed(0)}% de ${formatBRL(baseMultaConv)})`;
+    dados.VALOR_MULTAS_CONV = `valor estimado de ${formatBRL(totalMultas)} (${qtdMultas} cláusula${plural} descumprida${plural} × ${(pctMultaConv * 100).toFixed(0)}% ${regraMulta.rotuloBase}, ${formatBRL(baseMultaConv)})`;
     // A verba passa a ter valor: entra na alçada, senão o rol pede um valor que
     // o fecho da peça não cobra (a mesma incoerência do caso do Jonathan).
     somaCausa += totalMultas;
