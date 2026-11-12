@@ -293,6 +293,17 @@ export default async function(req) {
     if (dadosCct?.municipio_nao_filtrado) {
       avisosDados.push(`CCT: nenhuma cláusula encontrada para o município "${dadosCct.municipio}"; as cláusulas citadas vieram da busca por categoria, sem filtro territorial. CONFERIR a abrangência da convenção antes de protocolar.`);
     }
+    // DATA DE RESCISÃO sem confirmação. Presumida na data da elaboração (contrato
+    // sem fim informado) ou derivada do período — nos dois casos todo o cálculo
+    // por tempo depende dela, e até aqui a peça saía sem aviso nenhum.
+    if (caso.data_rescisao_presumida && !caso.continua_trabalhando) {
+      avisosDados.push('Data de rescisão NÃO informada no evento e sem período de onde derivá-la: adotada a data da elaboração. CONFIRMAR o último dia trabalhado antes de protocolar — aviso, 13º, férias, FGTS e verbas por hora dependem desta data.');
+    } else if (caso.data_rescisao_origem) {
+      avisosDados.push(`Data de rescisão ${caso.data_rescisao_origem}.`);
+    }
+    if (caso.data_admissao && !/^\d{4}-\d{2}-\d{2}$/.test(String(caso.data_admissao))) {
+      avisosDados.push(`Data de admissão em formato não reconhecido ("${String(caso.data_admissao).slice(0, 40)}"): as verbas por tempo de contrato NÃO foram calculadas. Corrigir a data na entrevista e reenviar.`);
+    }
     if (caso.gratificacao_ignorada) {
       avisosDados.push(`Gratificação de função NÃO foi pedida: a tese é do vigilante-condutor (cl. 3º da CCT de vigilância) e a função aqui é "${caso.funcao || 'não informada'}". O evento mencionava: "${caso.gratificacao_ignorada}". Revisar se cabe outra verba.`);
     }
