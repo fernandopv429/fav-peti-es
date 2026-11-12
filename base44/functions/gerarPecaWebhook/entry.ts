@@ -173,10 +173,35 @@ export default async function(req) {
     // enquanto a API exige raspar "R$" de texto corrido. Antes deste ponto a
     // entidade CCT só era lida por auditarPeticao — o gerador a ignorava.
     const categoriaEnt = categoriaEntidadeCct(caso);
-    const cctCadastrada = categoriaEnt
+    // CCT VIGENTE NA DATA DA RESCISÃO. Antes pegava-se o primeiro registro ativo
+    // da categoria, sem olhar a vigência: um contrato encerrado em 2025 recebia
+    // piso, auxílio e número de cláusula da convenção de 2026. Agora: (1) a que
+    // cobre a data da rescisão; (2) na falta, a mais recente iniciada até essa
+    // data; (3) na falta, a mais recente — nos casos 2 e 3 com aviso.
+    const cctsDaCategoria = categoriaEnt
       ? (await base44.asServiceRole.entities.CCT
-          .filter({ categoria: categoriaEnt, ativo: true }).catch(() => []))?.[0] || null
-      : null;
+          .filter({ categoria: categoriaEnt, ativo: true }).catch(() => [])) || []
+      : [];
+    const dataRefCct = /^\d{4}-\d{2}-\d{2}$/.test(String(caso.data_rescisao || '')) && !caso.data_rescisao_presumida
+      ? String(caso.data_rescisao)
+      : new Date().toISOString().slice(0, 10);
+    const fimCct = (c) => String(c?.vigencia_fim_economicas || c?.vigencia_fim_sociais || '');
+    const iniCct = (c) => String(c?.vigencia_inicio || '');
+    const porInicioDesc = (a, b) => iniCct(b).localeCompare(iniCct(a));
+    const cctCobre = cctsDaCategoria
+      .filter((c) => iniCct(c) && iniCct(c) <= dataRefCct && (!fimCct(c) || dataRefCct <= fimCct(c)))
+      .sort(porInicioDesc)[0] || null;
+    const cctAnterior = cctCobre ? null
+      : cctsDaCategoria.filter((c) => iniCct(c) && iniCct(c) <= dataRefCct).sort(porInicioDesc)[0] || null;
+    const cctCadastrada = cctCobre || cctAnterior || [...cctsDaCategoria].sort(porInicioDesc)[0] || null;
+    const avisoCct = [];
+    if (!categoriaEnt) {
+      // Função fora das três convenções cadastradas (vigilância, asseio, portaria).
+      caso.sem_cct = true;
+      avisoCct.push(`CATEGORIA SEM CCT CADASTRADA (função "${caso.funcao || 'não informada'}"): nenhuma convenção foi aplicada — sem piso, sem auxílio-alimentação convencional e sem cláusulas. Os capítulos que dependem de convenção coletiva (multas convencionais, adicionais convencionais, benefícios) precisam de REDAÇÃO MANUAL com a CCT da categoria.`);
+    } else if (cctCadastrada && !cctCobre) {
+      avisoCct.push(`CCT: a convenção cadastrada usada (${cctCadastrada.nome}, vigência a partir de ${iniCct(cctCadastrada)}) NÃO cobre a data de referência ${dataRefCct}. Valores e números de cláusula podem ser de outro ano — CONFERIR na convenção vigente à época.`);
+    }
     if (cctCadastrada) {
       if (!caso.cct_ano && cctCadastrada.vigencia_inicio) {
         caso.cct_ano = String(cctCadastrada.vigencia_inicio).slice(0, 4);
@@ -237,7 +262,7 @@ export default async function(req) {
     // de PISOS_FALLBACK (R$ 1.699,23) quando o salário real era R$ 1.912,07 —
     // ~11% a menos em tudo, sem aviso nenhum. Agora: piso só vale se vier de
     // cláusula da CCT consultada, sempre com aviso; sem isso, é pendência.
-    const avisosDados = [];
+    const avisosDados = [...avisoCct];
     if (!caso.salario) {
       // Prioridade: o campo `pisos` da CCT cadastrada, curado por função. O valor
       // raspado da cláusula da API pegava o piso de outra função (vigilantes
@@ -471,7 +496,7 @@ export default async function(req) {
       additional_facts: avisos.length ? avisos.join(' | ') : undefined,
       // Sem dialeto confirmado, com falha de redacao ou com salario nao
       // confirmado nao afirmamos que esta pronta: vai para revisao explicita.
-      status: (dialetoOk && !redacaoErro && salarioConfiavel) ? 'concluida' : 'revisao_necessaria',
+      status: (dialetoOk && !redacaoErro && salarioConfiavel && !caso.sem_cct) ? 'concluida' : 'revisao_necessaria',
     };
     try {
       if (vaiAtualizar) {
