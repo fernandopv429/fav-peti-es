@@ -59,6 +59,16 @@ export function pontuarModelo(modelo, attrs = {}) {
       motivos.push(`Tese: ${t}`);
     }
   }
+  // PRIORIDADE DO PADRÃO VIGENTE. As peças de set–nov/2026 (campo `prioridade`
+  // > 0) devem servir de exemplo antes das antigas; as antigas continuam ativas
+  // como reserva, para o capítulo ou a situação que nenhuma peça nova cobre
+  // (ex.: insalubridade de limpeza, assiduidade). Só soma quando já há alguma
+  // semelhança com o caso, para não promover um modelo sem relação nenhuma.
+  const prioridade = Number(modelo.prioridade) || 0;
+  if (prioridade > 0 && score > 0) {
+    score += prioridade;
+    motivos.push('Padrão vigente do escritório');
+  }
   return { score, motivos };
 }
 
