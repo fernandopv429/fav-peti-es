@@ -291,14 +291,18 @@ const REFLEXOS_EXIBICAO = [
 // audita — não dá para saber se entrou DSR, se entrou FGTS, se faltou rubrica.
 // Foi o apontamento "pedidos sem reflexos" da especialista. O campo `texto`
 // devolve as cinco rubricas abertas, no formato da peça dela.
-export function reflexosSobre(principal) {
+// `semDsr`: parcela MENSAL (adicional de insalubridade, acúmulo) não reflete em
+// DSR — o mês já remunera o repouso. É o que as peças de set–nov/2026 pedem
+// ("sem reflexo em DSR por se tratar de parcela mensal").
+export function reflexosSobre(principal, { semDsr = false } = {}) {
   const p = Number(principal) || 0;
   if (p <= 0) return null;
+  const exibicao = semDsr ? REFLEXOS_EXIBICAO.filter(([rotulo]) => rotulo !== 'DSR') : REFLEXOS_EXIBICAO;
   // O total é a SOMA das rubricas arredondadas — não 34,75% arredondado. As duas
   // contas divergem em R$ 0,01 em ~45% dos valores, e o pedido sairia com cinco
   // números que não fecham com o próprio total: é a primeira coisa que a parte
   // contrária confere. As rubricas são a fonte; o total é derivado delas.
-  const rubricas = REFLEXOS_EXIBICAO.map(([rotulo, chaves]) => {
+  const rubricas = exibicao.map(([rotulo, chaves]) => {
     const pct = chaves.reduce((s, k) => s + (REFLEXOS_PCT[k] || 0), 0);
     return { rotulo, pct, valor: round2(p * pct) };
   });
@@ -313,6 +317,30 @@ export function reflexosSobre(principal) {
   const total = round2(p + valor);
   const texto = `acrescido dos reflexos em ${lista}, totalizando o valor estimado de ${formatBRL(total)}`;
   return { valor, memoria, texto, total, rubricas };
+}
+
+// ============================================================
+// SALÁRIO MÍNIMO NACIONAL POR VIGÊNCIA (base da insalubridade, art. 192 CLT e
+// Súmula Vinculante 4, e da multa convencional do SIEMACO). Valores conferidos
+// nas peças do escritório de set–nov/2026 (David, Jenifer, Udson, Marcelo).
+// Ano novo: acrescentar a linha.
+// ============================================================
+export const SALARIO_MINIMO = [
+  ['2022-01-01', 1212.0],
+  ['2023-01-01', 1302.0],
+  ['2023-05-01', 1320.0],
+  ['2024-01-01', 1412.0],
+  ['2025-01-01', 1518.0],
+  ['2026-01-01', 1621.0],
+];
+
+export function salarioMinimoEm(data) {
+  const d = parseData(data);
+  if (!d) return SALARIO_MINIMO[SALARIO_MINIMO.length - 1][1];
+  const iso = isoLocal(d);
+  let valor = SALARIO_MINIMO[0][1];
+  for (const [inicio, v] of SALARIO_MINIMO) if (inicio <= iso) valor = v;
+  return valor;
 }
 
 // ============================================================
@@ -469,15 +497,16 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // especialista. Antes o helper vivia dentro do bloco das verbas por hora e só
   // elas tinham reflexo discriminado.
   const horaNormal = salario ? round2(salario / PARAMS_HORAS.divisor_mensal) : null;
-  const addComReflexos = (item, memoria, valor) => {
+  const addComReflexos = (item, memoria, valor, opcoes = {}) => {
     const v = round2(valor);
     if (!(v > 0)) return;
     itens.push({ item, memoria, valor: v });
-    const r = reflexosSobre(v);
+    const r = reflexosSobre(v, opcoes);
     if (r) {
+      const pctTotal = r.rubricas.reduce((s, x) => s + x.pct, 0);
       itens.push({
         item: `Reflexos de ${item}`,
-        memoria: `${(REFLEXOS_TOTAL_PCT * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
+        memoria: `${(pctTotal * 100).toFixed(2)}% sobre ${formatBRL(v)} — ${r.memoria}`,
         valor: r.valor,
         // Frase pronta com as rubricas abertas, consumida pelo rol de pedidos.
         texto: r.texto,
@@ -543,6 +572,36 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     const pct = cl?.percentual ?? 0.5;
     const clTxt = cl?.clausula || 'cláusula 64ª';
     itens.push({ item: `Desvio de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
+  }
+
+  // ADICIONAL DE INSALUBRIDADE. Decisão do jurídico (12/11/2026): na inicial
+  // pede-se SEMPRE o grau máximo, 40%, e a perícia define o grau — por isso o
+  // percentual informado na entrevista não reduz o pedido. Base: salário mínimo
+  // vigente em cada mês (art. 192 da CLT; Súmula Vinculante 4 do STF), como nas
+  // peças do escritório. Parcela mensal: reflexos sem DSR.
+  if (caso.tem_insalubridade && meses) {
+    const pct = 0.4;
+    const inicio = parseData(caso.data_admissao);
+    if (inicio) {
+      const porMinimo = new Map();
+      for (let i = 0; i < meses; i++) {
+        const ref = new Date(inicio.getFullYear(), inicio.getMonth() + i, 1);
+        const sm = salarioMinimoEm(ref);
+        porMinimo.set(sm, (porMinimo.get(sm) || 0) + 1);
+      }
+      let principal = 0;
+      const partes = [];
+      for (const [sm, qtd] of porMinimo) {
+        principal += pct * sm * qtd;
+        partes.push(`${formatBRL(sm)} × ${qtd} ${qtd === 1 ? 'mês' : 'meses'}`);
+      }
+      addComReflexos(
+        'Adicional de insalubridade (40%)',
+        `40% (grau máximo; grau final pela perícia) × salário mínimo vigente em cada mês: ${partes.join('; ')}`,
+        principal,
+        { semDsr: true },
+      );
+    }
   }
 
   if (caso.tem_assiduidade && caso.assiduidade_diferenca && meses) {
