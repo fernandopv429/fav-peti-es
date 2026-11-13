@@ -763,7 +763,7 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     }
   }
 
-  const somaVerbas = round2(itens.reduce((s, c) => s + (Number(c.valor) || 0), 0));
+  const somaVerbas = round2(itens.reduce((s, c) => s + (c.foraDaCausa ? 0 : (Number(c.valor) || 0)), 0));
   if (somaVerbas > 0) {
     itens.push({ item: 'Honorários advocatícios (15%)', memoria: '15% sobre o valor da causa (art. 85 do CPC)', valor: round2(somaVerbas * 0.15) });
   }
