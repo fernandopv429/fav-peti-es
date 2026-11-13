@@ -1,102 +1,104 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
- * Paleta amostrada da referência (Syensqo):
- *   laranja  #FF5707  -> hsl(19 100% 51%)   56% da imagem
- *   navy     #1E2129  -> hsl(224 15% 14%)   35% da imagem
- *   laranja claro #FF6820 -> hsl(19 100% 56%)
+ * Identidade FAV (papel timbrado): preto, branco/cinza quente e o âmbar
+ * #f2a900 dos separadores do rodapé.
  *
- * Regra de contraste que a própria referência usa: texto NAVY sobre laranja.
- * Branco sobre esse laranja dá só 3.17:1 e reprova AA — por isso
- * --primary-foreground é navy, não branco.
+ *   âmbar  #f2a900 -> hsl(42 100% 47%)   usado com parcimônia: ação principal,
+ *                                         aba ativa, itens novos, campos a revisar
+ *   preto  #0f0f0f -> hsl(0 0% 6%)       barra superior, botões fortes
+ *   fundo  #f6f5f2 -> hsl(45 14% 95%)
+ *
+ * Contraste: texto PRETO sobre âmbar (branco reprova AA). Para texto âmbar
+ * sobre fundo claro usa-se --primary-ink (âmbar fechado, ~6:1).
+ *
+ * Os nomes --font-inter/--font-playfair foram mantidos para não tocar nas
+ * classes já usadas (font-inter / font-playfair); agora apontam para
+ * Inter Tight (interface) e Newsreader (serifa, títulos e peça).
  */
 @layer base {
   :root {
-    --font-inter: 'Inter', sans-serif;
-    --font-playfair: 'Playfair Display', serif;
+    --font-inter: 'Inter Tight', 'Inter', system-ui, sans-serif;
+    --font-playfair: 'Newsreader', Georgia, serif;
 
-    /* ── Light Mode — Laranja + Navy ─────────────────────────────────────── */
-    --background: 30 20% 97%;
-    --foreground: 224 15% 14%;
+    --background: 45 14% 95%;
+    --foreground: 0 0% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 224 15% 14%;
+    --card-foreground: 0 0% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 15% 14%;
-    --primary: 19 100% 51%;
-    --primary-foreground: 224 15% 14%;
-    /* Laranja de TEXTO sobre superficie clara: o vivo da marca da 3.2:1 e
-       reprova AA, entao links e rotulos usam este tom fechado (5.1:1). */
-    --primary-ink: 19 92% 35%;
-    --secondary: 24 30% 94%;
-    --secondary-foreground: 224 15% 20%;
-    --muted: 25 20% 95%;
-    --muted-foreground: 224 10% 38%;
-    --accent: 19 90% 40%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 42 100% 47%;
+    --primary-foreground: 0 0% 7%;
+    --primary-ink: 41 100% 27%;
+    --secondary: 43 16% 93%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 43 16% 93%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 8%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 42%;
+    --destructive: 0 68% 42%;
     --destructive-foreground: 0 0% 100%;
-    --success: 162 64% 29%;
-    --warning: 30 88% 33%;
-    --border: 25 15% 88%;
-    --input: 25 15% 88%;
-    --ring: 19 100% 51%;
-    --chart-1: 19 100% 51%;
-    --chart-2: 224 15% 25%;
-    --chart-3: 19 90% 40%;
-    --chart-4: 199 60% 35%;
-    --chart-5: 162 55% 35%;
-    --radius: 0.75rem;
-    --sidebar-background: 224 15% 14%;
+    --success: 96 60% 25%;
+    --warning: 38 95% 30%;
+    --border: 45 10% 88%;
+    --input: 45 10% 86%;
+    --ring: 42 100% 47%;
+    --chart-1: 42 100% 47%;
+    --chart-2: 0 0% 15%;
+    --chart-3: 41 100% 30%;
+    --chart-4: 0 0% 55%;
+    --chart-5: 96 45% 35%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 6%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 19 100% 51%;
-    --sidebar-primary-foreground: 224 15% 14%;
-    --sidebar-accent: 224 14% 22%;
+    --sidebar-primary: 42 100% 47%;
+    --sidebar-primary-foreground: 0 0% 7%;
+    --sidebar-accent: 0 0% 14%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 224 12% 26%;
-    --sidebar-ring: 19 100% 51%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 42 100% 47%;
   }
 
   .dark {
-    /* ── Dark Mode — mesmo par, superfícies navy ─────────────────────────── */
-    --background: 224 16% 10%;
-    --foreground: 30 15% 95%;
-    --card: 224 15% 14%;
-    --card-foreground: 30 15% 95%;
-    --popover: 224 15% 14%;
-    --popover-foreground: 30 15% 95%;
-    --primary: 19 100% 56%;
-    --primary-foreground: 224 15% 12%;
-    --primary-ink: 19 100% 66%;
-    --secondary: 224 13% 20%;
-    --secondary-foreground: 30 15% 95%;
-    --muted: 224 13% 20%;
-    --muted-foreground: 224 10% 68%;
-    --accent: 19 100% 62%;
-    --accent-foreground: 224 15% 12%;
+    --background: 0 0% 7%;
+    --foreground: 40 10% 94%;
+    --card: 0 0% 11%;
+    --card-foreground: 40 10% 94%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 40 10% 94%;
+    --primary: 42 100% 50%;
+    --primary-foreground: 0 0% 7%;
+    --primary-ink: 42 100% 62%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 40 10% 94%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 40 10% 94%;
+    --accent-foreground: 0 0% 7%;
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 162 55% 48%;
-    --warning: 30 90% 58%;
-    --border: 224 12% 24%;
-    --input: 224 12% 24%;
-    --ring: 19 100% 56%;
-    --chart-1: 19 100% 56%;
-    --chart-2: 30 15% 80%;
-    --chart-3: 19 90% 66%;
-    --chart-4: 199 60% 60%;
-    --chart-5: 162 55% 52%;
-    --sidebar-background: 224 18% 8%;
+    --success: 96 45% 50%;
+    --warning: 40 90% 58%;
+    --border: 0 0% 20%;
+    --input: 0 0% 22%;
+    --ring: 42 100% 50%;
+    --chart-1: 42 100% 50%;
+    --chart-2: 40 10% 85%;
+    --chart-3: 42 100% 65%;
+    --chart-4: 0 0% 60%;
+    --chart-5: 96 45% 50%;
+    --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 19 100% 56%;
-    --sidebar-primary-foreground: 224 15% 12%;
-    --sidebar-accent: 224 14% 16%;
+    --sidebar-primary: 42 100% 50%;
+    --sidebar-primary-foreground: 0 0% 7%;
+    --sidebar-accent: 0 0% 12%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 224 12% 20%;
-    --sidebar-ring: 19 100% 56%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 42 100% 50%;
   }
 }
 
@@ -105,40 +107,37 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-inter;
+    @apply bg-background text-foreground font-inter antialiased;
+    letter-spacing: -0.005em;
   }
 }
 
 @layer components {
-  /*
-   * Fundo do app: neutro quente com dois halos discretos no laranja da marca.
-   */
+  /* Fundo do app: cinza quente liso. */
   .app-canvas {
     background-color: hsl(var(--background));
-    background-image:
-      radial-gradient(ellipse 70% 55% at 12% 0%, hsl(19 100% 51% / 0.06), transparent 60%),
-      radial-gradient(ellipse 60% 50% at 100% 18%, hsl(224 15% 14% / 0.05), transparent 62%);
-    background-attachment: fixed;
   }
 
-  /* Sombras neutras (navy), não arroxeadas. */
+  /* Sombras discretas e neutras. */
   .card-soft {
-    box-shadow: 0 1px 2px hsl(224 15% 14% / 0.05), 0 8px 24px -8px hsl(224 15% 14% / 0.10);
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.04);
   }
   .card-soft-lg {
-    box-shadow: 0 2px 4px hsl(224 15% 14% / 0.06), 0 20px 44px -12px hsl(224 15% 14% / 0.16);
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05), 0 12px 32px -12px hsl(0 0% 0% / 0.14);
   }
 
-  /*
-   * Raios do hero, como na referência: leque de faixas em laranja mais claro.
-   */
+  /* Rótulo pequeno em caixa alta (cabeçalhos de cartões e tabelas). */
+  .label-caps {
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Mantido por compatibilidade: agora é um bloco preto liso. */
   .hero-rays {
-    background-color: hsl(var(--primary));
-    background-image: repeating-conic-gradient(
-      from 200deg at 118% 118%,
-      hsl(19 100% 56%) 0deg 3.2deg,
-      transparent 3.2deg 7.5deg
-    );
+    background-color: hsl(0 0% 6%);
   }
 
   .no-scrollbar {
