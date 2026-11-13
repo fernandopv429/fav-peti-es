@@ -27,7 +27,9 @@ function iniciais(nome) {
 export default function TopNav() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { naFila } = useCasosWebhook();
+  // Mesmo critério do botão "Fila" da tela de Entrevistas: tudo que não foi revisado.
+  const { naFila, gerando } = useCasosWebhook();
+  const pendentes = naFila.length + gerando.length;
 
   return (
     <header className="sticky top-0 z-40 bg-[#0f0f0f] text-white">
@@ -55,9 +57,9 @@ export default function TopNav() {
                 }`}
               >
                 {aba.label}
-                {aba.contador && naFila.length > 0 && (
+                {aba.contador && pendentes > 0 && (
                   <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10.5px] font-semibold flex items-center justify-center">
-                    {naFila.length}
+                    {pendentes}
                   </span>
                 )}
               </Link>
