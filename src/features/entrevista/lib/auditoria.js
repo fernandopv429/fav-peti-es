@@ -32,9 +32,9 @@ export async function verificarCoerencia({ texto, caso, dados, documentoTexto })
 A1. ESTRUTURA FIXA — a petição deve conter, nesta ORDEM: (i) endereçamento e fixação da competência territorial pelo art. 651 da CLT (local da prestação); (ii) qualificação completa do reclamante e de todas as reclamadas (prestadora e tomadora); (iii) capítulo de PRELIMINARES (competência local; não limitação ao valor da causa — art. 840, §1º CLT e IN 41/2018 TST; opção pelo juízo 100% digital; requerimento de prazo para emenda — arts. 317-321 CPC; justiça gratuita — art. 98 CPC c/c art. 790, §§3º e 4º CLT); (iv) DO CONTRATO DE TRABALHO (admissão, demissão, função, local, último salário, motivo da rescisão); (v) MÉRITO em capítulos temáticos; (vi) ROL DE PEDIDOS com memória descritiva e valores estimativos; (vii) ENCERRAMENTO (provas, recolhimentos INSS/IR, ofícios, OAB p/ intimações, valor da causa). Aponte qualquer seção ausente ou fora de ordem.
 A2. TESES PADRÃO AUTOMÁTICAS:
   - TOMADORA: se há 2ª reclamada → deve haver tese de responsabilidade subsidiária (Súmula 331, IV, TST — culpa in vigilando/in eligendo) + pedido correspondente. Se não há tomadora, a tese deve estar ausente.
-  - DESCARACTERIZAÇÃO 12x36: se escala 12x36 E houver extrapolação habitual, minutos antecedentes/sucedentes ou labor em folgas → deve haver descaracterização com Súmula 85 do TST (HEs além da 8ª diária e 44ª semanal). Sem esse cenário, NÃO incluir a descaracterização.
+  - DESCARACTERIZAÇÃO 12x36: se escala 12x36 E houver extrapolação habitual, minutos antecedentes/sucedentes ou labor em folgas → deve haver descaracterização com Súmula 85 do TST (HEs além da 8ª diária e 44ª semanal, afastada a parte final do item IV — decisão do jurídico). Sem esse cenário, NÃO incluir a descaracterização.
   - ACÚMULO/DESVIO DE FUNÇÃO: deve aplicar a multa/sanção prevista na CCT da categoria do reclamante (não valor fixo genérico).
-  - INTERVALO INTRAJORNADA: se houver intervalo suprimido/reduzido → pleitear a hora cheia (ou saldo suprimido) COM adicional convencional (mínimo de 60% se previsto na CCT da categoria).
+  - INTERVALO INTRAJORNADA: se houver intervalo suprimido/reduzido → pleitear SÓ o período suprimido (decisão do jurídico) COM adicional convencional (mínimo de 60% se previsto na CCT da categoria).
   - REFLEXOS COMPLETOS: TODOS os pedidos salariais/extraordinários (HE, folgas, acúmulo, desvio, assiduidade, integração por fora, etc.) devem trazer reflexos em DSR, aviso prévio, 13º salário, férias + 1/3 e FGTS + 40%. Aponte cada verba sem o conjunto completo de reflexos.
 
 === B. PROIBIÇÕES DE REDAÇÃO (erros a impedir) ===
@@ -56,7 +56,7 @@ C6. CLÁUSULAS DA CCT: o número citado deve ser o MESMO no corpo e no pedido, c
 C7. COPY-PASTE: textos de gratificação/desvio/acúmulo não podem citar função diferente da do reclamante.
 C8. AVISO PRÉVIO: dias coerentes com o tempo de serviço (Lei 12.506/11: 30 + 3/ano, máx. 90).
 C9. PROPORÇÕES: 13º e férias+1/3 coerentes com as datas (+ projeção do aviso); saldo de salário coerente.
-C10. DANO MORAL: ao menos 1 fato concreto do caso + valor = 10x a maior remuneração na função.
+C10. DANO MORAL: ao menos 1 fato concreto do caso + valor = 10x o salário-base (decisão do jurídico).
 C11. TESE ↔ PEDIDO: cada causa de pedir tem pedido correspondente e vice-versa; sem verba em duplicidade.
 C12. VALOR DA CAUSA: soma dos pedidos = valor da causa; ≤ R$ 400.000,00; por extenso sem erro de digitação.
 C13. JURISPRUDÊNCIA pertinente à tese (ex.: acórdão de reversão de justa causa só em reversão).
