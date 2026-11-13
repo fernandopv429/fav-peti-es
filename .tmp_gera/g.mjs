@@ -1,0 +1,15 @@
+import { preencherDocxTemplate } from '../src/features/entrevista/lib/preencherDocxTemplate.js';
+import { montarDadosTemplate } from '../src/features/entrevista/lib/dadosTemplate.js';
+import fs from 'node:fs';
+const [,, inJson, url, out] = process.argv;
+const raw = JSON.parse(fs.readFileSync(inJson, 'utf8'));
+const aj = raw.analise_json || raw;
+const caso = aj.caso || {};
+const dados = montarDadosTemplate({ caso, calculos: aj.calculos || [], attrs: caso, dadosReceita: aj.dadosReceita || [], dadosCep: aj.dadosCep || [] });
+const blocos = aj.blocos || {};
+Object.assign(dados, blocos);
+if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
+const buf = await (await fetch(url)).arrayBuffer();
+const blob = preencherDocxTemplate(buf, dados, { permitirPendencias: true });
+fs.writeFileSync(out, Buffer.from(await blob.arrayBuffer()));
+console.log('ok', out, 'tomadora_publica=', dados.tomadora_publica);
