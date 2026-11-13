@@ -8,7 +8,7 @@ const ev = JSON.parse(fs.readFileSync(evJson, 'utf8'));
 const aj = JSON.parse(fs.readFileSync(casoJson, 'utf8')).analise_json;
 const novo = mapearCasoDeWebhook(ev.payload.data);
 const caso = { ...aj.caso, data_admissao: novo.data_admissao, jornada_freq_extra: novo.jornada_freq_extra, prorrogacao_jornada: novo.prorrogacao_jornada, intervalo_usufruido: novo.intervalo_usufruido };
-const calculos = calcularVerbasCaso(caso);
+const calculos = calcularVerbasCaso(caso, aj.dadosCct);
 const blocos = aj.blocos || {};
 const dados = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita: aj.dadosReceita || [], dadosCep: aj.dadosCep || [], blocos });
 Object.assign(dados, blocos);
