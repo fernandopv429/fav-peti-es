@@ -148,6 +148,13 @@ const MOTIVO_SAIDA = {
 };
 
 const flag = (v) => !!v;
+// Jornada que entra no período das 22h às 5h ("19:00 às 07:00", "22h-6h").
+function cruzaNoturnoTxt(txt) {
+  const hs = String(txt || '').match(/(\d{1,2})\s*(?:h|:)/g);
+  if (!hs || hs.length < 2) return false;
+  const [ini, fim] = hs.slice(0, 2).map((h) => Number(h.replace(/\D/g, '')));
+  return fim < ini || ini >= 22 || ini < 5 || fim > 22;
+}
 const soDigitos = (s) => (s || '').replace(/\D/g, '');
 // 0/ausente vira undefined (nunca string vazia): o nullGetter do
 // docxtemplater (preencherDocxTemplate.js) só detecta valor faltando quando
@@ -753,6 +760,27 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // citando o número real da cláusula da CCT; este fallback determinístico
   // só roda quando a redação por IA está desligada ou falha — nunca deixa o
   // laço {{#pedidos_multas}} vazio.
+  // RESCISÃO INDIRETA — lista das faltas graves do empregador (capítulo "DA
+  // RESCISÃO INDIRETA/ DA FALTA GRAVE DO EMPREGADOR" do modelo). A IA escreve a
+  // lista a partir da entrevista (blocos.faltas_rescisao); sem IA, sai esta
+  // lista determinística, só com o que a entrevista marcou. Antes a peça pedia
+  // a rescisão indireta sem capítulo que a fundamentasse (regressão PED-1).
+  if (Array.isArray(blocos?.faltas_rescisao) && blocos.faltas_rescisao.length) {
+    dados.faltas_rescisao = blocos.faltas_rescisao;
+  } else if (dados.rescisao_indireta) {
+    const f = [];
+    if (dados.tem_intervalo_suprimido) f.push('A reclamada não concedeu o intervalo intrajornada de 1 (uma) hora assegurado pelo artigo 71 da CLT;');
+    if (caso.jornada_extrapola || caso.prorrogacao_jornada) f.push('A reclamada não remunerou corretamente as horas extraordinárias prestadas;');
+    if (cruzaNoturnoTxt(caso.jornada_horario)) f.push('A reclamada não pagou corretamente o adicional noturno e a hora noturna reduzida, em afronta ao artigo 73 da CLT;');
+    if (dados.folgas_trabalhadas) f.push('A reclamada exigiu o labor em dias de folga sem a correta remuneração;');
+    if (dados.integracao_por_fora) f.push('A reclamada pagou parcela salarial à margem da folha de pagamento, sem registro, sem reflexos e sem os respectivos recolhimentos;');
+    if (dados.desvio_funcao || dados.acumulo_funcao) f.push(`A reclamada exigiu do reclamante atribuições estranhas ao cargo de ${caso.funcao || 'contratação'}, sem qualquer contraprestação;`);
+    if (dados.dez_minutos_cct) f.push('A reclamada não forneceu assento para o descanso de 10 (dez) minutos a cada hora trabalhada, previsto na norma coletiva;');
+    if (temDanoMoralConcreto(caso)) f.push('Incorre em dano moral em virtude das condições citadas.');
+    if (!f.length) f.push('A reclamada não cumpriu as obrigações do contrato de trabalho, conforme narrado nesta inicial.');
+    dados.faltas_rescisao = f;
+  }
+
   // A lista que a peça imprime é a da IA (blocos.pedidos_multas), mesclada
   // DEPOIS desta função. Sem recebê-la aqui, o rol multiplicava pela lista
   // determinística: o capítulo listava 10 infrações e o pedido cobrava 7
