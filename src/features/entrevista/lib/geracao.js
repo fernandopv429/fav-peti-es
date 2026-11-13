@@ -359,6 +359,11 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
         modelos: modelosSemelhantes, attrs,
         onTool,
       });
+      // Remonta com os blocos: o valor das multas no rol depende da lista de
+      // infrações que a IA escreveu (pedidos_multas), não da lista padrão.
+      if (Array.isArray(blocos?.pedidos_multas) && blocos.pedidos_multas.length) {
+        Object.assign(dados, montarDadosTemplate({ caso, calculos, attrs, dadosReceita: dadosReceitaFinal, dadosCep: dadosCepFinal, blocos }));
+      }
       Object.assign(dados, blocos);
       // O template usa {{DANO_MORAL_FATO_ESPECIFICO}} para a narrativa concreta
       // do dano moral (após a fundamentação constitucional fixa). Quando a IA
