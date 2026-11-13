@@ -8,6 +8,15 @@ import Docxtemplater from 'docxtemplater';
 // doutrinárias). Melhor-esforço — a revisão humana continua obrigatória.
 // ============================================================
 const GENERO_FEM = [
+  // Frases do texto fixo do modelo (a partir do v23 o modelo é todo no
+  // masculino; estas regras o levam ao feminino). Vêm ANTES das genéricas:
+  // "foi prejudicado" precisa virar "foi prejudicada", não "prejudicado(a)".
+  [/\bdiretamente ligado\b/g, 'diretamente ligada'],
+  [/\bfoi prejudicado\b/g, 'foi prejudicada'],
+  [/\bfoi obrigado\b/g, 'foi obrigada'],
+  [/\bera obrigado\b/g, 'era obrigada'],
+  [/\brendê-lo\b/g, 'rendê-la'],
+  [/\bestava exposto\b/g, 'estava exposta'],
   [/\bo reclamante\b/g, 'a reclamante'],
   [/\bdo reclamante\b/g, 'da reclamante'],
   [/\bao reclamante\b/g, 'à reclamante'],
