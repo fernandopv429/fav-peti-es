@@ -391,6 +391,22 @@ export function horasDoTexto(v, { somar = false } = {}) {
   return total > 0 && total <= 12 ? Math.round(total * 100) / 100 : null;
 }
 
+// INTERVALO: só o tempo SUPRIMIDO (decisão do jurídico, 13/11/2026 — item 6-A,
+// art. 71, §4º, CLT). Gozou no máximo 15 min → pede 45 min. Sem intervalo
+// nenhum → 1h. Duração não informada → 1h, com aviso na memória de cálculo.
+// A classificação do texto é a MESMA de INTERVALO_ART71 (dadosTemplate.js).
+export function intervaloSuprimidoHoras(caso = {}) {
+  const total = PARAMS_HORAS.horas_intervalo_dia;
+  const txt = String(caso.intervalo_usufruido || '').trim().replace(/[.;,\s]+$/, '');
+  const semIntervalo = !!txt && /todo|integral|disposi[cç][aã]o|nenhum|n[aã]o\s+(usufru|goz|tinha|havia|fazia|tirava)|sem\s+intervalo|n[aã]o\s+tem/i.test(txt);
+  if (semIntervalo) return { horasDia: total, memoria: 'sem intervalo' };
+  const gozado = /meia\s*hora/i.test(txt) ? 0.5 : horasDoTexto(txt);
+  if (gozado && gozado < total) {
+    return { horasDia: round2(total - gozado), memoria: `gozava cerca de ${Math.round(gozado * 60)} min` };
+  }
+  return { horasDia: total, memoria: 'tempo gozado não informado, conferir' };
+}
+
 // Média de um intervalo escrito em texto ("4 a 6 vezes por mês" → 5).
 function mediaNumerica(v) {
   if (v == null || v === '') return null;
@@ -506,8 +522,11 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // O capítulo DO DANO MORAL é incondicional no modelo (narrativa sempre
   // preenchida), então o valor também precisa sair sempre — senão o rol fica
   // com {{VALOR_DANO_MORAL_10X}} pendente.
-  if (maiorRem) {
-    itens.push({ item: 'Dano moral (10x remuneração)', memoria: '10x a maior remuneração na função', valor: danoMoral10x(maiorRem) });
+  // Base: SALÁRIO-BASE (decisão do jurídico, 13/11/2026 — item 3-A). Antes era
+  // a maior remuneração. O nome do item fica igual porque é a chave do token
+  // VALOR_DANO_MORAL_10X em dadosTemplate.js.
+  if (salario || maiorRem) {
+    itens.push({ item: 'Dano moral (10x remuneração)', memoria: '10x o salário-base', valor: danoMoral10x(salario || maiorRem) });
   }
 
   // ---- Hora normal e reflexos: definidos ANTES dos itens ----
@@ -685,10 +704,11 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
 
     // 2) Intervalo intrajornada suprimido (art. 71, §4º)
     if (caso.intervalo_gozado === false || caso.intervalo_usufruido || caso.tem_intervalo_suprimido) {
-      const horas = round2(PARAMS_HORAS.horas_intervalo_dia * diasTotais);
+      const sup = intervaloSuprimidoHoras(caso);
+      const horas = round2(sup.horasDia * diasTotais);
       addComReflexos(
         'Intervalo intrajornada (art. 71 da CLT)',
-        `${horas}h (${PARAMS_HORAS.horas_intervalo_dia}h × ${diasMes} dias/mês × ${meses} meses) × ${base} + ${adicTxt}`,
+        `${horas}h (${String(sup.horasDia).replace('.', ',')}h suprimida(s)/dia — ${sup.memoria} × ${diasMes} dias/mês × ${meses} meses) × ${base} + ${adicTxt}`,
         horas * horaExtra,
       );
     }
