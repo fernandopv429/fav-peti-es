@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck,
+  Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck, Check,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import SessionLogsModal from '@/features/entrevista/components/SessionLogsModal';
@@ -22,6 +22,24 @@ import EscolherTopico from '@/features/entrevista/components/EscolherTopico';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
 import AprovacaoEntrevista from '@/features/entrevista/components/AprovacaoEntrevista';
 import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
+
+// Indicador visual de etapa (só apresentação): feito | atual | futuro.
+function Passo({ n, estado, rotulo }) {
+  const bola = estado === 'feito'
+    ? 'bg-foreground text-background'
+    : estado === 'atual'
+      ? 'bg-primary text-primary-foreground'
+      : 'bg-muted text-muted-foreground';
+  const texto = estado === 'futuro' ? 'text-muted-foreground' : estado === 'atual' ? 'text-primary-ink font-medium' : 'text-foreground';
+  return (
+    <span className={`flex items-center gap-1.5 whitespace-nowrap ${texto}`}>
+      <span className={`w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-semibold ${bola}`}>
+        {estado === 'feito' ? <Check className="w-3 h-3" strokeWidth={3} /> : n}
+      </span>
+      {rotulo}
+    </span>
+  );
+}
 
 // ============================================================
 // Instância isolada de uma sessão de peça: a entrevista chega pela fila de
@@ -299,84 +317,81 @@ export default function EntrevistaSession() {
     }
   };
 
+  // Apenas apresentação: nome do caso aberto e quantos campos o preview marcou
+  // como pendentes (mark.tpl-pending).
+  const casoAberto = ultimaGeracao?.caso || {};
+  const nomeCaso = casoAberto.recl_nome
+    ? `${casoAberto.recl_nome}${casoAberto.recl1_nome ? ` × ${casoAberto.recl1_nome}` : ''}`
+    : '';
+  const camposPendentes = (docHtml.match(/tpl-pending/g) || []).length;
+  const btnNeutro = 'flex items-center gap-1.5 px-3 py-1.5 border border-border bg-card text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40';
+
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 border-b border-border bg-card flex-shrink-0">
-        <Link to="/modelos-referencia" className="text-muted-foreground hover:text-foreground" title="Modelos / Configurações">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-sm sm:text-base font-semibold text-foreground truncate">Gerar por Entrevista</h1>
-          <p className="hidden sm:block text-xs text-muted-foreground truncate">
-            Selecione o caso na fila, revise a petição preenchida e exporte fiel ao .docx.
+      {/* Cabeçalho do caso: identificação + fila/revisadas */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 lg:px-8 py-3 border-b border-border bg-card flex-shrink-0">
+        <div className="flex-1 min-w-[200px]">
+          <h1 className="text-[15px] font-semibold text-foreground truncate tracking-tight">
+            {nomeCaso || 'Gerar por entrevista'}
+          </h1>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {temTemplate ? (
+              <>Modelo <span className="text-foreground/80">{templateNome || 'enviado'}</span></>
+            ) : (
+              <Link to="/modelos-referencia" className="font-medium text-destructive hover:underline">
+                Nenhum modelo .docx — enviar em Configurações
+              </Link>
+            )}
+            {attrs && (attrs.funcao || attrs.tipo_dispensa) && (
+              <> · {attrs.funcao || '—'} · {TIPO_DISPENSA_LABELS[attrs.tipo_dispensa]?.split('(')[0]?.trim() || attrs.tipo_dispensa || '—'}</>
+            )}
+            {!nomeCaso && ' · Abra a fila e escolha um caso recebido.'}
           </p>
         </div>
-        <button
-          onClick={() => setLogsOpen(true)}
-          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
-          title="Ver logs da sessão"
-        >
-          <ScrollText className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => { setFilaModo('pendentes'); setFilaOpen(true); }}
-          className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
-          title="Petições a revisar (webhook)"
-        >
-          <Inbox className="w-4 h-4" />
-          {filaCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full flex items-center justify-center">
-              {filaCount}
+        <div className="flex items-center gap-2">
+          {generating && (
+            <span className="flex items-center gap-1.5 text-xs text-primary-ink mr-1">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Preenchendo a peça...
             </span>
           )}
-        </button>
-        <button
-          onClick={() => { setFilaModo('confirmadas'); setFilaOpen(true); }}
-          className="relative p-2 text-muted-foreground hover:text-success hover:bg-muted rounded-full"
-          title="Petições com revisão confirmada"
-        >
-          <BadgeCheck className="w-4 h-4" />
-          {confirmadasCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-success text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
-              {confirmadasCount}
-            </span>
-          )}
-        </button>
-        <Link to="/modelos-referencia" className="flex items-center gap-1.5 text-xs text-primary-ink hover:underline whitespace-nowrap p-2 sm:p-0" title="Configurações">
-          <Library className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Configurações</span>
-        </Link>
-      </div>
-
-      {/* Barra do template .docx */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 sm:px-6 py-2 border-b border-muted bg-card flex-shrink-0">
-        <span className="text-xs text-muted-foreground">Template .docx:</span>
-        {temTemplate ? (
-          <span className="text-xs font-medium text-success truncate max-w-full sm:max-w-[420px]">
-            {templateNome || 'enviado'}
-          </span>
-        ) : (
-          <Link to="/modelos-referencia" className="text-xs font-medium text-destructive hover:underline">
-            nenhum — enviar em Configurações
+          <button
+            onClick={() => { setFilaModo('pendentes'); setFilaOpen(true); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              filaCount > 0
+                ? 'bg-primary/15 border-primary/40 text-primary-ink hover:bg-primary/25'
+                : 'bg-card border-border text-foreground hover:bg-muted'
+            }`}
+            title="Petições a revisar (webhook)"
+          >
+            <Inbox className="w-3.5 h-3.5" /> Fila
+            {filaCount > 0 && <span className="font-semibold">{filaCount}</span>}
+          </button>
+          <button
+            onClick={() => { setFilaModo('confirmadas'); setFilaOpen(true); }}
+            className={btnNeutro}
+            title="Petições com revisão confirmada"
+          >
+            <BadgeCheck className="w-3.5 h-3.5 text-success" /> <span className="hidden sm:inline">Revisadas</span>
+            {confirmadasCount > 0 && <span className="text-muted-foreground">{confirmadasCount}</span>}
+          </button>
+          <button
+            onClick={() => setLogsOpen(true)}
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
+            title="Ver logs da sessão"
+          >
+            <ScrollText className="w-4 h-4" />
+          </button>
+          <Link to="/modelos-referencia" className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg" title="Configurações">
+            <Library className="w-4 h-4" />
           </Link>
-        )}
-        {attrs && (attrs.funcao || attrs.tipo_dispensa) && (
-          <span className="text-[11px] text-muted-foreground/70">
-            {attrs.funcao || '—'} · {TIPO_DISPENSA_LABELS[attrs.tipo_dispensa]?.split('(')[0]?.trim() || attrs.tipo_dispensa || '—'}
-          </span>
-        )}
-        {generating && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-primary-ink">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Preenchendo a peça...
-          </span>
-        )}
+        </div>
       </div>
 
       {/* Corpo: documento. O container NÃO rola — quem rola é o painel de
           dentro, que precisa de `min-h-0` para encolher abaixo do conteúdo. */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Documento */}
-        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-muted">
+        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-[hsl(43_12%_90%)]">
           {listaTopicosAberta && docHtml && (
             <EscolherTopico
               dados={ultimaGeracao?.dados || {}}
@@ -384,15 +399,25 @@ export default function EntrevistaSession() {
               onFechar={() => setListaTopicosAberta(false)}
             />
           )}
-          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border bg-card flex-shrink-0">
-            <FileText className="w-4 h-4 text-primary-ink" />
-            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">Petição</span>
+          <div className="flex flex-wrap items-center gap-2 px-4 lg:px-8 py-2.5 border-b border-border bg-[hsl(45_14%_98%)] flex-shrink-0">
+            <div className="flex-1 min-w-0 flex items-center gap-4 sm:gap-5 text-[11.5px] overflow-x-auto no-scrollbar py-0.5">
+              <Passo n={1} estado={docHtml ? 'feito' : 'atual'} rotulo={docHtml ? 'Petição preenchida' : 'Escolher caso na fila'} />
+              <Passo
+                n={2}
+                estado={!docHtml ? 'futuro' : reviewConfirmed ? 'feito' : 'atual'}
+                rotulo={docHtml && !reviewConfirmed && camposPendentes > 0
+                  ? `Revisar ${camposPendentes} ${camposPendentes === 1 ? 'campo' : 'campos'} em amarelo`
+                  : 'Revisar a peça'}
+              />
+              <Passo n={3} estado={reviewConfirmed ? 'feito' : 'futuro'} rotulo="Confirmar revisão" />
+              <Passo n={4} estado={reviewConfirmed ? 'atual' : 'futuro'} rotulo="Exportar" />
+            </div>
             {docHtml && (
               <button
                 onClick={() => gerarMinuta()}
                 disabled={generating}
                 title="Reaplicar os dados ao template"
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
+                className={btnNeutro}
               >
                 <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Atualizar</span>
               </button>
@@ -401,15 +426,10 @@ export default function EntrevistaSession() {
               <button
                 onClick={() => setListaTopicosAberta((v) => !v)}
                 title="Escolher um capítulo redigido pela IA para refazer"
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted transition-colors"
+                className={btnNeutro}
               >
                 <Wand2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Refazer tópico</span>
               </button>
-            )}
-            {docHtml && !reviewConfirmed && (
-              <span className="hidden md:inline text-[11px] text-warning">
-                Confira os campos destacados
-              </span>
             )}
             {docHtml && !reviewConfirmed && (
               <button
@@ -419,7 +439,7 @@ export default function EntrevistaSession() {
                     base44.entities.CasoTrabalhista.update(casoDbId, { status: 'pronto' }).catch(() => {});
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-primary text-primary-ink rounded-lg text-xs font-medium hover:bg-primary/10 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:brightness-95 transition"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Confirmar revisão</span>
               </button>
@@ -429,9 +449,9 @@ export default function EntrevistaSession() {
               onClick={exportar}
               disabled={!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting}
               title={!temTemplate ? 'Envie o template .docx em Configurações' : !reviewConfirmed ? 'Confirme a revisão antes de exportar' : 'Exportar DOCX fiel ao modelo'}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-success text-white rounded-lg text-xs font-medium hover:bg-success/90 transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background rounded-lg text-xs font-semibold hover:bg-foreground/85 transition-colors disabled:opacity-35"
             >
-              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <FileDown className="w-3.5 h-3.5 text-primary" />}
               <span className="hidden sm:inline">{exporting ? 'Exportando...' : 'Exportar DOCX'}</span>
               <span className="sm:hidden">DOCX</span>
             </button>
