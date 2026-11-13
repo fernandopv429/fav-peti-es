@@ -210,7 +210,7 @@ export const ESPECIALISTAS = [
     numero: 'multas_convencionais',
     nome: 'Multas convencionais',
     campo: 'BLOCO_MULTAS_CONVENCIONAIS',
-    ativo: (d, c) => !!(c.cct_ano || c.sindicato || d.periculosidade || d.assiduidade || d.folgas_trabalhadas || d.desvio_funcao || d.acumulo_funcao || d.dez_minutos_cct),
+    ativo: (d, c) => d.tem_multas_conv !== false && !!(c.cct_ano || c.sindicato || d.periculosidade || d.assiduidade || d.folgas_trabalhadas || d.desvio_funcao || d.acumulo_funcao || d.dez_minutos_cct),
     instrucao: (d, c) =>
       'Escreva o capítulo COMPLETO de "DAS MULTAS CONVENCIONAIS", argumentando por completo a aplicação da multa convencional em prosa jurídica fluida e articulada (NÃO apenas o parágrafo de abertura nem uma frase solta): fundamente por que o descumprimento das obrigações convencionais pela reclamada gera a penalidade prevista na Convenção Coletiva de Trabalho da categoria' +
       (c.cct_ano ? ` (vigência ${c.cct_ano} e anteriores)` : '') +
