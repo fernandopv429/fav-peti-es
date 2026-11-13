@@ -372,6 +372,25 @@ export const PARAMS_HORAS = {
   adicional_periculosidade: 0.30,
 };
 
+// Converte duração escrita em horas: "1 hora" → 1; "1h30" / "1H30." / "1:30"
+// → 1,5; "30 min" → 0,5. Com { somar: true } soma as durações do texto
+// ("30 min antes e 1h depois" → 1,5). Devolve null se não achar duração.
+export function horasDoTexto(v, { somar = false } = {}) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) && v > 0 ? v : null;
+  const s = String(v).toLowerCase().replace(',', '.');
+  const re = /(\d+(?:\.\d+)?)\s*(?:h(?:oras?)?|:)\s*(\d{1,2})?\s*(?:min(?:utos?)?)?|(\d+(?:\.\d+)?)\s*min(?:utos?)?/g;
+  const vals = [];
+  let m;
+  while ((m = re.exec(s))) {
+    if (m[1] != null) vals.push(Number(m[1]) + (m[2] ? Number(m[2]) / 60 : 0));
+    else if (m[3] != null) vals.push(Number(m[3]) / 60);
+  }
+  if (!vals.length) return null;
+  const total = somar ? vals.reduce((a, b) => a + b, 0) : vals[0];
+  return total > 0 && total <= 12 ? Math.round(total * 100) / 100 : null;
+}
+
 // Média de um intervalo escrito em texto ("4 a 6 vezes por mês" → 5).
 function mediaNumerica(v) {
   if (v == null || v === '') return null;
@@ -645,11 +664,21 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
 
     // 1) Horas extras pela prorrogação habitual (minutos que antecedem/sucedem)
     if (caso.jornada_extrapola || caso.prorrogacao_jornada) {
-      const freq = mediaNumerica(caso.jornada_freq_extra) ?? diasMes;
-      const horas = round2(PARAMS_HORAS.horas_prorrogacao_dia * freq * meses);
+      // O Fav Sales manda "media_horas_extras" (→ jornada_freq_extra) como HORAS
+      // POR DIA ("1 hora", "1h30") — é a soma do antecedente + sucedente. Antes
+      // o número era lido como VEZES POR MÊS: "1 hora" virava 1 dia no mês e a
+      // verba saía ~15x menor (caso Jonatas: R$ 115,71 em 6 meses). Só é lido
+      // como frequência quando o texto diz "vez"/"por mês".
+      const txtFreq = String(caso.jornada_freq_extra ?? '');
+      const ehFrequencia = /vez|vezes|por\s+m[eê]s|\/\s*m[eê]s/i.test(txtFreq);
+      const freq = ehFrequencia ? (mediaNumerica(txtFreq) ?? diasMes) : diasMes;
+      const horasDia = (!ehFrequencia && horasDoTexto(txtFreq))
+        || horasDoTexto(caso.prorrogacao_jornada, { somar: true })
+        || PARAMS_HORAS.horas_prorrogacao_dia;
+      const horas = round2(horasDia * freq * meses);
       addComReflexos(
         'Horas extras — prorrogação da jornada',
-        `${horas}h (${PARAMS_HORAS.horas_prorrogacao_dia}h × ${freq}×/mês × ${meses} meses) × ${base} + ${adicTxt}`,
+        `${horas}h (${String(horasDia).replace('.', ',')}h/dia × ${freq} dias/mês × ${meses} meses) × ${base} + ${adicTxt}`,
         horas * horaExtra,
       );
     }
