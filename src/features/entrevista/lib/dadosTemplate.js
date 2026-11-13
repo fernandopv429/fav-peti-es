@@ -1,5 +1,5 @@
 import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm } from './mathUtils';
-import { categoriaEntidadeCct } from '../../../../base44/shared/consultas.js';
+import { categoriaEntidadeCct, tomadoraEhPublica } from '../../../../base44/shared/consultas.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 
 // ============================================================
@@ -545,6 +545,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     porteiro_sindeepres: '2% (dois por cento) sobre o montante devido em razão do descumprimento da Convenção',
   }[categoriaMulta] || 'percentual previsto na Convenção Coletiva da categoria';
   dados.tem_tomadora = temTomadora;
+  // Tomadora da Administração Pública: o capítulo da Súmula 331 sai na versão
+  // do inciso V (Temas 246 e 1118 do STF, Lei 14.133/2021); privada, inciso IV.
+  dados.tomadora_publica = temTomadora && (
+    caso.tomadora_publica === true
+    || tomadoraEhPublica({ nome: dados.RECLAMADA2_RAZAO || caso.recl2_nome, receita: r2 })
+  );
   // Acende o parágrafo da 3ª reclamada na qualificação.
   dados.tem_reclamada3 = flag(dados.RECLAMADA3_RAZAO);
   dados.tem_reclamada4 = flag(dados.RECLAMADA4_RAZAO);
