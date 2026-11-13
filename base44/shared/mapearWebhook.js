@@ -229,7 +229,13 @@ export function mapearCasoDeWebhook(data) {
     .map(normalizarData)
     .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
     .sort();
-  caso.data_admissao = inicios[0] || normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao')) || iniciosTempo[0] || '';
+  // A DATA_ADMISSAO informada (dia/mês/ano) vence: os períodos de escala
+  // costumam vir só com mês/ano ("03/2026" vira dia 1º) e, antes, tinham
+  // prioridade — o caso Jonatas (admitido em 25/03/2026) saía como 01/03/2026.
+  // Os inícios de escala/tempo laborado só entram se a admissão não vier.
+  const admInformada = normalizarData(pick(d, 'DATA_ADMISSAO', 'admissao'));
+  const admValida = /^\d{4}-\d{2}-\d{2}$/.test(admInformada) ? admInformada : '';
+  caso.data_admissao = admValida || inicios[0] || iniciosTempo[0] || admInformada || '';
   const rescBruta = pick(d, 'DATA_RESCISAO', 'demissao', 'ULTIMO_DIA_TRABALHADO', 'ultimo_dia');
   // "CONTINUA_TRABALHANDO" (ou texto livre equivalente das fichas antigas) =
   // contrato ativo: sem data, para a rescisão ser presumida na elaboração.
