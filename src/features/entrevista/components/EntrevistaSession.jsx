@@ -226,7 +226,7 @@ export default function EntrevistaSession() {
     // Reconstroi o `dados` (determinístico) + merge dos capítulos redigidos pela IA
     let dados = {};
     try {
-      dados = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita, dadosCep });
+      dados = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita, dadosCep, blocos });
     } catch (e) { console.error(e); }
     Object.assign(dados, blocos);
     if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
