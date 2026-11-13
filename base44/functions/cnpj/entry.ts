@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
       endereco,
       cep: cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep,
       situacao: d.descricao_situacao_cadastral || '',
+      codigo_natureza_juridica: d.codigo_natureza_juridica || null,
+      natureza_juridica: d.natureza_juridica || '',
     });
   } catch (error) {
     return Response.json({ erro: error.message });
