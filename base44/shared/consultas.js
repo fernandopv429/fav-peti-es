@@ -62,6 +62,10 @@ export async function enriquecerCnpjs(cnpjs) {
         endereco,
         cep: cep.length === 8 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep,
         situacao: d.descricao_situacao_cadastral || '',
+        // Natureza jurídica: identifica a tomadora da Administração Pública
+        // (Súmula 331, V — ente público), ver tomadoraEhPublica().
+        codigo_natureza_juridica: d.codigo_natureza_juridica || null,
+        natureza_juridica: d.natureza_juridica || '',
       };
     } catch (e) {
       return { cnpj: formatarCnpj(digits), erro: 'falha de rede ao consultar a Receita' };
@@ -134,6 +138,23 @@ const CATEGORIA_ENTIDADE = {
   asseio_conservacao: 'porteiro_siemaco',
   terceirizados: 'porteiro_sindeepres',
 };
+
+// TOMADORA DA ADMINISTRAÇÃO PÚBLICA (Súmula 331, V, do TST). Decisão do
+// jurídico (12/11/2026): inciso IV para tomadora privada, inciso V para ente
+// público. Fontes, em ordem: (1) natureza jurídica da Receita — códigos 1xxx
+// (Administração Pública), 2011 (empresa pública) e 2038 (sociedade de
+// economia mista); (2) o nome da tomadora. Fundação fica de fora do nome de
+// propósito: há fundações privadas (ex.: Fundação Butantan).
+const RX_ENTE_PUBLICO = /\b(munic[ií]pio|prefeitura|governo d[oea]|estado d[eoa] |secretaria (municipal|estadual|de estado)|autarquia|uni[aã]o federal|minist[eé]rio|tribunal|c[aâ]mara municipal|assembleia legislativa|universidade (federal|estadual)|hospital (municipal|estadual|federal)|iamspe|instituto de assist[eê]ncia m[eé]dica ao servidor)\b/i;
+
+export function tomadoraEhPublica({ nome = '', receita = null } = {}) {
+  const cod = String(receita?.codigo_natureza_juridica || '').replace(/\D/g, '');
+  if (cod) {
+    if (cod.startsWith('1') || cod === '2011' || cod === '2038') return true;
+    return false;
+  }
+  return RX_ENTE_PUBLICO.test(String(nome || ''));
+}
 
 export function categoriaEntidadeCct(caso = {}, attrs = {}) {
   return CATEGORIA_ENTIDADE[categoriaCct(caso, attrs)] || null;
