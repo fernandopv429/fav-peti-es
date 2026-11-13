@@ -574,7 +574,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   }[categoriaMulta] || 'percentual previsto na Convenção Coletiva da categoria';
   // SINDEEPRES: o escritório NÃO pede a multa convencional (decisão do
   // jurídico, 13/11/2026 — item 8-A). Apaga o capítulo e a linha do rol.
-  dados.tem_multas_conv = categoriaMulta !== 'porteiro_sindeepres';
+  // Flag NEGATIVA no modelo ({{^sem_multas_conv}}): sem o dado, o capítulo sai.
+  dados.sem_multas_conv = categoriaMulta === 'porteiro_sindeepres';
+  dados.tem_multas_conv = !dados.sem_multas_conv;
   dados.tem_tomadora = temTomadora;
   // Tomadora da Administração Pública: o capítulo da Súmula 331 sai na versão
   // do inciso V (Temas 246 e 1118 do STF, Lei 14.133/2021); privada, inciso IV.
