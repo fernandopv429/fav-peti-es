@@ -533,10 +533,10 @@ ESTRUTURA E ESTILO DE REDAÇÃO (SEGUIR EXATAMENTE O MODELO)
    - DA EXTINÇÃO DO FEITO SEM JULGAMENTO DE MÉRITO (arts. 317 a 321 do CPC)
    - DA JUSTIÇA GRATUITA (art. 98 do CPC e art. 790, §§ 3º e 4º, da CLT)
    - DO CONTRATO DE TRABALHO (Datas de admissão, demissão/reversão, função e último salário com valor por extenso)
-   - DO DANO MORAL (Arts. 5º, V/X da CF e 186/927/932 do CC + Citação Doutrinária da Dra. Martha Halfed. Indenização = 10x o salário do autor)
+   - DO DANO MORAL (Arts. 5º, V/X da CF e 186/927/932 do CC + Citação Doutrinária da Dra. Martha Halfed. Indenização = 10x o salário-base do autor)
    - DA SÚMULA 331 DO C. TST (Somente se houver 2ª Reclamada tomadora — a responsabilidade da tomadora é SUBSIDIÁRIA, nunca solidária, salvo grupo econômico relatado na entrevista. USE SEMPRE "subsidiariamente"/"responsabilidade subsidiária" de forma consistente em TODO o texto — inclusive no rol de pedidos e nos requerimentos finais. É PROIBIDO escrever "solidária e/ou subsidiariamente" ou "solidária" para a 2ª Reclamada tomadora, pois mistura dois institutos jurídicos distintos.)
    - DOS HONORÁRIOS ADVOCATÍCIOS – SUCUMBÊNCIA (Artigo 791-A da CLT a 15% sobre o valor que resultar da liquidação da sentença ou do proveito econômico obtido — use o valor da causa apenas como base subsidiária, quando não for possível mensurar o proveito econômico; NÃO escreva "15% sobre o valor da causa" como regra geral)
-   - DOS JUROS DE MORA E DA CORREÇÃO MONETÁRIA (ADC 58/59 STF — IPCA-E na fase pré-judicial e SELIC a partir do ajuizamento)
+   - DOS JUROS DE MORA E DA CORREÇÃO MONETÁRIA (ADC 58/59 STF — IPCA-E na fase pré-judicial e SELIC a partir do ajuizamento quanto às competências até 29/08/2024; a partir de 30/08/2024, Lei 14.905/2024: IPCA + taxa legal do art. 406 do CC)
    - DO DESCONTO DO IMPOSTO DE RENDA
    - DA PREVIDÊNCIA SOCIAL
    - DA EXPEDIÇÃO DE OFÍCIOS (MTE, INSS, CEF, DRT)
