@@ -849,6 +849,15 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     dados.VALOR_MULTAS_CONV = 'a apurar em liquidação';
   }
 
+  // RITO pelo valor da causa (decisão do jurídico, 13/11/2026): até 40 salários
+  // mínimos, sumaríssimo; acima, ordinário. Com ente público no polo passivo o
+  // sumaríssimo é vedado (art. 852-A, parágrafo único, da CLT) → ordinário.
+  // Sem valor calculado, mantém a escolha manual (attrs.rito).
+  if (somaCausa > 0) {
+    const limiteSumarissimo = 40 * salarioMinimoEm(new Date());
+    dados.RITO = somaCausa <= limiteSumarissimo && !dados.tomadora_publica ? 'sumaríssimo' : 'ordinário';
+  }
+
   // REDE FINAL do travessão: o relato da entrevista e campos como
   // DESVIO_ATIVIDADES entram na peça literalmente, sem passar pelo
   // sanitizador da IA. Limpar aqui pega todos os tokens de uma vez.
