@@ -103,7 +103,7 @@ export const CAMPOS_TEMPLATE = [
 ];
 
 export const FLAGS_TEMPLATE = [
-  'tem_tomadora', 'tem_reclamada3', 'tem_intervalo_suprimido', 'tem_reclamada4', 'desconto_indevido', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
+  'tem_tomadora', 'tem_reclamada3', 'tem_intervalo_suprimido', 'tem_reclamada4', 'sem_multas_conv', 'desconto_indevido', 'sem_justa_causa', 'rescisao_indireta', 'coacao_demissao', 'reversao_justa_causa',
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
