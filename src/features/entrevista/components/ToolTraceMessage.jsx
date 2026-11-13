@@ -10,7 +10,7 @@ export default function ToolTraceMessage({ message }) {
       <div className={`max-w-[94%] border text-muted-foreground ${isResult ? 'rounded-lg bg-card px-3 py-2' : 'rounded-full bg-muted px-3 py-1'}`}>
         <div className="flex items-start gap-1.5">
           {isJson ? (
-            <Braces className="mt-0.5 h-3 w-3 flex-shrink-0 text-[#1a73e8]" />
+            <Braces className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary-ink" />
           ) : (
             <Wrench className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary-ink" />
           )}
@@ -19,7 +19,7 @@ export default function ToolTraceMessage({ message }) {
               <div className="mb-1 flex items-center gap-1.5">
                 <span className="text-[11px] font-semibold text-foreground">{message.title}</span>
                 {isJson && (
-                  <span className="rounded bg-[#1a73e8]/10 px-1 py-0.5 text-[9px] font-medium text-[#1a73e8]">JSON</span>
+                  <span className="rounded bg-primary/15 px-1 py-0.5 text-[9px] font-medium text-primary-ink">JSON</span>
                 )}
               </div>
             )}

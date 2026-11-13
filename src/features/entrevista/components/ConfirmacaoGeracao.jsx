@@ -44,7 +44,7 @@ export default function ConfirmacaoGeracao({ status, disabled, onConfirmar, onRe
           <button
             onClick={onConfirmar}
             disabled={disabled}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a73e8] text-white rounded-lg text-xs font-medium hover:bg-[#1557b0] transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background rounded-lg text-xs font-medium hover:bg-foreground/85 transition-colors disabled:opacity-40"
           >
             <FileDown className="w-3.5 h-3.5" /> Gerar agora
           </button>
