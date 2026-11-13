@@ -361,7 +361,8 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
       });
       // Remonta com os blocos: o valor das multas no rol depende da lista de
       // infrações que a IA escreveu (pedidos_multas), não da lista padrão.
-      if (Array.isArray(blocos?.pedidos_multas) && blocos.pedidos_multas.length) {
+      if ((Array.isArray(blocos?.pedidos_multas) && blocos.pedidos_multas.length)
+        || (Array.isArray(blocos?.faltas_rescisao) && blocos.faltas_rescisao.length)) {
         Object.assign(dados, montarDadosTemplate({ caso, calculos, attrs, dadosReceita: dadosReceitaFinal, dadosCep: dadosCepFinal, blocos }));
       }
       Object.assign(dados, blocos);
