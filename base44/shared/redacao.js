@@ -403,7 +403,7 @@ function extrairCampo(obj, campo) {
   if (Array.isArray(direto) && direto.length) return direto;
   const valores = Object.values(obj || {});
   const arr = valores.find((v) => Array.isArray(v) && v.length);
-  if (campo === 'PEDIDOS_MULTAS' && arr) return arr;
+  if ((campo === 'PEDIDOS_MULTAS' || campo === 'FALTAS_RESCISAO') && arr) return arr;
   const str = valores.find((v) => typeof v === 'string' && v.trim().length > 80);
   return str ? str.trim() : null;
 }
@@ -451,6 +451,20 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
     tarefas.push('### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas. Liste SOMENTE descumprimentos da CONVENÇÃO COLETIVA: cada item vira uma multa no rol de pedidos. Violações apenas da CLT ou de lei (ex.: art. 468, art. 74 da CLT) NÃO entram nesta lista.');
   }
 
+  // RESCISÃO INDIRETA: o capítulo do escritório (Anderson x Gocil, 25/09/2026)
+  // é texto fixo + uma lista "A reclamada não ...;" com as faltas graves do
+  // caso. A IA escreve só a lista, a partir da entrevista; o resto está no .docx.
+  const rescisaoIndireta = caso?.tipo_dispensa === 'rescisao_indireta';
+  if (rescisaoIndireta) {
+    properties.FALTAS_RESCISAO = {
+      type: 'array', items: { type: 'string' },
+      description: 'Faltas graves do empregador que justificam a rescisão indireta (art. 483, "d", da CLT), uma por item, cada uma começando por "A reclamada não ..." ou "A reclamada ..." e terminando em ";". Só fatos que constam da entrevista/dados do caso; cite cláusula da CCT apenas quando grounded. 3 a 10 itens. Sem R$. Se houver dano moral no caso, o último item é exatamente "Incorre em dano moral em virtude das condições citadas."',
+    };
+    const tarefaRI = '### FALTAS_RESCISAO — Lista das faltas graves do empregador (rescisão indireta)\nPapel: Advogado(a) trabalhista do escritório.\nTarefa: Liste em array de strings as obrigações contratuais que a reclamada descumpriu neste caso, no estilo "A reclamada não concedeu o intervalo intrajornada de 1 (uma) hora assegurado pelo artigo 71 da CLT...;". Uma falta por item, frases completas e objetivas, fiéis à entrevista (nunca invente fato, número ou nome). NÃO escreva introdução, fundamentação nem jurisprudência (já estão no modelo).';
+    tarefaPorCampo.FALTAS_RESCISAO = tarefaRI;
+    tarefas.push(tarefaRI);
+  }
+
   const model = modeloUnico(configs);
 
   // Uma chamada por capítulo, em paralelo. Uma única chamada com todos os
@@ -491,6 +505,10 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
   if (multasAtivo && Array.isArray(obj.PEDIDOS_MULTAS)) {
     const lista = obj.PEDIDOS_MULTAS.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
     if (lista.length) blocos.pedidos_multas = lista;
+  }
+  if (rescisaoIndireta && Array.isArray(obj.FALTAS_RESCISAO)) {
+    const lista = obj.FALTAS_RESCISAO.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
+    if (lista.length) blocos.faltas_rescisao = lista;
   }
   return {
     blocos,
