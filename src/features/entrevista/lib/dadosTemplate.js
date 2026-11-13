@@ -520,7 +520,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.ASSIDUIDADE_PROMETIDO = valorOuTexto(caso.assiduidade_prometido);
   dados.ASSIDUIDADE_PAGO = valorOuTexto(caso.assiduidade_pago);
   dados.ASSIDUIDADE_DIFERENCA = valorOuTexto(caso.assiduidade_diferenca);
-  dados.DOENCA_DESCRICAO = caso.doenca_descricao || '';
+  // O Fav Sales só manda "Doença ou acidente de trabalho? Sim/Não", sem dizer
+  // qual. Desde 13/11/2026 o capítulo sai sempre que há doença (não só na
+  // coação), então sem descrição fica a marca para o advogado completar, em vez
+  // de "acometido de , doença ocupacional" (a IA não inventa a doença).
+  dados.DOENCA_DESCRICAO = caso.doenca_descricao
+    || (caso.tem_doenca ? '[A PREENCHER: qual doença ou lesão e como se relaciona ao trabalho]' : '');
   // O valor pago "por fora" É o valor da FT quitada em PIX/dinheiro. A regra
   // existia só no mapeamento do WEBHOOK; a mesma peça gerada pela tela de
   // entrevista (parser/extração) continuava saindo com
