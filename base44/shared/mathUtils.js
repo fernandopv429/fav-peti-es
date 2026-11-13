@@ -540,7 +540,18 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     if (!(v > 0)) return;
     itens.push({ item, memoria, valor: v });
     const r = reflexosSobre(v, opcoes);
-    if (r) {
+    if (r && opcoes.reflexosSubsidiarios) {
+      // Parcela indenizatória: reflexos só de forma SUBSIDIÁRIA e fora do valor
+      // da causa (decisão do jurídico, 13/11/2026 — item 7-B, intervalo).
+      const lista = r.texto.replace(/^acrescido dos reflexos em /, '').replace(/, totalizando o valor estimado de .*$/, '');
+      itens.push({
+        item: `Reflexos de ${item}`,
+        memoria: `SUBSIDIÁRIO, fora do valor da causa — ${r.memoria}`,
+        valor: r.valor,
+        foraDaCausa: true,
+        texto: `e, subsidiariamente, caso reconhecida a natureza salarial da parcela, reflexos em ${lista}, estes fora do valor da causa`,
+      });
+    } else if (r) {
       const pctTotal = r.rubricas.reduce((s, x) => s + x.pct, 0);
       itens.push({
         item: `Reflexos de ${item}`,
@@ -710,6 +721,7 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
         'Intervalo intrajornada (art. 71 da CLT)',
         `${horas}h (${String(sup.horasDia).replace('.', ',')}h suprimida(s)/dia — ${sup.memoria} × ${diasMes} dias/mês × ${meses} meses) × ${base} + ${adicTxt}`,
         horas * horaExtra,
+        { reflexosSubsidiarios: true },
       );
     }
 
