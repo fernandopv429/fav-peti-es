@@ -161,6 +161,10 @@ export const ESPECIALISTAS = [
     instrucao: (d, c) =>
       'Escreva o capítulo COMPLETO de "DAS MULTAS CONVENCIONAIS", fundamentando a aplicação da multa convencional por descumprimento das obrigações da CCT' +
       (c.cct_ano ? ` (vigência ${c.cct_ano} e anteriores)` : '') +
+      // A IA chegou a escrever "CCT 2026/2027" (caso Jonatas). O período não
+      // pode ser deduzido: ou usa o ano informado, ou fala só em "CCT vigente".
+      '. Ao mencionar a CCT, NÃO invente período de vigência (ex.: "2026/2027"): escreva "Convenção Coletiva de Trabalho da categoria"' +
+      (c.cct_ano ? ` ou cite apenas o ano ${c.cct_ano}` : '') +
       (c.cct_clausula_multa ? `, nos termos da cláusula ${c.cct_clausula_multa}` : ', nos termos da cláusula de penalidade') +
       '. Desenvolva em parágrafos coesos (natureza sancionatória/protetiva, irrelevância da culpa). Encerre introduzindo a lista de infrações ("...a seguir elencadas:"). NÃO escreva a lista (já no template). NÃO cite R$.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em direito coletivo e multas convencionais. Redija o capítulo COMPLETO sem R$ e sem a lista de infrações.' },
@@ -443,8 +447,8 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
       type: 'array', items: { type: 'string' },
       description: 'Lista de violações convencionais específicas, uma frase curta por item terminando em ";". Cite o número da cláusula APENAS quando grounded em CLÁUSULAS DA CCT. Sem cláusula, descreva a violação legal. 3 a 10 itens. Sem R$.',
     };
-    tarefaPorCampo.PEDIDOS_MULTAS = '### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas.';
-    tarefas.push('### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas.');
+    tarefaPorCampo.PEDIDOS_MULTAS = '### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas. Liste SOMENTE descumprimentos da CONVENÇÃO COLETIVA: cada item vira uma multa no rol de pedidos. Violações apenas da CLT ou de lei (ex.: art. 468, art. 74 da CLT) NÃO entram nesta lista.';
+    tarefas.push('### PEDIDOS_MULTAS — Lista individualizada de multas convencionais\nPapel: Especialista em direito coletivo.\nTarefa: Liste em array de strings as violações convencionais específicas deste caso (cite cláusula só quando grounded; sem cláusula, descreva sem número). Adapte às teses ativas. Liste SOMENTE descumprimentos da CONVENÇÃO COLETIVA: cada item vira uma multa no rol de pedidos. Violações apenas da CLT ou de lei (ex.: art. 468, art. 74 da CLT) NÃO entram nesta lista.');
   }
 
   const model = modeloUnico(configs);
