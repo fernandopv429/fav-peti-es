@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import { montarDadosTemplate } from '../src/features/entrevista/lib/dadosTemplate.js';
+import { calcularVerbasCaso } from '../base44/shared/mathUtils.js';
+import * as P from '../src/features/entrevista/lib/preencherDocxTemplate.js';
+const [,, inp, tpl, out, recalc] = process.argv;
+const a = JSON.parse(fs.readFileSync(inp, 'utf8')).analise_json;
+const caso = { ...(a.caso || {}), ...(JSON.parse(process.env.OVR || '{}')) }; const blocos = a.blocos || {};
+const calculos = recalc ? calcularVerbasCaso(caso, a.dadosCct || null) : (a.calculos || []);
+const d = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita: a.dadosReceita || [], dadosCep: a.dadosCep || [], blocos });
+Object.assign(d, blocos); if (blocos.BLOCO_DANO_MORAL) d.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
+const fn = P.preencherDocxTemplate || P.default;
+const ab = await (await fetch(tpl)).arrayBuffer();
+const blob = await fn(ab, d, { permitirPendencias: true });
+fs.writeFileSync(out, Buffer.from(await blob.arrayBuffer()));
+console.log(JSON.stringify({ causa: d.VALOR_CAUSA_TOTAL, dano: d.VALOR_DANO_MORAL_10X, art71: d.VALOR_ART71, art71ref: d.VALOR_ART71_REFLEXOS_TEXTO, multas: d.VALOR_MULTAS_CONV, sem_multas: d.sem_multas_conv }));
