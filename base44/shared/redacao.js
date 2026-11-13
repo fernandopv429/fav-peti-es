@@ -157,7 +157,7 @@ export const ESPECIALISTAS = [
   { numero: 'insalubridade', nome: 'Insalubridade / ambiente de trabalho', campo: 'BLOCO_INSALUBRIDADE', ativo: (d) => !!d.insalubridade,
     instrucao: 'Escreva o capítulo COMPLETO de insalubridade: (1) FATOS — condições insalubres e impacto na saúde; (2) FUNDAMENTO — arts. 189/192 CLT e NR-15; (3) JURISPRUDÊNCIA; (4) PEDIDO — adicional (10/20/40% do salário mínimo) com reflexos. NÃO cite R$. NÃO trate dano moral/jornada/rescisão.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em insalubridade. Redija o capítulo COMPLETO em prosa argumentativa.' },
-  { numero: 'multas_convencionais', nome: 'Multas convencionais', campo: 'BLOCO_MULTAS_CONVENCIONAIS', ativo: (d, c) => !c.sem_cct && !!(c.cct_ano || c.sindicato || d.periculosidade || d.assiduidade || d.folgas_trabalhadas || d.desvio_funcao || d.acumulo_funcao || d.dez_minutos_cct),
+  { numero: 'multas_convencionais', nome: 'Multas convencionais', campo: 'BLOCO_MULTAS_CONVENCIONAIS', ativo: (d, c) => d.tem_multas_conv !== false && !c.sem_cct && !!(c.cct_ano || c.sindicato || d.periculosidade || d.assiduidade || d.folgas_trabalhadas || d.desvio_funcao || d.acumulo_funcao || d.dez_minutos_cct),
     instrucao: (d, c) =>
       'Escreva o capítulo COMPLETO de "DAS MULTAS CONVENCIONAIS", fundamentando a aplicação da multa convencional por descumprimento das obrigações da CCT' +
       (c.cct_ano ? ` (vigência ${c.cct_ano} e anteriores)` : '') +
