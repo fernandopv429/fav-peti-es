@@ -80,7 +80,7 @@ export const CAMPOS_TEMPLATE = [
   'RECLAMADA3_TEMPO_LABORADO', 'RECLAMADA4_TEMPO_LABORADO', 'DESCONTO_DESCRICAO',
   'LOCAL_PRESTACAO_ENDERECO', 'DATA_ADMISSAO', 'DATA_RESCISAO', 'SALARIO',
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
-  'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
+  'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'INTERVALO_ART71', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
   'DOENCA_DESCRICAO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
   'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA',
@@ -135,12 +135,16 @@ const MODO_RESCISAO = {
   acordo: 'acordo (art. 484-A da CLT)',
 };
 
+// O modelo usa sempre "o reclamante {{MOTIVO_SAIDA_RESUMIDO}} em <data>" (art.
+// 477, aviso prévio e verbas rescisórias), então o valor precisa trazer o verbo
+// conjugado. Com "requerido a rescisão indireta" a peça saía "o reclamante
+// requerido a rescisão indireta" (caso Jonatas, 13/11/2026).
 const MOTIVO_SAIDA = {
-  sem_justa_causa: 'sido dispensado sem justa causa',
-  rescisao_indireta: 'requerido a rescisão indireta do contrato',
-  nulidade_pedido_demissao: 'sido coagido e ameaçado a pedir demissão',
-  reversao_justa_causa: 'sido dispensado por justa causa',
-  acordo: 'encerrado o contrato por acordo',
+  sem_justa_causa: 'foi dispensado sem justa causa',
+  rescisao_indireta: 'requereu a rescisão indireta do contrato',
+  nulidade_pedido_demissao: 'foi coagido e ameaçado a pedir demissão',
+  reversao_justa_causa: 'foi dispensado por justa causa',
+  acordo: 'teve o contrato encerrado por acordo',
 };
 
 const flag = (v) => !!v;
@@ -461,16 +465,30 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const ivSuprimido = caso.intervalo_gozado === false || !!caso.intervalo_usufruido || !!caso.tem_intervalo_suprimido;
   const ivRegular = caso.intervalo_gozado === true && !caso.intervalo_usufruido;
   const ivTxt = caso.intervalo_usufruido;
-  const ivEhDuracao = ivTxt && /\d|minut|hora|meia/i.test(ivTxt);
+  // A resposta da entrevista é texto livre ("40 Minutos.", "TODO O PERÍODO",
+  // "A disposição da empresa."). Antes ia colada na frase e saía "uma vez que
+  // tODO O PERÍODO" (caso Jonatas). Agora é classificada em três casos e a
+  // peça usa redação própria; só a duração ("40 minutos") é aproveitada.
+  const ivLimpo = String(ivTxt || '').trim().replace(/[.;,\s]+$/, '');
+  const ivSemIntervalo = !!ivLimpo && /todo|integral|disposi[cç][aã]o|nenhum|n[aã]o\s+(usufru|goz|tinha|havia|fazia|tirava)|sem\s+intervalo|n[aã]o\s+tem/i.test(ivLimpo);
+  const ivEhDuracao = !!ivLimpo && !ivSemIntervalo && /\d|minut|hora|meia/i.test(ivLimpo);
+  const ivDuracao = ivEhDuracao ? ivLimpo.toLowerCase().replace(/(\d)\s*h\b/g, '$1 hora').replace(/\bmin\b/g, 'minutos') : '';
   dados.INTERVALO_FRASE = ivRegular
     ? 'com a regular concessão do intervalo para refeição e descanso de 1 (uma) hora'
     : ivSuprimido
-      ? (ivEhDuracao
-        ? `com a concessão parcial do intervalo para refeição e descanso de aproximadamente ${ivTxt}`
-        : ivTxt
-          ? `com a concessão parcial do intervalo para refeição e descanso, uma vez que ${String(ivTxt).charAt(0).toLowerCase()}${String(ivTxt).slice(1)}`
+      ? (ivSemIntervalo
+        ? 'sem a concessão do intervalo para refeição e descanso, permanecendo à disposição da reclamada durante todo o período'
+        : ivEhDuracao
+          ? `com a concessão parcial do intervalo para refeição e descanso, de aproximadamente ${ivDuracao}`
           : 'com a concessão parcial do intervalo para refeição e descanso')
       : 'com o intervalo para refeição e descanso a ser apurado';
+  // Capítulo do art. 71: o modelo afirmava "no máximo entre 10 (dez) a 15
+  // (quinze) minutos" para todo mundo, contradizendo a entrevista.
+  dados.INTERVALO_ART71 = ivSemIntervalo
+    ? 'permanecendo à disposição da reclamada durante todo o período destinado ao repouso e à alimentação'
+    : ivEhDuracao
+      ? `usufruindo, no máximo, cerca de ${ivDuracao}`
+      : 'usufruindo apenas parte dele';
   // Acende o capítulo do art. 71, que no modelo era incondicional e afirmava
   // "jamais usufruiu do intervalo" mesmo quando a entrevista dizia o contrário.
   dados.tem_intervalo_suprimido = flag(ivSuprimido);
