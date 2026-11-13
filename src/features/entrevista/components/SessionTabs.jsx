@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X, MessageSquare, Check } from 'lucide-react';
+import { Plus, X, Check } from 'lucide-react';
 
 // ============================================================
 // Barra de abas de sessões — criar, listar, selecionar,
@@ -20,19 +20,18 @@ export default function SessionTabs({ sessions, activeId, onSelect, onCreate, on
   };
 
   return (
-    <div className="flex items-center gap-1 px-3 py-1.5 border-b border-[#dadce0] bg-[#f1f3f4] overflow-x-auto flex-shrink-0 scrollbar-thin">
+    <div className="flex items-center gap-1.5 px-4 lg:px-8 py-2 border-b border-border bg-card overflow-x-auto flex-shrink-0 no-scrollbar">
       {sessions.map((s) => (
         <div
           key={s.id}
           onClick={() => onSelect(s.id)}
           onDoubleClick={() => startEdit(s)}
-          className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-xs cursor-pointer whitespace-nowrap select-none ${
+          className={`group flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap select-none transition-colors ${
             s.id === activeId
-              ? 'bg-white text-[#1a73e8] border border-b-white border-[#dadce0] font-medium'
-              : 'text-[#5f6368] hover:bg-white/60 border border-transparent'
+              ? 'bg-foreground text-background'
+              : 'bg-secondary text-muted-foreground hover:text-foreground'
           }`}
         >
-          <MessageSquare className="w-3 h-3 flex-shrink-0" />
           {editingId === s.id ? (
             <span className="flex items-center gap-1">
               <input
@@ -45,11 +44,11 @@ export default function SessionTabs({ sessions, activeId, onSelect, onCreate, on
                   if (e.key === 'Escape') setEditingId(null);
                 }}
                 onBlur={commitEdit}
-                className="w-24 px-1 py-0 text-xs border border-[#1a73e8] rounded outline-none"
+                className="w-24 px-1 py-0 text-xs text-foreground bg-card border border-primary rounded outline-none"
               />
               <button
                 onClick={(e) => { e.stopPropagation(); commitEdit(); }}
-                className="text-[#0b8043] hover:scale-110 transition-transform"
+                className="text-primary hover:scale-110 transition-transform"
               >
                 <Check className="w-3 h-3" />
               </button>
@@ -60,7 +59,7 @@ export default function SessionTabs({ sessions, activeId, onSelect, onCreate, on
           {sessions.length > 1 && editingId !== s.id && (
             <button
               onClick={(e) => { e.stopPropagation(); onClose(s.id); }}
-              className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity"
+              className="opacity-50 group-hover:opacity-100 hover:text-primary transition-opacity"
               title="Encerrar sessão"
             >
               <X className="w-3 h-3" />
@@ -70,7 +69,7 @@ export default function SessionTabs({ sessions, activeId, onSelect, onCreate, on
       ))}
       <button
         onClick={onCreate}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-[#1a73e8] hover:bg-white/60 rounded-lg whitespace-nowrap flex-shrink-0"
+        className="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground border border-dashed border-border hover:text-foreground hover:border-foreground/40 rounded-full whitespace-nowrap flex-shrink-0 transition-colors"
         title="Nova sessão"
       >
         <Plus className="w-3.5 h-3.5" /> Nova
