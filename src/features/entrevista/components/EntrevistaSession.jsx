@@ -481,7 +481,7 @@ export default function EntrevistaSession() {
                 <FileText className="w-10 h-10 text-border mb-3" />
                 <p className="text-sm text-muted-foreground">A petição preenchida aparecerá aqui.</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  Abra a fila de entrevistas (ícone de caixa no topo) e selecione um caso recebido.
+                  Clique em “Fila” no topo e selecione um caso recebido.
                 </p>
               </div>
             )}
