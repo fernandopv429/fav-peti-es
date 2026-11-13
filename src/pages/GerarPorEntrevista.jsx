@@ -23,13 +23,13 @@ export default function GerarPorEntrevista() {
     // a página. Fixar a altura no viewport aqui faz todos os `min-h-0` +
     // `overflow-y-auto` de dentro passarem a funcionar.
     //
-    // Abaixo de lg o AppLayout renderiza um header sticky de 4rem, descontado
-    // do cálculo; em lg não há header. `dvh` acompanha a barra de endereço do
+    // O AppLayout renderiza a barra superior (TopNav) de 3rem em todas as
+    // larguras, descontada do cálculo. `dvh` acompanha a barra de endereço do
     // navegador no celular, onde `vh` fica maior que a área visível.
     // overflow-x-hidden: trava de segurança para a barra horizontal. Sem ela,
     // qualquer conteúdo largo dentro dos painéis (uma tabela, uma URL sem espaço,
     // a folha A4 do preview) empurra a página inteira para o lado.
-    <div className="flex flex-col h-[calc(100dvh-4rem)] lg:h-dvh overflow-x-hidden bg-[#f8f9fa]">
+    <div className="flex flex-col h-[calc(100dvh-3rem)] overflow-x-hidden bg-background">
       <SessionTabs
         sessions={sessions}
         activeId={activeId}
