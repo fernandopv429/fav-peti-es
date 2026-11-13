@@ -330,6 +330,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     // do rol. VALOR_HONORARIOS continua disponível para o tópico de honorários.
     if (c.item === 'Honorários advocatícios (15%)') continue;
     if (!campo) { itensSemToken.push(`${c.item} (${formatBRL(c.valor)})`); continue; }
+    // Pedido SUBSIDIÁRIO (ex.: reflexos do intervalo, item 7-B do jurídico):
+    // sai no rol, mas não soma no valor da causa (art. 292, VIII, do CPC).
+    if (c.foraDaCausa) continue;
     somaCausa += Number(c.valor) || 0;
   }
   // Chave com underscore: não é tag do template, só diagnóstico para a UI/gate.
@@ -569,6 +572,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     porteiro_siemaco: '20% (vinte por cento) do salário mínimo federal vigente, por cláusula descumprida',
     porteiro_sindeepres: '2% (dois por cento) sobre o montante devido em razão do descumprimento da Convenção',
   }[categoriaMulta] || 'percentual previsto na Convenção Coletiva da categoria';
+  // SINDEEPRES: o escritório NÃO pede a multa convencional (decisão do
+  // jurídico, 13/11/2026 — item 8-A). Apaga o capítulo e a linha do rol.
+  dados.tem_multas_conv = categoriaMulta !== 'porteiro_sindeepres';
   dados.tem_tomadora = temTomadora;
   // Tomadora da Administração Pública: o capítulo da Súmula 331 sai na versão
   // do inciso V (Temas 246 e 1118 do STF, Lei 14.133/2021); privada, inciso IV.
@@ -829,7 +835,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const pctMultaConv = regraMulta?.pct || 0;
   const baseMultaConv = regraMulta?.base || 0;
   const qtdMultas = Array.isArray(dados.pedidos_multas) ? dados.pedidos_multas.length : 0;
-  if (regraMulta && qtdMultas > 0 && baseMultaConv > 0) {
+  if (dados.tem_multas_conv && regraMulta && qtdMultas > 0 && baseMultaConv > 0) {
     const totalMultas = round2(qtdMultas * pctMultaConv * baseMultaConv);
     const plural = qtdMultas > 1 ? 's' : '';
     dados.VALOR_MULTAS_CONV = `valor estimado de ${formatBRL(totalMultas)} (${qtdMultas} cláusula${plural} descumprida${plural} × ${(pctMultaConv * 100).toFixed(0)}% ${regraMulta.rotuloBase}, ${formatBRL(baseMultaConv)})`;
