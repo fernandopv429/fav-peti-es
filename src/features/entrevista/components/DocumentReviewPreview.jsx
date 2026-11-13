@@ -35,8 +35,8 @@ const SHEET_CSS = `
 .docx-content td, .docx-content th { border: 1px solid #c9ccd1; padding: 4pt 6pt; font-size: 11pt; }
 .docx-content ul, .docx-content ol { margin: 0 0 8pt 0; padding-left: 24pt; }
 .docx-content img { max-width: 100%; }
-.docx-content mark.tpl-filled { background: #d3f2df; color: #0b5a30; padding: 0 2px; border-radius: 2px; }
-.docx-content mark.tpl-pending { background: #fdeeba; color: #7a5a00; padding: 0 2px; border-radius: 2px; font-weight: 600; }
+.docx-content mark.tpl-filled { background: #eef4e8; color: #2f5e10; padding: 0 2px; border-radius: 2px; }
+.docx-content mark.tpl-pending { background: #fdf3d9; color: #5c3e00; padding: 0 2px; border-radius: 2px; font-weight: 600; box-shadow: inset 0 -2px 0 #f2a900; }
 `;
 
 export default function DocumentReviewPreview({ html, dimmed }) {
@@ -155,7 +155,7 @@ export default function DocumentReviewPreview({ html, dimmed }) {
         {pages.map((pageHtml, i) => (
           <div
             key={i}
-            className="relative bg-white shadow-[0_2px_12px_rgba(32,33,36,0.18)] rounded-[2px] flex-shrink-0"
+            className="relative bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_8px_24px_-8px_rgba(0,0,0,0.12)] rounded-[2px] flex-shrink-0"
             // SEM maxWidth: a folha tem de manter os 794px reais. Era o
             // `maxWidth: '100%'` que a encolhia e desalinhava a paginação;
             // o ajuste ao painel agora é feito pela escala, não pela largura.
