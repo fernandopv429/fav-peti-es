@@ -293,7 +293,7 @@ export function narrativaDanoMoral(caso) {
   return `${corpus}Tais condutas ilícitas da reclamada violaram a dignidade pessoal e os valores morais do autor, gerando angústia, sofrimento e indignação, a ensejar a devida reparação moral.`;
 }
 
-export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dadosReceita = [], dadosCep = [] } = {}) {
+export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dadosReceita = [], dadosCep = [], blocos = null } = {}) {
   const dados = {};
 
   // 1) Valores determinísticos
@@ -753,6 +753,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // citando o número real da cláusula da CCT; este fallback determinístico
   // só roda quando a redação por IA está desligada ou falha — nunca deixa o
   // laço {{#pedidos_multas}} vazio.
+  // A lista que a peça imprime é a da IA (blocos.pedidos_multas), mesclada
+  // DEPOIS desta função. Sem recebê-la aqui, o rol multiplicava pela lista
+  // determinística: o capítulo listava 10 infrações e o pedido cobrava 7
+  // (caso Jonatas, 13/11/2026). Quem tem os blocos passa-os em `blocos`.
+  if (Array.isArray(blocos?.pedidos_multas) && blocos.pedidos_multas.length) {
+    dados.pedidos_multas = blocos.pedidos_multas;
+  }
   if (!dados.pedidos_multas) {
     const clMulta = caso.cct_clausula_multa ? `, cláusula ${caso.cct_clausula_multa}` : '';
     const itensMulta = [];
