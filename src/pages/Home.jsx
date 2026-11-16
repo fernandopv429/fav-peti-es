@@ -258,7 +258,7 @@ export default function Home() {
                     <span className="w-7 h-7 rounded-full bg-[#0f0f0f] text-primary text-[10.5px] font-semibold flex items-center justify-center shrink-0">{iniciais(r.rotulo)}</span>
                     <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate" title={r.rotulo}>{r.rotulo}</span>
                     <span className="text-[11.5px] text-muted-foreground whitespace-nowrap">{r.casos} {r.casos === 1 ? "caso" : "casos"}</span>
-                    <span className="w-[72px] text-right text-[13px] font-semibold text-foreground tabular-nums">{brlCompacto(r.valor)}</span>
+                    <span className={`w-[72px] text-right text-[13px] tabular-nums ${r.valor ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{r.valor ? brlCompacto(r.valor) : "a apurar"}</span>
                   </li>
                 ))}
               </ul>
