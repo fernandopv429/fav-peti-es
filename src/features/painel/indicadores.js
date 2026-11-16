@@ -19,7 +19,7 @@ export const PERIODOS = [
 // O banco devolve as datas em UTC SEM o "Z" ("2026-11-16T18:49:15"); lidas
 // assim, o navegador as trataria como hora local e um caso de hoje apareceria
 // "no futuro" (−1 dia). O "Z" restaura o fuso correto.
-const lerData = (s) => {
+export const lerData = (s) => {
   if (!s) return new Date(NaN);
   return new Date(typeof s === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? `${s}Z` : s);
 };
