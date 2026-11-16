@@ -106,7 +106,7 @@ export function LinhasFluxo({ dados = [] }) {
       </div>
       <p className="text-xs text-muted-foreground mt-2 h-4">
         {ativo ? (
-          <><span className="text-foreground font-medium capitalize">{ativo.titulo}</span> · {ativo.recebidas} recebidas · {ativo.revisadas} revisadas</>
+          <><span className="text-foreground font-medium">{ativo.titulo.charAt(0).toUpperCase() + ativo.titulo.slice(1)}</span> · {ativo.recebidas} recebidas · {ativo.revisadas} revisadas</>
         ) : total ? "Passe o mouse no gráfico para ver cada período" : "Nenhuma entrevista no período"}
       </p>
     </div>
