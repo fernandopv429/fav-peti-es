@@ -53,12 +53,13 @@ export function LinhasFluxo({ dados = [], onSelecionar }) {
   const meio = Math.round(max / 2);
   const total = dados.reduce((s, d) => s + d.recebidas, 0);
 
-  const mover = (e) => {
+  const indice = (e) => {
     const r = ref.current?.getBoundingClientRect();
-    if (!r || !n) return;
+    if (!r || !n) return null;
     const px = ((e.clientX - r.left) / r.width) * W;
-    setFoco(Math.max(0, Math.min(n - 1, Math.round((px - PX) / (passo || 1)))));
+    return Math.max(0, Math.min(n - 1, Math.round((px - PX) / (passo || 1))));
   };
+  const mover = (e) => setFoco(indice(e));
   const ativo = foco != null ? dados[foco] : null;
 
   return (
@@ -69,7 +70,7 @@ export function LinhasFluxo({ dados = [], onSelecionar }) {
         className={`w-full h-[170px] overflow-visible ${onSelecionar ? "cursor-pointer" : ""}`}
         preserveAspectRatio="none"
         onMouseMove={mover}
-        onClick={(e) => { mover(e); if (onSelecionar && foco != null) onSelecionar(dados[foco]); }}
+        onClick={(e) => { const i = indice(e); if (onSelecionar && i != null) onSelecionar(dados[i]); }}
         onMouseLeave={() => setFoco(null)}
         role="img"
         aria-label={`Entrevistas recebidas e revisadas: ${total} recebidas no período`}
