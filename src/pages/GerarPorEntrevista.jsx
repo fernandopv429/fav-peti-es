@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SessionTabs from '@/features/entrevista/components/SessionTabs';
 import EntrevistaSession from '@/features/entrevista/components/EntrevistaSession';
 import { useSessions } from '@/features/entrevista/useSessions';
@@ -12,6 +13,15 @@ import { useSessions } from '@/features/entrevista/useSessions';
 // ============================================================
 export default function GerarPorEntrevista() {
   const { sessions, activeId, createSession, closeSession, renameSession, selectSession } = useSessions();
+  // Atalho do painel Início: ?caso=ID abre o caso; ?fila=pendentes|confirmadas
+  // abre a lista. Lido uma vez e entregue só à sessão ativa; depois a URL é
+  // limpa para um recarregar da página não reabrir o atalho.
+  const [params, setParams] = useSearchParams();
+  const [atalho] = useState(() => ({ caso: params.get('caso'), fila: params.get('fila') }));
+  useEffect(() => {
+    if (params.get('caso') || params.get('fila')) setParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     // ALTURA REAL, NÃO PERCENTUAL. Esta era a origem do scroll da página inteira:
@@ -47,7 +57,12 @@ export default function GerarPorEntrevista() {
             key={s.id}
             className={s.id === activeId ? 'flex-1 flex flex-col min-h-0' : 'hidden'}
           >
-            <EntrevistaSession sessionId={s.id} active={s.id === activeId} />
+            <EntrevistaSession
+              sessionId={s.id}
+              active={s.id === activeId}
+              casoInicial={s.id === activeId ? atalho.caso : null}
+              filaInicial={s.id === activeId ? atalho.fila : null}
+            />
           </div>
         ))}
       </div>
