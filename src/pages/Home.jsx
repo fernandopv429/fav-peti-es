@@ -132,7 +132,7 @@ export default function Home() {
         {/* Fila de entrevistas */}
         <div className="mt-3 bg-card border border-border rounded-xl overflow-hidden card-soft">
           <div className="flex items-center justify-between px-4 lg:px-5 py-3.5">
-            <h2 className="text-sm font-semibold text-foreground">Entrevistas recebidas</h2>
+            <h2 className="text-sm font-semibold text-foreground">Últimas entrevistas</h2>
             <button
               onClick={() => navigate("/entrevista")}
               className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5"
