@@ -22,6 +22,12 @@ export default function GerarPorEntrevista() {
     if (params.get('caso') || params.get('fila')) setParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Sessão que recebe o atalho: a ativa no momento da abertura (fixa — trocar
+  // de aba depois não reabre o caso em outra sessão).
+  const [sessaoAlvo, setSessaoAlvo] = useState(null);
+  useEffect(() => {
+    if (!sessaoAlvo && activeId) setSessaoAlvo(activeId);
+  }, [activeId, sessaoAlvo]);
 
   return (
     // ALTURA REAL, NÃO PERCENTUAL. Esta era a origem do scroll da página inteira:
@@ -60,8 +66,8 @@ export default function GerarPorEntrevista() {
             <EntrevistaSession
               sessionId={s.id}
               active={s.id === activeId}
-              casoInicial={s.id === activeId ? atalho.caso : null}
-              filaInicial={s.id === activeId ? atalho.fila : null}
+              casoInicial={s.id === sessaoAlvo ? atalho.caso : null}
+              filaInicial={s.id === sessaoAlvo ? atalho.fila : null}
             />
           </div>
         ))}
