@@ -210,7 +210,7 @@ export default function Home() {
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="text-[13px] text-foreground truncate">{p.rotulo}</span>
                         <span className="text-[11.5px] text-muted-foreground whitespace-nowrap tabular-nums">
-                          {p.casos} · <span className="font-semibold text-foreground">{p.valor ? brlCompacto(p.valor) : "a apurar"}</span>
+                          {p.casos} · <span className="font-semibold text-foreground">{p.valor >= 1 ? brlCompacto(p.valor) : "a apurar"}</span>
                         </span>
                       </span>
                       <span className="block h-1 mt-1.5 bg-secondary rounded-full overflow-hidden">
@@ -258,7 +258,7 @@ export default function Home() {
                     <span className="w-7 h-7 rounded-full bg-[#0f0f0f] text-primary text-[10.5px] font-semibold flex items-center justify-center shrink-0">{iniciais(r.rotulo)}</span>
                     <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate" title={r.rotulo}>{r.rotulo}</span>
                     <span className="text-[11.5px] text-muted-foreground whitespace-nowrap">{r.casos} {r.casos === 1 ? "caso" : "casos"}</span>
-                    <span className={`w-[72px] text-right text-[13px] tabular-nums ${r.valor ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{r.valor ? brlCompacto(r.valor) : "a apurar"}</span>
+                    <span className={`w-[72px] text-right text-[13px] tabular-nums ${r.valor >= 1 ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{r.valor >= 1 ? brlCompacto(r.valor) : "a apurar"}</span>
                   </li>
                 ))}
               </ul>
