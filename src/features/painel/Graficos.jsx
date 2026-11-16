@@ -40,7 +40,7 @@ export function Sparkline({ valores = [], cor = PRETO, largura = 80, altura = 24
  * Duas linhas no mesmo eixo (recebidas × revisadas), com área suave sob a
  * principal e cruz de leitura no hover.
  */
-export function LinhasFluxo({ dados = [] }) {
+export function LinhasFluxo({ dados = [], onSelecionar }) {
   const ref = useRef(null);
   const [foco, setFoco] = useState(null);
   const W = 600, H = 170, PX = 10, PY = 10;
@@ -66,9 +66,10 @@ export function LinhasFluxo({ dados = [] }) {
       <svg
         ref={ref}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full h-[170px] overflow-visible"
+        className={`w-full h-[170px] overflow-visible ${onSelecionar ? "cursor-pointer" : ""}`}
         preserveAspectRatio="none"
         onMouseMove={mover}
+        onClick={(e) => { mover(e); if (onSelecionar && foco != null) onSelecionar(dados[foco]); }}
         onMouseLeave={() => setFoco(null)}
         role="img"
         aria-label={`Entrevistas recebidas e revisadas: ${total} recebidas no período`}
@@ -107,7 +108,7 @@ export function LinhasFluxo({ dados = [] }) {
       <p className="text-xs text-muted-foreground mt-2 h-4">
         {ativo ? (
           <><span className="text-foreground font-medium">{ativo.titulo.charAt(0).toUpperCase() + ativo.titulo.slice(1)}</span> · {ativo.recebidas} recebidas · {ativo.revisadas} revisadas</>
-        ) : total ? "Passe o mouse no gráfico para ver cada período" : "Nenhuma entrevista no período"}
+        ) : total ? "Passe o mouse no gráfico e clique para ver os casos do período" : "Nenhuma entrevista no período"}
       </p>
     </div>
   );
@@ -124,12 +125,17 @@ export function LegendaFluxo() {
 }
 
 /** Funil horizontal com porcentagem sobre a primeira etapa. */
-export function Funil({ etapas = [] }) {
+export function Funil({ etapas = [], onSelecionar }) {
   const base = etapas[0]?.valor || 0;
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-1">
       {etapas.map((e) => (
         <li key={e.rotulo}>
+          <button
+            type="button"
+            onClick={() => onSelecionar?.(e)}
+            className="w-full text-left rounded-lg px-2 py-1.5 -mx-2 hover:bg-secondary/70 transition-colors"
+          >
           <div className="flex items-baseline justify-between text-xs">
             <span className="text-foreground/85">{e.rotulo}</span>
             <span>
@@ -140,6 +146,7 @@ export function Funil({ etapas = [] }) {
           <div className="h-2 mt-1.5 bg-secondary rounded-full overflow-hidden">
             <div className={`h-full rounded-full ${e.cor}`} style={{ width: base ? `${(e.valor / base) * 100}%` : 0 }} />
           </div>
+          </button>
         </li>
       ))}
     </ul>
@@ -147,22 +154,24 @@ export function Funil({ etapas = [] }) {
 }
 
 /** Barra única dividida (parte do todo) + legenda com contagem. */
-export function BarraSegmentada({ itens = [] }) {
+export function BarraSegmentada({ itens = [], onSelecionar }) {
   const total = itens.reduce((s, i) => s + i.valor, 0);
   if (!total) return <p className="text-xs text-muted-foreground py-2">Sem dados no período</p>;
   return (
     <div>
       <div className="flex h-2.5 rounded-full overflow-hidden gap-[2px]">
         {itens.map((i) => (
-          <span key={i.rotulo} title={`${i.rotulo}: ${i.valor}`} style={{ flex: i.valor, background: i.cor }} />
+          <button type="button" key={i.rotulo} title={`${i.rotulo}: ${i.valor}`} onClick={() => onSelecionar?.(i)} className="hover:opacity-80 transition-opacity" style={{ flex: i.valor, background: i.cor }} />
         ))}
       </div>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3">
         {itens.map((i) => (
-          <li key={i.rotulo} className="flex items-center gap-2 text-xs">
-            <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: i.cor }} />
-            <span className="text-foreground/85 truncate">{i.rotulo}</span>
-            <span className="ml-auto font-semibold text-foreground tabular-nums">{i.valor}</span>
+          <li key={i.rotulo}>
+            <button type="button" onClick={() => onSelecionar?.(i)} className="w-full flex items-center gap-2 text-xs rounded-md px-1.5 py-1 -mx-1.5 hover:bg-secondary/70 transition-colors">
+              <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: i.cor }} />
+              <span className="text-foreground/85 truncate">{i.rotulo}</span>
+              <span className="ml-auto font-semibold text-foreground tabular-nums">{i.valor}</span>
+            </button>
           </li>
         ))}
       </ul>
