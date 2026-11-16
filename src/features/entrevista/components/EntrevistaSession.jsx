@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck, Check,
@@ -46,7 +46,9 @@ function Passo({ n, estado, rotulo }) {
 // webhooks, a petição preenche o template e é revisada/exportada aqui.
 // ============================================================
 
-export default function EntrevistaSession() {
+// `casoInicial` / `filaInicial`: atalhos vindos do painel Início
+// (/entrevista?caso=ID abre o caso; ?fila=pendentes|confirmadas abre a lista).
+export default function EntrevistaSession({ casoInicial = null, filaInicial = null } = {}) {
   // Histórico técnico da sessão (traços de ferramentas, retornos de API e
   // erros) — alimenta apenas o modal de logs.
   const [messages, setMessages] = useState([]);
@@ -95,14 +97,19 @@ export default function EntrevistaSession() {
   const templateNome = templatePadrao?.nome || templateCaso?.nome || config?.template_docx_nome || '';
   const temTemplate = !!templateUrl;
 
+  // Fica true quando a busca do modelo vigente e da configuração terminou (com
+  // ou sem resultado). O atalho do painel só abre o caso depois disso, para o
+  // preview usar o MESMO modelo da exportação (ver abrirCasoPronto).
+  const [cadastroCarregado, setCadastroCarregado] = useState(false);
   useEffect(() => {
-    base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
-    base44.entities.PetitionTemplate.filter({ is_active: true })
+    const cfg = base44.entities.IntegracaoConfig.list('-updated_date', 1).then((l) => setConfig(l?.[0] || null)).catch(() => {});
+    const tpl = base44.entities.PetitionTemplate.filter({ is_active: true })
       .then((lista) => {
         const t = (lista || []).find((x) => Array.isArray(x.tags) && x.tags.includes('blocos') && x.modelo_docx_url);
         if (t) setTemplatePadrao({ url: t.modelo_docx_url, nome: t.modelo_docx_name || t.name });
       })
       .catch(() => {});
+    Promise.allSettled([cfg, tpl]).then(() => setCadastroCarregado(true));
   }, []);
 
   const atualizarFilaCount = () => {
@@ -228,6 +235,24 @@ export default function EntrevistaSession() {
     setTrechoSelecionado('');
     setTopicoEscolhido(null);
   };
+
+  // Atalhos do painel Início (uma vez por montagem).
+  const atalhoUsado = useRef(false);
+  useEffect(() => {
+    if (atalhoUsado.current || !cadastroCarregado) return;
+    if (filaInicial === 'pendentes' || filaInicial === 'confirmadas') {
+      atalhoUsado.current = true;
+      setFilaModo(filaInicial);
+      setFilaOpen(true);
+      return;
+    }
+    if (!casoInicial) return;
+    atalhoUsado.current = true;
+    base44.entities.CasoTrabalhista.filter({ id: casoInicial })
+      .then((l) => { if (l?.[0]) abrirCasoPronto(l[0]); })
+      .catch((e) => console.error(e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cadastroCarregado, casoInicial, filaInicial]);
 
   const abrirCasoPronto = async (casoDb) => {
     const aj = casoDb?.analise_json || {};
