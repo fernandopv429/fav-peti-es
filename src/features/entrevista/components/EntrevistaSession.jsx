@@ -248,8 +248,8 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
     }
     if (!casoInicial) return;
     atalhoUsado.current = true;
-    base44.entities.CasoTrabalhista.filter({ id: casoInicial })
-      .then((l) => { if (l?.[0]) abrirCasoPronto(l[0]); })
+    base44.entities.CasoTrabalhista.get(casoInicial)
+      .then((c) => { if (c) abrirCasoPronto(c); })
       .catch((e) => console.error(e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cadastroCarregado, casoInicial, filaInicial]);
