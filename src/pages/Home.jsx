@@ -1,7 +1,15 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ChevronRight, Inbox, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 import { useCasosWebhook } from "@/features/entrevista/useCasosWebhook";
+import { PERIODOS, calcularIndicadores, brlCompacto } from "@/features/painel/indicadores";
+import { Cartao, Colunas, Barras } from "@/features/painel/Graficos";
+
+const CHAVE_PERIODO = "fav.inicio.periodo";
+function periodoSalvo() {
+  try { return localStorage.getItem(CHAVE_PERIODO) || "30d"; } catch { return "30d"; }
+}
 
 function saudacao(nome) {
   const h = new Date().getHours();
@@ -22,19 +30,31 @@ function situacao(c) {
 }
 
 /**
- * Painel inicial: saudação na faixa preta, quatro números do fluxo de
- * entrevistas e a fila dos casos mais recentes. Somente leitura.
+ * Painel inicial (dashboard): saudação e filtro de período na faixa preta,
+ * quatro números, gráficos do fluxo de entrevistas e a fila mais recente.
+ * Somente leitura.
  */
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { casos, loading, naFila, gerando, revisadas, noMes } = useCasosWebhook();
+  const { casos, loading } = useCasosWebhook();
+  const [periodoId, setPeriodoId] = useState(periodoSalvo);
+  const escolherPeriodo = (id) => {
+    setPeriodoId(id);
+    try { localStorage.setItem(CHAVE_PERIODO, id); } catch { /* sem armazenamento: só nesta visita */ }
+  };
+  const ind = useMemo(() => calcularIndicadores(casos, periodoId), [casos, periodoId]);
+  const rotuloPeriodo = ind.periodo.id === "ano" ? "últimos 12 meses" : `últimos ${ind.periodo.dias} dias`;
 
   const numeros = [
-    { rotulo: "Na fila", valor: naFila.length, nota: "aguardando revisão", notaCls: "text-primary-ink" },
-    { rotulo: "Gerando", valor: gerando.length, nota: "em preenchimento", notaCls: "text-muted-foreground" },
-    { rotulo: "Revisadas", valor: revisadas.length, nota: "prontas para protocolo", notaCls: "text-success" },
-    { rotulo: "No mês", valor: noMes.length, nota: "entrevistas recebidas", notaCls: "text-muted-foreground" },
+    {
+      rotulo: "Na fila", valor: ind.naFila,
+      nota: ind.diasMaisAntiga == null ? "nenhuma pendente" : ind.diasMaisAntiga === 0 ? "mais antiga de hoje" : `mais antiga há ${ind.diasMaisAntiga} ${ind.diasMaisAntiga === 1 ? "dia" : "dias"}`,
+      notaCls: "text-primary-ink",
+    },
+    { rotulo: "Recebidas", valor: ind.recebidas, nota: `${ind.variacao >= 0 ? "+" : "−"}${Math.abs(ind.variacao)} vs. período anterior`, notaCls: "text-muted-foreground" },
+    { rotulo: "Revisadas", valor: ind.revisadas, nota: "das recebidas no período", notaCls: "text-success" },
+    { rotulo: "Valor das causas", valor: brlCompacto(ind.valorTotal), nota: ind.valorMedio ? `estimado · média ${brlCompacto(ind.valorMedio)}` : "estimado", notaCls: "text-muted-foreground" },
   ];
   const recentes = casos.slice(0, 8);
 
@@ -49,12 +69,28 @@ export default function Home() {
               {saudacao(user?.full_name)}
             </h1>
           </div>
-          <button
-            onClick={() => navigate("/entrevista")}
-            className="self-start sm:self-auto inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-95 transition"
-          >
-            Gerar petição <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-white/10" role="group" aria-label="Período">
+              {PERIODOS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => escolherPeriodo(p.id)}
+                  aria-pressed={periodoId === p.id}
+                  className={`px-3 h-7 rounded-full text-xs font-medium transition-colors ${
+                    periodoId === p.id ? "bg-primary text-primary-foreground" : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  {p.rotulo}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => navigate("/entrevista")}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-white text-[#0f0f0f] text-sm font-semibold hover:bg-white/90 transition"
+            >
+              Gerar petição <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -64,7 +100,7 @@ export default function Home() {
           {numeros.map((n) => (
             <div key={n.rotulo} className="bg-card border border-border rounded-xl px-4 py-3.5 card-soft">
               <p className="label-caps">{n.rotulo}</p>
-              <p className="text-[26px] font-medium text-foreground mt-1.5 leading-none tabular-nums">
+              <p className="text-[24px] lg:text-[26px] font-medium text-foreground mt-1.5 leading-none tabular-nums whitespace-nowrap">
                 {loading ? "—" : n.valor}
               </p>
               <p className={`text-xs mt-1.5 ${n.notaCls}`}>{n.nota}</p>
@@ -72,8 +108,29 @@ export default function Home() {
           ))}
         </div>
 
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-3 mt-3">
+          <Cartao titulo="Entrevistas recebidas" extra={ind.periodo.id === "7d" ? "por dia" : ind.periodo.id === "30d" ? "por semana · 8 semanas" : "por mês · 12 meses"}>
+            {loading ? <div className="h-44 rounded-lg bg-secondary animate-pulse" /> : <Colunas dados={ind.serie} />}
+          </Cartao>
+          <Cartao titulo="Pedidos mais frequentes" extra={rotuloPeriodo}>
+            {loading ? <div className="h-44 rounded-lg bg-secondary animate-pulse" /> : <Barras dados={ind.pedidos} />}
+          </Cartao>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <Cartao titulo="Por categoria (CCT)">
+            {loading ? <div className="h-28 rounded-lg bg-secondary animate-pulse" /> : <Barras dados={ind.categorias} />}
+          </Cartao>
+          <Cartao titulo="Tipo de dispensa">
+            {loading ? <div className="h-28 rounded-lg bg-secondary animate-pulse" /> : <Barras dados={ind.dispensas} />}
+          </Cartao>
+          <Cartao titulo="Reclamadas recorrentes">
+            {loading ? <div className="h-28 rounded-lg bg-secondary animate-pulse" /> : <Barras dados={ind.reclamadas} />}
+          </Cartao>
+        </div>
+
         {/* Fila de entrevistas */}
-        <div className="mt-6 bg-card border border-border rounded-xl overflow-hidden card-soft">
+        <div className="mt-3 bg-card border border-border rounded-xl overflow-hidden card-soft">
           <div className="flex items-center justify-between px-4 lg:px-5 py-3.5">
             <h2 className="text-sm font-semibold text-foreground">Entrevistas recebidas</h2>
             <button
