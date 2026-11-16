@@ -7,6 +7,7 @@ import {
   PERIODOS, DIAS_ALERTA, DIAS_CRITICO, calcularIndicadores, brlCompacto,
 } from "@/features/painel/indicadores";
 import { Cartao, Sparkline, LinhasFluxo, LegendaFluxo, Funil, BarraSegmentada } from "@/features/painel/Graficos";
+import ListaCasos from "@/features/painel/ListaCasos";
 
 const CHAVE_PERIODO = "fav.inicio.periodo";
 function periodoSalvo() {
@@ -51,17 +52,23 @@ export default function Home() {
   };
   const ind = useMemo(() => calcularIndicadores(casos, periodoId), [casos, periodoId]);
   const rotuloPeriodo = ind.periodo.id === "7d" ? "últimos 7 dias" : ind.periodo.id === "30d" ? "últimos 30 dias" : "últimos 12 meses";
-  const abrirFila = () => navigate("/entrevista");
+  const abrirFila = () => navigate("/entrevista?fila=pendentes");
+  const abrirCaso = (id) => navigate(`/entrevista?caso=${encodeURIComponent(id)}`);
+  // Detalhamento: janela com os casos por trás do número/barra clicado.
+  const [alvo, setAlvo] = useState(null);
+  const ver = (titulo, casosLista, descricao = rotuloPeriodo) => setAlvo({ titulo, casos: casosLista || [], descricao });
 
   const kpis = [
     {
       rotulo: "Na fila", valor: ind.naFila, spark: ind.serie.map((s) => s.fila), cor: "#f2a900",
+      abrir: () => ver("Casos na fila", ind.listas.naFila, "aguardando revisão, do mais antigo ao mais novo"),
       selo: ind.atrasados > 0
         ? <span className="px-1.5 py-px rounded-full bg-primary/15 text-primary-ink font-semibold">{ind.atrasados} há +{DIAS_ALERTA} dias</span>
         : <span>nenhuma atrasada</span>,
     },
     {
       rotulo: "Recebidas", valor: ind.recebidas, spark: ind.serie.map((s) => s.recebidas), cor: "#141414",
+      abrir: () => ver("Entrevistas recebidas", ind.listas.recebidas),
       selo: (
         <>
           <span className={`px-1.5 py-px rounded-full font-semibold ${ind.variacao >= 0 ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
@@ -72,10 +79,12 @@ export default function Home() {
     },
     {
       rotulo: "Revisadas", valor: ind.revisadas, spark: ind.serie.map((s) => s.revisadas), cor: "#141414",
+      abrir: () => ver("Revisadas", ind.listas.revisadas),
       selo: <span>{ind.taxaRevisao}% das recebidas</span>,
     },
     {
       rotulo: "Valor das causas", valor: brlCompacto(ind.valorTotal), spark: ind.serie.map((s) => s.valor), cor: "#141414",
+      abrir: () => ver("Casos por valor da causa", ind.listas.porValor, `${rotuloPeriodo} · do maior para o menor`),
       selo: <span>estimado{ind.valorMedio ? ` · média ${brlCompacto(ind.valorMedio)}` : ""}</span>,
     },
   ];
@@ -92,7 +101,15 @@ export default function Home() {
             {!loading && (
               <p className="text-[13px] text-white/60 mt-1">
                 {ind.atrasados > 0 ? (
-                  <><span className="text-primary font-medium">{ind.atrasados} {ind.atrasados === 1 ? "caso está" : "casos estão"}</span> na fila há mais de {DIAS_ALERTA} dias.</>
+                  <>
+                    <button
+                      onClick={() => ver(`Na fila há mais de ${DIAS_ALERTA} dias`, ind.listas.atrasados, "do mais antigo ao mais novo")}
+                      className="text-primary font-medium underline decoration-primary/40 underline-offset-4 hover:decoration-primary"
+                    >
+                      {ind.atrasados} {ind.atrasados === 1 ? "caso está" : "casos estão"}
+                    </button>{" "}
+                    na fila há mais de {DIAS_ALERTA} dias.
+                  </>
                 ) : ind.naFila > 0 ? (
                   <>{ind.naFila} {ind.naFila === 1 ? "caso aguarda" : "casos aguardam"} revisão. Nenhum atrasado.</>
                 ) : "Fila em dia. Nenhum caso aguardando revisão."}
@@ -128,7 +145,13 @@ export default function Home() {
         {/* Números com tendência */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 -mt-10">
           {kpis.map((k) => (
-            <div key={k.rotulo} className="bg-card border border-border rounded-xl px-4 py-3.5 card-soft">
+            <button
+              key={k.rotulo}
+              type="button"
+              onClick={k.abrir}
+              disabled={loading}
+              className="text-left bg-card border border-border rounded-xl px-4 py-3.5 card-soft hover:border-foreground/25 hover:card-soft-lg transition-all group"
+            >
               <p className="label-caps">{k.rotulo}</p>
               <div className="flex items-end justify-between gap-2 mt-1.5">
                 <p className="text-[24px] lg:text-[26px] font-medium text-foreground leading-none tabular-nums whitespace-nowrap">
@@ -136,22 +159,25 @@ export default function Home() {
                 </p>
                 {!loading && <Sparkline valores={k.spark} cor={k.cor} largura={72} altura={24} />}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-2">{loading ? " " : k.selo}</p>
-            </div>
+              <p className="text-[11px] text-muted-foreground mt-2 flex items-center">
+                <span className="flex-1">{loading ? " " : k.selo}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-foreground transition-colors" />
+              </p>
+            </button>
           ))}
         </div>
 
         {/* Fluxo + andamento */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.55fr_1fr] gap-3 mt-3">
           <Cartao titulo="Fluxo de entrevistas" subtitulo={ind.periodo.id === "7d" ? "por dia" : ind.periodo.id === "30d" ? "por semana · 8 semanas" : "por mês · 12 meses"} extra={<LegendaFluxo />}>
-            {loading ? <Esqueleto h="h-48" /> : <LinhasFluxo dados={ind.serie} />}
+            {loading ? <Esqueleto h="h-48" /> : <LinhasFluxo dados={ind.serie} onSelecionar={(d) => ver(`Recebidas · ${d.titulo.charAt(0).toUpperCase() + d.titulo.slice(1)}`, d.casos, "")} />}
           </Cartao>
           <Cartao titulo="Andamento" subtitulo={`das ${ind.recebidas} recebidas · ${rotuloPeriodo}`}>
             {loading ? <Esqueleto h="h-36" /> : (
               <>
-                <Funil etapas={ind.funil} />
+                <Funil etapas={ind.funil} onSelecionar={(e) => ver(e.rotulo, e.lista)} />
                 {ind.comPendencias > 0 && (
-                  <button onClick={abrirFila} className="mt-4 w-full flex items-center gap-2 text-left text-xs text-primary-ink bg-primary/10 hover:bg-primary/15 rounded-lg px-3 py-2 transition-colors">
+                  <button onClick={() => ver("Peças com campos pendentes", ind.listas.pendentes)} className="mt-4 w-full flex items-center gap-2 text-left text-xs text-primary-ink bg-primary/10 hover:bg-primary/15 rounded-lg px-3 py-2 transition-colors">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     {ind.comPendencias} {ind.comPendencias === 1 ? "peça com campos pendentes" : "peças com campos pendentes"}
                     <ChevronRight className="w-3.5 h-3.5 ml-auto" />
@@ -175,7 +201,7 @@ export default function Home() {
               <ul>
                 {ind.atencao.map((a) => (
                   <li key={a.id}>
-                    <button onClick={abrirFila} className="w-full flex items-center gap-3 py-2 border-t border-border first:border-t-0 text-left hover:bg-[hsl(45_14%_98%)] -mx-1 px-1 rounded-md transition-colors">
+                    <button onClick={() => abrirCaso(a.id)} className="w-full flex items-center gap-3 py-2 border-t border-border first:border-t-0 text-left hover:bg-[hsl(45_14%_98%)] -mx-1 px-1 rounded-md transition-colors">
                       <span className="w-7 h-7 rounded-full bg-secondary text-muted-foreground text-[10.5px] font-semibold flex items-center justify-center shrink-0">{iniciais(a.nome)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13px] font-medium text-foreground truncate">{a.nome}</span>
@@ -204,7 +230,8 @@ export default function Home() {
             ) : (
               <ol>
                 {ind.pedidos.map((p, i) => (
-                  <li key={p.rotulo} className="flex items-center gap-3 py-2 border-t border-border first:border-t-0">
+                  <li key={p.rotulo} className="border-t border-border first:border-t-0">
+                  <button onClick={() => ver(`Pedido: ${p.rotulo}`, p.lista)} className="w-full flex items-center gap-3 py-2 text-left hover:bg-[hsl(45_14%_98%)] -mx-1 px-1 rounded-md transition-colors">
                     <span className="w-4 text-[11px] text-muted-foreground tabular-nums">{i + 1}</span>
                     <span className="flex-1 min-w-0">
                       <span className="flex items-baseline justify-between gap-2">
@@ -217,6 +244,7 @@ export default function Home() {
                         <span className="block h-full bg-foreground rounded-full" style={{ width: `${ind.recebidas ? (p.casos / ind.recebidas) * 100 : 0}%` }} />
                       </span>
                     </span>
+                  </button>
                   </li>
                 ))}
               </ol>
@@ -229,7 +257,7 @@ export default function Home() {
           <Cartao titulo="Categoria (CCT)" subtitulo={rotuloPeriodo}>
             {loading ? <Esqueleto h="h-28" /> : (
               <>
-                <BarraSegmentada itens={ind.categorias} />
+                <BarraSegmentada itens={ind.categorias} onSelecionar={(c) => ver(`Categoria: ${c.rotulo}`, c.lista)} />
                 <div className="border-t border-border mt-4 pt-3">
                   <h3 className="text-[13px] font-semibold text-foreground mb-2">Tipo de dispensa</h3>
                   {ind.dispensas.length === 0 ? (
@@ -237,9 +265,13 @@ export default function Home() {
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {ind.dispensas.map((d) => (
-                        <span key={d.rotulo} className="inline-flex items-center gap-1.5 bg-secondary rounded-full px-2.5 py-1 text-xs text-foreground/85">
-                          {d.rotulo} <span className="font-semibold text-foreground tabular-nums">{d.valor}</span>
-                        </span>
+                        <button
+                          key={d.rotulo}
+                          onClick={() => ver(`Dispensa: ${d.rotulo}`, d.lista)}
+                          className="inline-flex items-center gap-1.5 bg-secondary hover:bg-foreground hover:text-background rounded-full px-2.5 py-1 text-xs text-foreground/85 transition-colors group"
+                        >
+                          {d.rotulo} <span className="font-semibold text-foreground group-hover:text-background tabular-nums">{d.valor}</span>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -254,11 +286,13 @@ export default function Home() {
             ) : (
               <ul>
                 {ind.reclamadas.map((r) => (
-                  <li key={r.rotulo} className="flex items-center gap-3 py-2 border-t border-border first:border-t-0">
+                  <li key={r.rotulo} className="border-t border-border first:border-t-0">
+                  <button onClick={() => ver(r.rotulo, r.lista)} className="w-full flex items-center gap-3 py-2 text-left hover:bg-[hsl(45_14%_98%)] -mx-1 px-1 rounded-md transition-colors">
                     <span className="w-7 h-7 rounded-full bg-[#0f0f0f] text-primary text-[10.5px] font-semibold flex items-center justify-center shrink-0">{iniciais(r.rotulo)}</span>
                     <span className="flex-1 min-w-0 text-[13px] font-medium text-foreground truncate" title={r.rotulo}>{r.rotulo}</span>
                     <span className="text-[11.5px] text-muted-foreground whitespace-nowrap">{r.casos} {r.casos === 1 ? "caso" : "casos"}</span>
                     <span className={`w-[72px] text-right text-[13px] tabular-nums ${r.valor >= 1 ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{r.valor >= 1 ? brlCompacto(r.valor) : "a apurar"}</span>
+                  </button>
                   </li>
                 ))}
               </ul>
@@ -294,7 +328,7 @@ export default function Home() {
                 return (
                   <li key={c.id}>
                     <button
-                      onClick={abrirFila}
+                      onClick={() => abrirCaso(c.id)}
                       className="w-full text-left grid grid-cols-[1fr_auto] sm:grid-cols-[1.4fr_1.4fr_.8fr_.7fr_20px] gap-x-3 gap-y-0.5 items-center px-4 lg:px-5 py-3 border-t border-border first:border-t-0 hover:bg-[hsl(45_14%_98%)] transition-colors group"
                     >
                       <span className="text-[13px] font-medium text-foreground truncate">{c.recl_nome || c.titulo || "(sem nome)"}</span>
@@ -316,6 +350,8 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <ListaCasos alvo={alvo} onFechar={() => setAlvo(null)} pendencias={ind.pendencias} />
     </div>
   );
 }
