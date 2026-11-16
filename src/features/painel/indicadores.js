@@ -16,10 +16,17 @@ export const PERIODOS = [
   { id: "ano", rotulo: "Ano", dias: 365 },
 ];
 
-const dataDe = (c) => new Date(c.created_date);
+// O banco devolve as datas em UTC SEM o "Z" ("2026-11-16T18:49:15"); lidas
+// assim, o navegador as trataria como hora local e um caso de hoje apareceria
+// "no futuro" (−1 dia). O "Z" restaura o fuso correto.
+const lerData = (s) => {
+  if (!s) return new Date(NaN);
+  return new Date(typeof s === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? `${s}Z` : s);
+};
+const dataDe = (c) => lerData(c.created_date);
 // O caso não guarda a data da revisão; a última alteração é a melhor aproximação.
-const dataRevisao = (c) => new Date(c.updated_date || c.created_date);
-const diasDesde = (d, agora) => Math.floor((agora - d) / DIA);
+const dataRevisao = (c) => lerData(c.updated_date || c.created_date);
+const diasDesde = (d, agora) => Math.max(0, Math.floor((agora - d) / DIA));
 
 const ehHonorario = (item) => /^Honor[aá]rios/i.test(item?.item || "");
 
