@@ -162,8 +162,8 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
     if (!pend.has(c.id)) pend.set(c.id, pendenciasSeguras(c));
   }
   const geradosNoPeriodo = noPeriodo.filter((c) => c.status !== "em_analise");
-  const completas = geradosNoPeriodo.filter((c) => pend.get(c.id) === 0).length;
-  const comPendencias = geradosNoPeriodo.filter((c) => (pend.get(c.id) || 0) > 0 && c.status !== "pronto").length;
+  const completasLista = geradosNoPeriodo.filter((c) => pend.get(c.id) === 0);
+  const pendentesLista = geradosNoPeriodo.filter((c) => (pend.get(c.id) || 0) > 0 && c.status !== "pronto");
 
   // Valores
   const valores = noPeriodo.map(valorCausaEstimado);
@@ -176,6 +176,7 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
   const serie = bs.map((b) => ({
     rotulo: b.rotulo,
     titulo: b.titulo,
+    casos: casos.filter((c) => dentro(dataDe(c), b)),
     recebidas: casos.filter((c) => dentro(dataDe(c), b)).length,
     revisadas: casos.filter((c) => c.status === "pronto" && dentro(dataRevisao(c), b)).length,
     valor: casos.filter((c) => dentro(dataDe(c), b)).reduce((s, c) => s + valorCausaEstimado(c), 0),
@@ -187,8 +188,8 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
   const pedidos = new Map();
   for (const c of noPeriodo) {
     for (const [nome, valor] of pedidosDoCaso(c)) {
-      const p = pedidos.get(nome) || { rotulo: nome, casos: 0, valor: 0 };
-      p.casos += 1; p.valor += valor;
+      const p = pedidos.get(nome) || { rotulo: nome, casos: 0, valor: 0, lista: [] };
+      p.casos += 1; p.valor += valor; p.lista.push(c);
       pedidos.set(nome, p);
     }
   }
@@ -197,20 +198,23 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
   const cats = new Map();
   for (const c of noPeriodo) {
     const k = categoriaDe(c);
-    const it = cats.get(k.rotulo) || { ...k, valor: 0 };
-    it.valor += 1;
+    const it = cats.get(k.rotulo) || { ...k, valor: 0, lista: [] };
+    it.valor += 1; it.lista.push(c);
     cats.set(k.rotulo, it);
   }
   const disp = new Map();
-  for (const c of noPeriodo) disp.set(rotuloDispensa(c), (disp.get(rotuloDispensa(c)) || 0) + 1);
+  for (const c of noPeriodo) {
+    const k = rotuloDispensa(c);
+    disp.set(k, [...(disp.get(k) || []), c]);
+  }
 
   // Reclamadas: casos + valor
   const recl = new Map();
   for (const c of noPeriodo) {
     if (!c.recl1_nome) continue;
     const nome = nomeCurto(c.recl1_nome);
-    const r = recl.get(nome) || { rotulo: nome, casos: 0, valor: 0 };
-    r.casos += 1; r.valor += valorCausaEstimado(c);
+    const r = recl.get(nome) || { rotulo: nome, casos: 0, valor: 0, lista: [] };
+    r.casos += 1; r.valor += valorCausaEstimado(c); r.lista.push(c);
     recl.set(nome, r);
   }
 
@@ -218,6 +222,16 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
 
   return {
     periodo,
+    // Listas para o detalhamento (clique nos cartões)
+    listas: {
+      naFila: naFila.map((f) => f.caso),
+      atrasados: naFila.filter((f) => f.dias >= DIAS_ALERTA).map((f) => f.caso),
+      recebidas: noPeriodo,
+      revisadas: revisadasNoPeriodo,
+      porValor: [...noPeriodo].sort((a, b) => valorCausaEstimado(b) - valorCausaEstimado(a)),
+      pendentes: pendentesLista,
+    },
+    pendencias: pend,
     naFila: naFila.length,
     atrasados,
     recebidas: noPeriodo.length,
@@ -228,11 +242,11 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
     valorMedio: comValor ? valorTotal / comValor : 0,
     serie,
     funil: [
-      { rotulo: "Recebidas", valor: noPeriodo.length, cor: "bg-foreground" },
-      { rotulo: "Peça completa", valor: completas, cor: "bg-foreground/75" },
-      { rotulo: "Revisadas", valor: revisadasNoPeriodo.length, cor: "bg-primary" },
+      { rotulo: "Recebidas", valor: noPeriodo.length, cor: "bg-foreground", lista: noPeriodo },
+      { rotulo: "Peça completa", valor: completasLista.length, cor: "bg-foreground/75", lista: completasLista },
+      { rotulo: "Revisadas", valor: revisadasNoPeriodo.length, cor: "bg-primary", lista: revisadasNoPeriodo },
     ],
-    comPendencias,
+    comPendencias: pendentesLista.length,
     atencao: naFila.slice(0, 5).map((f) => ({
       id: f.caso.id,
       nome: f.caso.recl_nome || f.caso.titulo || "(sem nome)",
@@ -243,7 +257,7 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
     })),
     pedidos: ordenar(pedidos, "casos").slice(0, 6),
     categorias: [...cats.values()].sort((a, b) => b.valor - a.valor),
-    dispensas: [...disp.entries()].sort((a, b) => b[1] - a[1]).map(([rotulo, valor]) => ({ rotulo, valor })),
+    dispensas: [...disp.entries()].sort((a, b) => b[1].length - a[1].length).map(([rotulo, lista]) => ({ rotulo, valor: lista.length, lista })),
     reclamadas: ordenar(recl, "casos").slice(0, 5),
   };
 }
