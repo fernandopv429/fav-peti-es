@@ -4,7 +4,7 @@ import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
 
 // Monta os mesmos dados que preenchem a peça e conta os trechos que sairiam
 // como pendência no documento ("[RG]", "[SALÁRIO]", "[VARA / CIDADE / REGIÃO]"...).
-function pendenciasDaPeca(analise) {
+export function pendenciasDaPeca(analise) {
   const dados = montarDadosTemplate({
     caso: analise.caso,
     calculos: analise.calculos || [],
