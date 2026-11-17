@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import { montarDadosTemplate } from '../src/features/entrevista/lib/dadosTemplate.js';
 import { calcularVerbasCaso } from '../base44/shared/mathUtils.js';
-import * as MW from '../base44/shared/mapearWebhook.js';
+import { mapearCasoDeWebhook } from '../base44/shared/mapearWebhook.js';
 import { preencherDocxTemplate } from '../src/features/entrevista/lib/preencherDocxTemplate.js';
 const [,, inp, tpl, out, recalc] = process.argv;
-if (inp === 'MAP') { const fn = Object.values(MW).find((f) => typeof f === 'function' && /mapear/i.test(f.name)); const r = fn(JSON.parse(fs.readFileSync(tpl, 'utf8'))); const c = r.caso || r; console.log(JSON.stringify({ postos: c.postos_jornada, prorrog: c.prorrogacao_jornada, freq: c.jornada_freq_extra, fn: fn.name })); process.exit(0); }
+if (inp === 'MAP') { const fn = mapearCasoDeWebhook; const r = fn(JSON.parse(fs.readFileSync(tpl, 'utf8'))); const c = r.caso || r; console.log(JSON.stringify({ postos: c.postos_jornada, prorrog: c.prorrogacao_jornada, freq: c.jornada_freq_extra, fn: fn.name })); process.exit(0); }
 const a = JSON.parse(fs.readFileSync(inp, 'utf8')).analise_json;
 const caso = { ...(a.caso || {}), ...(JSON.parse(process.env.OVR || '{}')) }; const blocos = { ...(a.blocos || {}) };
 const calculos = recalc ? calcularVerbasCaso(caso, a.dadosCct || null) : (a.calculos || []);
