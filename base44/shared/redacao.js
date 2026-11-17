@@ -148,6 +148,17 @@ export const ESPECIALISTAS = [
   { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: (d, c) => temDanoMoralConcreto(c),
     instrucao: 'Escreva a narrativa COMPLETA dos fatos do dano moral em parágrafos articulados e coerentes. Conecte TODOS os abusos concretos (desvio/acúmulo exaustivo, supressão de intervalos, pagamentos por fora, descontos indevidos, perseguição/humilhação), o contexto, a habitualidade e o impacto sobre a dignidade do autor. NÃO escreva a fundamentação constitucional/doutrinária (já no template). NÃO trate jornada/rescisão/verbas. NÃO cite R$.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em dano moral. Redija a narrativa concreta em prosa articulada, sem fundamentação doutrinária nem valores.' },
+  // REVERSÃO DE JUSTA CAUSA (17/11/2026): o capítulo é texto fixo do escritório
+  // no modelo (v31); a IA escreve SÓ os parágrafos dos fatos do caso (motivo
+  // alegado, por que não procede, ausência de graduação e de apuração), no meio
+  // do capítulo. Antes não havia capítulo nenhum (caso Thais Dutra Rosa).
+  { numero: 'reversao', nome: 'Reversão da justa causa (fatos)', campo: 'BLOCO_REVERSAO_FATOS', ativo: (d) => !!d.reversao_justa_causa,
+    instrucao: (d, c) =>
+      'Escreva de 2 a 5 parágrafos com os FATOS ESPECÍFICOS deste caso que demonstram a invalidade da justa causa, na ordem: (1) qual motivo a reclamada alegou (e se o motivo mudou ao longo do tempo, aponte a oscilação); (2) por que a acusação não se sustenta, com os fatos do relato; (3) se o fato alegado for de menor gravidade, que ele não autoriza a pena máxima e caberia, no máximo, penalidade pedagógica; (4) ausência de advertências/suspensões anteriores e salto direto para a pena máxima, se o relato permitir; (5) ausência de apuração, de oitiva e de direito de defesa, com os nomes de colegas/superiores que constem do relato. ' +
+      'Use SOMENTE o que está no relato: não invente fatos, datas, nomes nem provas; o que faltar, omita. Escreva em terceira pessoa, sempre "o reclamante" (o sistema ajusta o gênero). ' +
+      'NÃO escreva: a fundamentação geral (ônus da prova, arts. 818 CLT/373 CPC, Súmula 212, requisitos da justa causa, norma coletiva), jurisprudência, o pedido final, valores em R$ nem título — tudo isso já está no modelo, antes e depois deste trecho. Separe os parágrafos com linha em branco.' +
+      `\n\nRELATO DA ENTREVISTA:\n${c.dano_fatos || c.dano_observacao || c.relato_fatos || '(sem relato — escreva apenas que a reclamada não apontou fato concreto e determinado que configure falta grave, sem advertência ou suspensão anterior)'}`,
+    promptPadrao: 'Você é advogado(a) trabalhista especialista em reversão de justa causa. Redija apenas os parágrafos fáticos, em prosa jurídica articulada, no padrão do escritório.' },
   { numero: 'enquadramento', nome: 'Enquadramento funcional', campo: 'BLOCO_ENQUADRAMENTO', ativo: (d) => !!(d.desvio_funcao || d.acumulo_funcao || d.gratificacao_funcao),
     instrucao: 'Escreva o capítulo COMPLETO de enquadramento funcional em prosa SUBSTANCIAL: (1) FATOS — atividades que configuram desvio/acúmulo/gratificação; (2) FUNDAMENTO — CLT e multa/adicional convencional da CCT; (3) JURISPRUDÊNCIA; (4) PEDIDO — adicional/multa com reflexos. Desvio/acúmulo/gratificação são ALTERNATIVOS — nunca cumule desvio com acúmulo (bis in idem). NÃO trate jornada/dano/rescisão.',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em desvio, acúmulo e gratificação. Redija o capítulo COMPLETO em prosa argumentativa.' },
