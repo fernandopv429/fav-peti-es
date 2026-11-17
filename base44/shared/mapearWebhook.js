@@ -331,6 +331,17 @@ export function mapearCasoDeWebhook(data) {
       horario,
     };
   }).filter(Boolean);
+  // Trabalhava ARMADO (revólver/pistola/calibre/"armamento"): muda o texto dos
+  // minutos que antecedem e sucedem a jornada (decisão do usuário, 17/11/2026).
+  // "Sim" em armamento_colete sozinho NÃO basta: a pergunta junta arma e colete,
+  // e há respostas "Colete", "Colete e Tonfa", "botão de pânico".
+  {
+    const qual = String(pick(d, 'ARMAMENTO_QUAL', 'armamento_qual') || '');
+    const funcaoTxt = String(caso.funcao || '');
+    caso.trabalha_armado = /rev[oó]lver|resolver|pistola|calibre|\.?38\b|espingarda|\barma(mento)?\b|armad[oa]/i.test(qual)
+      || /\barmad[oa]\b/i.test(funcaoTxt);
+    if (caso.trabalha_armado) caso.armamento_descricao = qual.trim();
+  }
   if (d.horas_extras) {
     caso.jornada_extrapola = true;
     caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
