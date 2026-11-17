@@ -130,6 +130,12 @@ function juntarEndereco(base, complemento) {
 }
 
 function inferirGenero(d) {
+  // 1º o gênero escolhido na entrevista (Fav Sales manda "masculino"/"feminino"
+  // desde 17/11/2026). O estado civil só serve de pista: o select do Fav Sales
+  // tem apenas a forma masculina ("solteiro"), e toda mulher virava "M".
+  const g = String(pick(d, 'RECL_GENERO', 'recl_genero', 'genero') || '').toLowerCase().trim();
+  if (/^f/.test(g)) return 'F';
+  if (/^m/.test(g)) return 'M';
   const ec = String(d.RECL_ESTADOCIVIL || d.estado_civil || '').toLowerCase().trim();
   if (/a$/.test(ec)) return 'F';
   if (/o$/.test(ec)) return 'M';
