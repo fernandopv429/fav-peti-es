@@ -499,6 +499,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // 8) Jornada
   dados.JORNADA_HORARIOS = horarioComProrrogacao(caso.jornada_horario, caso.prorrogacao_jornada) || '[HORÁRIOS]';
   dados.ESCALA = caso.escala || '[ESCALA]';
+  // Texto dos minutos antes/depois da jornada para quem trabalhava armado
+  // (conferência de armamento, munição, colete) — mapearWebhook.trabalha_armado.
+  dados.trabalha_armado = Boolean(caso.trabalha_armado);
   // Um horário por posto (mapearWebhook → caso.postos_jornada). Sem postos com
   // horário, sai uma linha só, igual ao modelo antigo.
   {
