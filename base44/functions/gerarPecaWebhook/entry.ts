@@ -263,6 +263,9 @@ export default async function(req) {
     // ~11% a menos em tudo, sem aviso nenhum. Agora: piso só vale se vier de
     // cláusula da CCT consultada, sempre com aviso; sem isso, é pendência.
     const avisosDados = [...avisoCct];
+    if (caso.desvio_descartado) {
+      avisosDados.push(`Desvio de função NÃO pedido: a entrevista diz "${String(caso.desvio_descartado).trim().slice(0, 160)}", que é tese de porteiro/controlador, mas a função informada é vigilante. CONFERIR a função registrada na CTPS.`);
+    }
     if (!caso.salario) {
       // Prioridade: o campo `pisos` da CCT cadastrada, curado por função. O valor
       // raspado da cláusula da API pegava o piso de outra função (vigilantes
