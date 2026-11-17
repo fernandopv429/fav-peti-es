@@ -887,13 +887,16 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
 
     // 5) Periculosidade sobre as horas extras (Súm. 132, I, do TST)
     if (caso.tem_periculosidade || ehVigilante) {
-      const baseHe = itens
-        .filter((i) => /^Horas extras|^Intervalo intrajornada|^10 minutos/.test(i.item))
-        .reduce((s, i) => s + (Number(i.valor) || 0), 0);
+      // FTs (folgas trabalhadas) também entram na base — decisão do usuário
+      // (17/11/2026, Vânia): são horas extras a 100% e o vigilante trabalha nelas
+      // sob o mesmo risco.
+      const baseItens = itens.filter((i) => /^Horas extras|^Intervalo intrajornada|^10 minutos|^Folgas trabalhadas/.test(i.item));
+      const baseHe = baseItens.reduce((s, i) => s + (Number(i.valor) || 0), 0);
+      const comFt = baseItens.some((i) => /^Folgas trabalhadas/.test(i.item));
       if (baseHe > 0) {
         addComReflexos(
           'Adicional de periculosidade sobre as horas extras',
-          `${PARAMS_HORAS.adicional_periculosidade * 100}% sobre ${formatBRL(round2(baseHe))} de horas extras (Súm. 132, I, do TST)`,
+          `${PARAMS_HORAS.adicional_periculosidade * 100}% sobre ${formatBRL(round2(baseHe))} de horas extras${comFt ? ' e folgas trabalhadas' : ''} (Súm. 132, I, do TST)`,
           baseHe * PARAMS_HORAS.adicional_periculosidade,
         );
       }
