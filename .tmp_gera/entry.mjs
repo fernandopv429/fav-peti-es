@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import { montarDadosTemplate } from '../src/features/entrevista/lib/dadosTemplate.js';
+import { calcularVerbasCaso } from '../base44/shared/mathUtils.js';
+import { mapearCasoDeWebhook } from '../base44/shared/mapearWebhook.js';
+import { preencherDocxTemplate } from '../src/features/entrevista/lib/preencherDocxTemplate.js';
+const [,, inp, tpl, out, recalc] = process.argv;
+if (inp === 'MAP') { const r = mapearCasoDeWebhook(JSON.parse(fs.readFileSync(tpl, 'utf8'))); const c = r.caso || r; console.log(JSON.stringify({ armado: c.trabalha_armado, desc: c.armamento_descricao, postos: (c.postos_jornada || []).length })); process.exit(0); }
+if (inp === 'ARM') { for (const q of JSON.parse(tpl)) { const c = mapearCasoDeWebhook({ ARMAMENTO_QUAL: q[0], FUNCAO: q[1] }); console.log(JSON.stringify([q, (c.caso || c).trabalha_armado])); } process.exit(0); }
+const a = JSON.parse(fs.readFileSync(inp, 'utf8')).analise_json;
+const caso = { ...(a.caso || {}), ...(JSON.parse(process.env.OVR || '{}')) }; const blocos = { ...(a.blocos || {}) };
+const calculos = recalc ? calcularVerbasCaso(caso, a.dadosCct || null) : (a.calculos || []);
+const d = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita: a.dadosReceita || [], dadosCep: a.dadosCep || [], blocos });
+Object.assign(d, blocos); if (blocos.BLOCO_DANO_MORAL) d.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
+const ab = await (await fetch(tpl)).arrayBuffer();
+const blob = await preencherDocxTemplate(ab, d, { permitirPendencias: true });
+fs.writeFileSync(out, Buffer.from(await blob.arrayBuffer()));
+console.log(JSON.stringify({ causa: d.VALOR_CAUSA_TOTAL, armado: d.trabalha_armado }));
