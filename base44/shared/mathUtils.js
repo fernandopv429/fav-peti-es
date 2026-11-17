@@ -551,9 +551,44 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   const valorFerias = avosFerias != null ? round2((salario / 12) * avosFerias * (4 / 3)) : null;
   if (valorFerias != null) itens.push({ item: 'Férias proporcionais + 1/3', memoria: `${avosFerias}/12 avos + 1/3 (proj. aviso prévio)`, valor: valorFerias });
 
+  // FÉRIAS VENCIDAS + 1/3: períodos aquisitivos completos informados na
+  // entrevista, do mais recente para trás. Em dobro quando o período
+  // concessivo (12 meses após o aquisitivo) terminou antes da saída (CLT,
+  // art. 137). Não existia: a Thais tinha 2024/2025 vencidas e a peça omitia.
+  let valorFeriasVencidas = 0;
+  if (caso.tem_ferias_vencidas && salario) {
+    const qtdInf = Math.max(1, Math.round(Number(caso.ferias_vencidas_qtd) || 1));
+    const adm = parseData(caso.data_admissao);
+    const saida = parseData(caso.data_rescisao);
+    const periodos = [];
+    if (adm && saida) {
+      const completos = [];
+      let ini = new Date(adm);
+      while (true) {
+        const fim = new Date(ini.getFullYear() + 1, ini.getMonth(), ini.getDate());
+        if (fim > saida) break;
+        completos.push({ ini: new Date(ini), fim });
+        ini = fim;
+      }
+      for (const p of completos.slice(-qtdInf)) {
+        const fimConcessivo = new Date(p.fim.getFullYear() + 1, p.fim.getMonth(), p.fim.getDate());
+        periodos.push({ rotulo: `${p.ini.getFullYear()}/${p.fim.getFullYear()}`, dobro: saida > fimConcessivo });
+      }
+    }
+    const lista = periodos.length ? periodos : Array.from({ length: qtdInf }, () => ({ rotulo: '', dobro: false }));
+    valorFeriasVencidas = round2(lista.reduce((s, p) => s + salario * (4 / 3) * (p.dobro ? 2 : 1), 0));
+    const desc = lista.map((p) => `${p.rotulo || 'período'}${p.dobro ? ' (em dobro, art. 137 da CLT)' : ''}`).join(', ');
+    itens.push({
+      item: 'Férias vencidas + 1/3',
+      memoria: `${lista.length} período(s): ${desc} — salário ${formatBRL(salario)} + 1/3`,
+      valor: valorFeriasVencidas,
+      resumo: periodos.length ? periodos.map((p) => `${p.rotulo}${p.dobro ? ', em dobro' : ''}`).join('; ') : '',
+    });
+  }
+
   if (ap && valor13 != null && valorFerias != null) {
-    const baseIncontroversa = round2((saldo?.valor || 0) + ap.valor + valor13 + valorFerias);
-    itens.push({ item: 'Multa do art. 467 da CLT', memoria: '50% sobre saldo + aviso prévio + 13º + férias +1/3 (verbas incontroversas)', valor: round2(baseIncontroversa * 0.5) });
+    const baseIncontroversa = round2((saldo?.valor || 0) + ap.valor + valor13 + valorFerias + valorFeriasVencidas);
+    itens.push({ item: 'Multa do art. 467 da CLT', memoria: `50% sobre saldo + aviso prévio + 13º + férias +1/3${valorFeriasVencidas ? ' (proporcionais e vencidas)' : ''} (verbas incontroversas)`, valor: round2(baseIncontroversa * 0.5) });
   }
 
   if (ap && salario) {
