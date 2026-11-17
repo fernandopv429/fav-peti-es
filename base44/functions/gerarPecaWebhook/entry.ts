@@ -347,6 +347,7 @@ export default async function(req) {
     let blocos = {};
     let especialistasUsados = [];
     let redacaoErro = null;
+    let redacaoExcecao = false;
     try {
       const configs = await base44.asServiceRole.entities.EspecialistaConfig.filter({ ativo: true });
       // Peças de referência revisadas: até aqui este caminho não carregava
@@ -386,6 +387,7 @@ export default async function(req) {
       }
     } catch (e) {
       redacaoErro = e?.message || 'erro redação';
+      redacaoExcecao = true;
     }
 
     // 7b) Falha da IA (limite mensal de integrações, timeout etc.) NÃO pode
@@ -396,7 +398,10 @@ export default async function(req) {
     let blocosMantidos = [];
     const blocosAnteriores = casoExistente?.analise_json?.blocos || {};
     if (redacaoErro && blocosAnteriores && typeof blocosAnteriores === 'object') {
-      const falhaTotal = !Object.keys(blocos).length;
+      // Só exceção (a chamada inteira caiu) restaura tudo; "0 blocos" sem
+      // exceção pode ser legítimo (nenhum tema se aplica, ou regra nova tirou
+      // o tema, p.ex. desvio de vigilante) e não deve ressuscitar capítulo.
+      const falhaTotal = redacaoExcecao || /limit of integrations|rate limit|timeout/i.test(String(redacaoErro));
       for (const [campo, texto] of Object.entries(blocosAnteriores)) {
         if (campo in blocos) continue;
         if (!texto || !String(texto).trim()) continue;
