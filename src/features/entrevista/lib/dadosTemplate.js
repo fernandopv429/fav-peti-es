@@ -123,7 +123,7 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_FT', 'VALOR_DSR', 'VALOR_DANO_MORAL_10X', 'VALOR_CAUSA_TOTAL', 'DATA_PECA',
   'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS', 'FT_100',
   'VALOR_HE_PRORROGACAO', 'VALOR_HE_PRORROGACAO_REFLEXOS',
-  'VALOR_HE_12X36', 'VALOR_HE_12X36_REFLEXOS', 'VALOR_HE_12X36_REFLEXOS_TEXTO', 'HE_12X36_RESUMO',
+  'VALOR_HE_12X36', 'VALOR_HE_12X36_REFLEXOS', 'VALOR_HE_12X36_REFLEXOS_TEXTO', 'HE_12X36_RESUMO', 'PERC_HE_CONV_SUBSID',
   'VALOR_ART71', 'VALOR_ART71_REFLEXOS',
   'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
   'VALOR_DEZ_MINUTOS', 'VALOR_DEZ_MINUTOS_REFLEXOS',
@@ -601,6 +601,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // categorias (SIEMACO/SINDEEPRES) usam 50% do art. 71, §4º, da CLT. Multa
   // convencional: Vigilante 3% sobre o salário normativo; demais, 20% por
   // cláusula descumprida.
+  // Pedido subsidiário da 12x36 (redação do usuário, 17/11/2026): "adicional
+  // convencional de 60 por cento conforme cláusula da CCT" — 60% é o da CCT de
+  // vigilância. Demais categorias: percentual ainda não definido pelo escritório.
+  dados.PERC_HE_CONV_SUBSID = ehVigilante
+    ? '60 por cento'
+    : '[A PREENCHER: percentual do adicional convencional de horas extras da CCT]';
   dados.PERC_ART71 = ehVigilante
     ? '60% (sessenta por cento), conforme a cláusula 12ª da Convenção Coletiva da Categoria'
     : '50% (cinquenta por cento), conforme o artigo 71, §4º, da CLT';
