@@ -496,7 +496,26 @@ export function presumirRescisaoNaElaboracao(caso, hoje = new Date()) {
 // minutos. A resposta original fica em intervalo_entrevista. Idempotente; é
 // chamada no mapeamento do webhook, no cálculo e na montagem do modelo.
 export const INTERVALO_PADRAO = '10 a 15 minutos';
+
+// PRORROGAÇÃO PADRÃO (decisão do usuário, 17/11/2026, caso Vânia): SEMPRE 30
+// minutos antes e 30 depois, mesmo que a entrevista traga outra média ("1h10",
+// "30 antes e 40 depois" saiu "07:30 às 19:10"). Horário e cálculo ficam
+// coerentes: 1h por dia. A resposta original fica em prorrogacao_entrevista /
+// jornada_freq_extra_entrevista. Frequência ("3 vezes por mês") é preservada.
+export const PRORROGACAO_PADRAO = '30min antes e 30min depois';
+export function aplicarProrrogacaoPadrao(caso) {
+  if (!caso || !(caso.jornada_extrapola || caso.prorrogacao_jornada)) return caso;
+  if (caso.prorrogacao_jornada === PRORROGACAO_PADRAO) return caso;
+  if (caso.prorrogacao_entrevista == null) caso.prorrogacao_entrevista = caso.prorrogacao_jornada || '';
+  if (caso.jornada_freq_extra_entrevista == null) caso.jornada_freq_extra_entrevista = caso.jornada_freq_extra ?? '';
+  caso.prorrogacao_jornada = PRORROGACAO_PADRAO;
+  const freq = String(caso.jornada_freq_extra ?? '');
+  if (!/vez|vezes|por\s+m[eê]s|\/\s*m[eê]s/i.test(freq)) caso.jornada_freq_extra = '1h';
+  return caso;
+}
+
 export function aplicarIntervaloPadrao(caso) {
+  aplicarProrrogacaoPadrao(caso);
   if (!caso || caso.intervalo_usufruido === INTERVALO_PADRAO) return caso;
   if (caso.intervalo_entrevista == null) {
     caso.intervalo_entrevista = caso.intervalo_usufruido
