@@ -638,6 +638,19 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // Acende o parágrafo da 3ª reclamada na qualificação.
   dados.tem_reclamada3 = flag(dados.RECLAMADA3_RAZAO);
   dados.tem_reclamada4 = flag(dados.RECLAMADA4_RAZAO);
+  // Tomadoras (2ª a 4ª reclamadas) no capítulo da Súmula 331 e no rol: antes o
+  // texto fixo dizia só "2ª reclamada" mesmo com 3ª/4ª no polo (Vânia, 17/11/2026).
+  {
+    const ords = ['2ª'];
+    if (dados.tem_reclamada3) ords.push('3ª');
+    if (dados.tem_reclamada4) ords.push('4ª');
+    const lista = ords.length === 1 ? ords[0] : `${ords.slice(0, -1).join(', ')} e ${ords[ords.length - 1]}`;
+    const plural = ords.length > 1;
+    dados.TOMADORAS = plural ? `${lista} reclamadas` : '2ª reclamada';
+    dados.A_TOMADORAS = plural ? `as ${lista} reclamadas` : 'a 2ª reclamada';
+    dados.DA_TOMADORAS = plural ? `das ${lista} reclamadas` : 'da 2ª reclamada';
+    dados.A_TOMADORA_SERVICO = plural ? 'às tomadoras de serviço' : 'à tomadora de serviço';
+  }
   // Descontos indevidos (campo novo): acende o capítulo/pedido de restituição.
   dados.desconto_indevido = flag(caso.tem_desconto_indevido);
   dados.DESCONTO_DESCRICAO = caso.desconto_descricao || '';
