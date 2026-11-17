@@ -153,6 +153,31 @@ function substituirFraseTagTolerant(xml, frase, destino) {
   return xml.replace(new RegExp(pattern, 'gi'), destino);
 }
 
+// PERCENTUAL SEMPRE EM NÚMERO (decisão do usuário, 17/11/2026, Vânia): "sessenta
+// por cento" → "60%", "60 por cento" → "60%" e "60% (sessenta por cento)" →
+// "60%", no texto fixo e no da IA.
+const NUM_EXTENSO = {
+  um: 1, uma: 1, dois: 2, duas: 2, 'três': 3, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
+  dez: 10, onze: 11, doze: 12, treze: 13, quatorze: 14, catorze: 14, quinze: 15, dezesseis: 16, dezessete: 17,
+  dezoito: 18, dezenove: 19, vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, 'cinqüenta': 50, sessenta: 60,
+  setenta: 70, oitenta: 80, noventa: 90, cem: 100,
+};
+const PAL_NUM = Object.keys(NUM_EXTENSO).sort((a, b) => b.length - a.length).join('|');
+const RX_EXTENSO_PCT = new RegExp(`(?<![\\wÀ-ÿ])((?:${PAL_NUM})(?:\\s+e\\s+(?:${PAL_NUM}))*)\\s+por\\s+cento(?![\\wÀ-ÿ])`, 'gi');
+export function percentualEmNumero(texto) {
+  if (!texto || !/por\s+cento/i.test(texto)) return texto;
+  return String(texto)
+    // "60% (sessenta por cento)" / "15% (quinze por cento)" → só o número
+    .replace(/(\d+(?:,\d+)?\s*%)\s*\(\s*[^()]*?por\s+cento\s*\)/gi, '$1')
+    // "60 por cento" → "60%"
+    .replace(/(\d+(?:,\d+)?)\s+por\s+cento(?![\wÀ-ÿ])/gi, '$1%')
+    // "sessenta por cento" / "vinte e cinco por cento" → "60%" / "25%"
+    .replace(RX_EXTENSO_PCT, (m, palavras) => {
+      const n = palavras.toLowerCase().split(/\s+e\s+/).reduce((s, w) => s + (NUM_EXTENSO[w.trim()] || 0), 0);
+      return n > 0 ? `${n}%` : m;
+    });
+}
+
 // Correções pós-preenchimento do .docx:
 // 1) Duplicação de palavras consecutivas idênticas (artifact do docxtemplater/paragraphLoop)
 // 2) Erros recorrentes de redação do template (Súmula 425, grafia de município)
@@ -169,7 +194,7 @@ function corrigirTextoFinal(zip) {
     // Hífen fora da fronteira: "submetendo-a a plantões" não é palavra
     // repetida (o pronome enclítico "-a" seguido da preposição "a") — a regra
     // apagava o "a" (Thais, 17/11/2026).
-    const corrigido = text.replace(/(?<![\wÀ-ÿ-])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ-])/gi, '$1');
+    const corrigido = percentualEmNumero(text.replace(/(?<![\wÀ-ÿ-])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ-])/gi, '$1'));
     return open + corrigido + close;
   });
   // 2) Correções de redação (tolerante a tags entre palavras)
