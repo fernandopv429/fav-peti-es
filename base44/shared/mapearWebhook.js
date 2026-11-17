@@ -509,6 +509,8 @@ export function mapearCasoDeWebhook(data) {
   // Sem data de rescisão, a data da elaboração faz as vezes dela (contrato
   // ainda não encerrado formalmente). Sem isto o cálculo inteiro cai.
   presumirRescisaoNaElaboracao(caso);
+  // Intervalo: a peça sempre alega 10 a 15 minutos (regra do escritório).
+  aplicarIntervaloPadrao(caso);
 
   return caso;
 }
