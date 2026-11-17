@@ -136,6 +136,46 @@ export function avosEntreDatas(admissao, dataFinal, contarProjecaoUltimoMes) {
   return Math.min(avos, 12);
 }
 
+// 13º PROPORCIONAL: só os meses do ANO da saída (com a projeção do aviso),
+// mês com 15 dias ou mais conta 1/12 (Lei 4.090/62, art. 1º, § 2º). Antes a
+// conta corria desde a admissão, travada em 12: a peça da Thais (admitida em
+// 11/2024, saída projetada em 04/2026) saiu com 12/12 em vez de 3/12.
+export function avos13NoAnoDaSaida(admissao, dataFinal) {
+  const a = parseData(admissao);
+  const r = parseData(dataFinal);
+  if (!a || !r || r < a) return null;
+  const inicioAno = new Date(r.getFullYear(), 0, 1);
+  const inicio = a > inicioAno ? a : inicioAno;
+  return avosEntreDatas(inicio, r, false);
+}
+
+// FÉRIAS PROPORCIONAIS: meses do período aquisitivo EM CURSO, que começa no
+// último aniversário da admissão; fração de 15 dias ou mais conta 1/12
+// (CLT, art. 146, parágrafo único). Os períodos já completos são férias
+// vencidas, outra verba.
+export function avosFeriasProporcionais(admissao, dataFinal) {
+  const a = parseData(admissao);
+  const r = parseData(dataFinal);
+  if (!a || !r || r < a) return null;
+  let inicio = new Date(a);
+  while (true) {
+    const prox = new Date(inicio.getFullYear() + 1, inicio.getMonth(), inicio.getDate());
+    if (prox > r) break;
+    inicio = prox;
+  }
+  let avos = 0;
+  let cursor = new Date(inicio);
+  while (true) {
+    const prox = new Date(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
+    if (prox > r) break;
+    avos += 1;
+    cursor = prox;
+  }
+  const resto = Math.floor((r - cursor) / 86400000) + 1;
+  if (resto >= 15) avos += 1;
+  return Math.min(avos, 12);
+}
+
 export function avisoPrevio(salario, anos, { acordo = false } = {}) {
   if (!salario || anos == null) return null;
   const diasIntegral = Math.min(30 + anos * 3, 90);
@@ -504,10 +544,10 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   }
   const dataFim = ap ? (projetarDataComAvisoPrevio(caso.data_rescisao, ap.dias) || caso.data_rescisao) : caso.data_rescisao;
   const mesesProjetados = mesesContrato(caso.data_admissao, dataFim) ?? meses;
-  const avos13 = salario ? avosEntreDatas(caso.data_admissao, dataFim, false) : null;
+  const avos13 = salario ? avos13NoAnoDaSaida(caso.data_admissao, dataFim) : null;
   const valor13 = avos13 != null ? round2((salario / 12) * avos13) : null;
   if (valor13 != null) itens.push({ item: '13º proporcional', memoria: `${avos13}/12 avos (proj. aviso prévio)`, valor: valor13 });
-  const avosFerias = salario ? avosEntreDatas(caso.data_admissao, dataFim, false) : null;
+  const avosFerias = salario ? avosFeriasProporcionais(caso.data_admissao, dataFim) : null;
   const valorFerias = avosFerias != null ? round2((salario / 12) * avosFerias * (4 / 3)) : null;
   if (valorFerias != null) itens.push({ item: 'Férias proporcionais + 1/3', memoria: `${avosFerias}/12 avos + 1/3 (proj. aviso prévio)`, valor: valorFerias });
 
