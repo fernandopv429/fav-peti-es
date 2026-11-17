@@ -454,7 +454,12 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
       const lista = obj.PEDIDOS_MULTAS
         .map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : ''))
         .filter(Boolean);
-      if (lista.length) blocos.pedidos_multas = lista;
+      // Periculosidade: redação fixa do escritório (17/11/2026), um item só.
+      const semPeric = lista.filter((s) => !/periculosidade/i.test(s));
+      const final = semPeric.length < lista.length
+        ? [...semPeric.slice(0, lista.findIndex((s) => /periculosidade/i.test(s))), 'Não integra o adicional de periculosidade em suas horas extras;', ...semPeric.slice(lista.findIndex((s) => /periculosidade/i.test(s)))]
+        : lista;
+      if (final.length) blocos.pedidos_multas = final;
     }
     const escritos = Object.keys(blocos);
     if (escritos.length) notify(`Análise única concluída: ${escritos.length}/${ativos.length} capítulo(s) redigido(s).`);
