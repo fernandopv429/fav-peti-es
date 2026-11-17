@@ -692,8 +692,33 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     const diasTotais = diasMes * meses;
     const base = `hora normal ${formatBRL(horaNormal)} (salário ÷ ${PARAMS_HORAS.divisor_mensal})`;
 
+    // 1-A) ESCALA 12x36 DESCARACTERIZADA (Súmula 85, IV, parte final afastada —
+    // decisão do jurídico 13/11/2026). O capítulo sai sempre que a escala é
+    // 12x36, mas o rol não tinha o pedido em dinheiro (apontado em 17/11/2026).
+    // Padrão das peças do escritório (Udson, Gilson, Marcelo): horas além da 8ª
+    // por plantão = 12h + prorrogação (30 min antes + 30 min depois) − 8h =
+    // 5h, × 15 plantões/mês × meses, com o adicional convencional. Substitui o
+    // item da prorrogação (a prorrogação já está dentro das 5h: sem bis in idem).
+    if (eh12x36) {
+      const txtFreq = String(caso.jornada_freq_extra ?? '');
+      const ehFrequencia = /vez|vezes|por\s+m[eê]s|\/\s*m[eê]s/i.test(txtFreq);
+      const prorrog = (!ehFrequencia && horasDoTexto(txtFreq))
+        || horasDoTexto(caso.prorrogacao_jornada, { somar: true })
+        || PARAMS_HORAS.horas_prorrogacao_dia;
+      const horasPlantao = round2(12 + prorrog - 8);
+      const horas = round2(horasPlantao * diasMes * meses);
+      const resumo = `${String(horasPlantao).replace('.', ',')} horas por plantão, ${diasMes} plantões por mês, ${meses} ${meses === 1 ? 'mês' : 'meses'}, ${String(horas).replace('.', ',')} horas, adicional de ${adicTxt}, divisor ${PARAMS_HORAS.divisor_mensal}`;
+      addComReflexos(
+        'Horas extras — descaracterização da escala 12x36',
+        `${horas}h (12h + ${String(prorrog).replace('.', ',')}h de prorrogação − 8h = ${String(horasPlantao).replace('.', ',')}h/plantão × ${diasMes} plantões/mês × ${meses} meses) × ${base} + ${adicTxt}`,
+        horas * horaExtra,
+      );
+      const it = itens.find((i) => i.item === 'Horas extras — descaracterização da escala 12x36');
+      if (it) it.resumo = resumo;
+    }
+
     // 1) Horas extras pela prorrogação habitual (minutos que antecedem/sucedem)
-    if (caso.jornada_extrapola || caso.prorrogacao_jornada) {
+    if (!eh12x36 && (caso.jornada_extrapola || caso.prorrogacao_jornada)) {
       // O Fav Sales manda "media_horas_extras" (→ jornada_freq_extra) como HORAS
       // POR DIA ("1 hora", "1h30") — é a soma do antecedente + sucedente. Antes
       // o número era lido como VEZES POR MÊS: "1 hora" virava 1 dia no mês e a
