@@ -19,7 +19,13 @@ function clausulaIntervalo(itensIA, ehVigilante) {
   for (const s of itensIA) {
     if (!RX_INTERVALO.test(s)) continue;
     const m = /(cl[aá]usulas?\s+\d+[ªº]?(?:\s*,\s*(?:§\s*\d+[ºª]?|inciso\s+[IVXL]+|[IVXL]+))?(?:\s*,?\s*e\s+(?:da\s+)?cl[aá]usula\s+\d+[ªº]?(?:\s*,\s*(?:§\s*\d+[ºª]?|inciso\s+[IVXL]+|[IVXL]+))?)?)/i.exec(s);
-    if (m) return m[1].replace(/\s+/g, ' ').trim();
+    // "cláusula 40ª, §4º, e da cláusula 41ª, IV" → "cláusulas 40ª, §4º, e 41ª, IV"
+    if (m) {
+      const c = m[1].replace(/\s+/g, ' ').trim();
+      return /\be\s+(?:da\s+)?cl[aá]usula/i.test(c)
+        ? c.replace(/^cl[aá]usula\b/i, 'cláusulas').replace(/\s*e\s+(?:da\s+)?cl[aá]usula\s+/i, ' e ')
+        : c;
+    }
   }
   return ehVigilante ? 'cláusula 41ª, IV' : '';
 }
