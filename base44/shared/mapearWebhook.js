@@ -314,6 +314,23 @@ export function mapearCasoDeWebhook(data) {
     || '';
   caso.jornada_horario = pick(d, 'JORNADA_HORARIO', 'jornada_horario')
     || escalaHorario1.split(/[—–-]/).slice(1).join('-').trim();
+  // Horário de cada POSTO (2ª a 4ª reclamadas). Decisão do usuário (17/11/2026,
+  // Vânia): quando a entrevista tem horários diferentes por tomadora, a peça
+  // lista um horário por posto, cada um com +30 min antes e +30 depois.
+  caso.postos_jornada = [2, 3, 4].map((n) => {
+    const eh = String(pick(d, `RECL${n}_ESCALA_HORARIO`) || '').trim();
+    if (!eh || !/\d{1,2}\s*(?::|h)/.test(eh)) return null;
+    const partes = eh.split(/\s+[—–-]\s+/);
+    const escala = (/(\d+\s*x\s*\d+)/i.exec(eh)?.[1] || '').replace(/\s+/g, '');
+    const horario = (partes.length > 1 ? partes.slice(1).join(' - ') : eh).trim();
+    return {
+      ordinal: `${n}ª`,
+      nome: String(pick(d, `RECL${n}_NOME`) || '').trim(),
+      periodo: String(pick(d, `RECL${n}_TEMPO_LABORADO`) || '').trim(),
+      escala,
+      horario,
+    };
+  }).filter(Boolean);
   if (d.horas_extras) {
     caso.jornada_extrapola = true;
     caso.jornada_freq_extra = pick(d, 'JORNADA_FREQ_EXTRA', 'media_horas_extras');
