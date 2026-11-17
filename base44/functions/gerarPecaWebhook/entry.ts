@@ -388,6 +388,28 @@ export default async function(req) {
       redacaoErro = e?.message || 'erro redação';
     }
 
+    // 7b) Falha da IA (limite mensal de integrações, timeout etc.) NÃO pode
+    // apagar capítulos já redigidos numa geração anterior: em 17/11/2026 um
+    // reprocessamento bateu o limite e 22 peças perderam dano moral, desvio e
+    // multas sem cópia. Aqui, todo capítulo que a IA tentou e falhou (nomeado
+    // no erro) volta da versão anterior; falha total restaura todos.
+    let blocosMantidos = [];
+    const blocosAnteriores = casoExistente?.analise_json?.blocos || {};
+    if (redacaoErro && blocosAnteriores && typeof blocosAnteriores === 'object') {
+      const falhaTotal = !Object.keys(blocos).length;
+      for (const [campo, texto] of Object.entries(blocosAnteriores)) {
+        if (campo in blocos) continue;
+        if (!texto || !String(texto).trim()) continue;
+        if (falhaTotal || String(redacaoErro).includes(`${campo}:`)) {
+          blocos[campo] = texto;
+          blocosMantidos.push(campo);
+        }
+      }
+      if (blocosMantidos.length) {
+        redacaoErro = `${redacaoErro} | MANTIDA a redação da geração anterior em: ${blocosMantidos.join(', ')} (IA indisponível agora; reprocessar depois para atualizar)`;
+      }
+    }
+
     // 8) Atualiza a CasoTrabalhista com o resultado pronto
     const analiseJsonFinal = {
       origem: 'webhook',
