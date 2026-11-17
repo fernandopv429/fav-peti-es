@@ -399,7 +399,16 @@ export function mapearCasoDeWebhook(data) {
   // errado subestima a verba (20% em vez de 50%) e cita a tese errada na peça.
   if (d.acumulo_funcao) {
     const ehVigilante = /vigilante|vigil/i.test(caso.funcao || '');
-    if (ehVigilante) {
+    // "Registrado como porteiro, fazia atividades de vigilante" é tese de
+    // PORTEIRO/CONTROLADOR, não de vigilante: para quem já é vigilante, ronda,
+    // catraca e inspeção são a própria função. Com função vigilante, esse
+    // relato NÃO vira desvio (peça da Thais Dutra Rosa, 17/11/2026); fica só
+    // registrado para o advogado conferir a função.
+    const txtDesvio = String(d.funcoes_acumuladas || '');
+    const teseDePorteiro = /porteir|controlador|(?:atividades?|fun[cç][õo]es|atribui[cç][õo]es|fun[cç][ãa]o)\s+de\s+vigilan/i.test(txtDesvio);
+    if (ehVigilante && teseDePorteiro) {
+      caso.desvio_descartado = txtDesvio;
+    } else if (ehVigilante) {
       caso.tem_desvio = true;
       caso.desvio_atividades = d.funcoes_acumuladas || '';
     } else {
