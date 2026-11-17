@@ -417,6 +417,13 @@ export function mapearCasoDeWebhook(data) {
     }
   }
 
+  // Férias vencidas: períodos aquisitivos completos e não gozados (pergunta 4
+  // da entrevista; enviada pelo Fav Sales desde 17/11/2026).
+  if (d.ferias_vencidas || d.tem_ferias_vencidas) {
+    caso.tem_ferias_vencidas = true;
+    caso.ferias_vencidas_qtd = parseRange(pick(d, 'FERIAS_VENCIDAS_QTD', 'ferias_quantidade')) || 1;
+  }
+
   if (d.periculosidade || d.tem_periculosidade) caso.tem_periculosidade = true;
   if (d.insalubridade || d.tem_insalubridade) caso.tem_insalubridade = true;
   // Percentuais informados na entrevista (campos novos) — quando ausentes o
