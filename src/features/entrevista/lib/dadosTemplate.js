@@ -910,7 +910,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // determinística: o capítulo listava 10 infrações e o pedido cobrava 7
   // (caso Jonatas, 13/11/2026). Quem tem os blocos passa-os em `blocos`.
   if (Array.isArray(blocos?.pedidos_multas) && blocos.pedidos_multas.length) {
-    dados.pedidos_multas = blocos.pedidos_multas;
+    // Sem tese de desvio (ex.: vigilante em CFTV vira gratificação de função),
+    // a multa da cl. 64ª por "desvio de função" que a IA tenha listado sai
+    // (Vânia, 17/11/2026).
+    dados.pedidos_multas = dados.desvio_funcao
+      ? blocos.pedidos_multas
+      : blocos.pedidos_multas.filter((s) => !/desvio\s+de\s+fun|cl[áa]usula\s+64/i.test(String(s)));
   }
   if (!dados.pedidos_multas) {
     const clMulta = caso.cct_clausula_multa ? `, cláusula ${caso.cct_clausula_multa}` : '';
