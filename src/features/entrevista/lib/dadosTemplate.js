@@ -1,4 +1,4 @@
-import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm, horasDoTexto } from './mathUtils';
+import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm, horasDoTexto, aplicarIntervaloPadrao } from './mathUtils';
 
 // JORNADA (pedido do escritório, 17/11/2026): o horário da peça já sai com a
 // prorrogação embutida — "07:00 às 19:00" com 30 min antes e 30 min depois
@@ -335,6 +335,7 @@ export function narrativaDanoMoral(caso) {
 }
 
 export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dadosReceita = [], dadosCep = [], blocos = null } = {}) {
+  aplicarIntervaloPadrao(caso);
   const dados = {};
 
   // 1) Valores determinísticos
