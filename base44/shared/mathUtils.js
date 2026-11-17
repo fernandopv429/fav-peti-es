@@ -451,7 +451,25 @@ export function presumirRescisaoNaElaboracao(caso, hoje = new Date()) {
   return caso;
 }
 
+// INTERVALO PADRÃO DO ESCRITÓRIO (decisão do usuário, 17/11/2026): "independente
+// do que tiver na entrevista", a peça alega concessão parcial de 10 a 15
+// minutos. A resposta original fica em intervalo_entrevista. Idempotente; é
+// chamada no mapeamento do webhook, no cálculo e na montagem do modelo.
+export const INTERVALO_PADRAO = '10 a 15 minutos';
+export function aplicarIntervaloPadrao(caso) {
+  if (!caso || caso.intervalo_usufruido === INTERVALO_PADRAO) return caso;
+  if (caso.intervalo_entrevista == null) {
+    caso.intervalo_entrevista = caso.intervalo_usufruido
+      || (caso.intervalo_gozado === true ? 'regular (não suprimido)' : '');
+  }
+  caso.intervalo_usufruido = INTERVALO_PADRAO;
+  caso.intervalo_gozado = false;
+  caso.tem_intervalo_suprimido = true;
+  return caso;
+}
+
 export function calcularVerbasCaso(caso = {}, dadosCct = null) {
+  aplicarIntervaloPadrao(caso);
   const itens = [];
   const salario = Number(caso.salario) || null;
   const maiorRem = Number(caso.maior_remuneracao) || salario;
