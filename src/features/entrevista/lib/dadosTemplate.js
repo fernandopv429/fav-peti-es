@@ -642,6 +642,14 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.desconto_indevido = flag(caso.tem_desconto_indevido);
   dados.DESCONTO_DESCRICAO = caso.desconto_descricao || '';
   dados.sem_justa_causa = tipo === 'sem_justa_causa';
+  // Saldo de salário e multas dos arts. 467/477 entram no rol sempre que foram
+  // CALCULADOS (e, portanto, somados no valor da causa). Antes dependiam de
+  // sem_justa_causa: na reversão da Thais (17/11/2026) R$ 8.788,87 entravam na
+  // alçada sem pedido correspondente no rol.
+  const temCalc = (nome) => (calculos || []).some((c) => c?.item === nome && c.valor != null && Number(c.valor) > 0);
+  dados.pede_saldo_salario = temCalc('Saldo de salário');
+  dados.pede_multa_467 = temCalc('Multa do art. 467 da CLT');
+  dados.pede_multa_477 = temCalc('Multa do art. 477 da CLT');
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
   dados.coacao_demissao = tipo === 'nulidade_pedido_demissao';
   dados.reversao_justa_causa = tipo === 'reversao_justa_causa';
