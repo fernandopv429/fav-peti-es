@@ -24,6 +24,9 @@ const GENERO_FEM = [
   [/\bPelo reclamante\b/g, 'Pela reclamante'],
   [/\bO obreiro\b/g, 'A obreira'],
   [/\bo reclamante\b/g, 'a reclamante'],
+  // Particípio logo após "reclamante foi" (texto da IA): "a reclamante foi
+  // acusado/chamado/sumariamente desligado" saía na peça da Thais Dutra Rosa.
+  [/(\breclamante\s+foi\s+(?:[a-zà-ÿ]+mente\s+)?)([a-zà-ÿ]+?)(ad|id)o\b/g, '$1$2$3a'],
   [/\bdo reclamante\b/g, 'da reclamante'],
   [/\bao reclamante\b/g, 'à reclamante'],
   [/\bpelo reclamante\b/g, 'pela reclamante'],
