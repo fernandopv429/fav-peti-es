@@ -45,7 +45,7 @@ export function finalizarItensMulta(lista = [], { ehVigilante = false } = {}) {
     // O valor em R$ que a IA escreve é retirado antes (sanitizarValoresIA) e
     // sobrava "no valor de por dia" (Thais, 17/11/2026). Tira a sobra.
     const limpo = s
-      .replace(/,?\s*(?:no|pelo)\s+valor\s+(?:de\s+)?(?:por\s+(?:dia|m[eê]s|plant[ãa]o)\s*)?(?=[,;.]|$)/gi, '')
+      .replace(/,?\s*(?:no|pelo)\s+valor\s+(?:de\b\s*)?(?:por\s+(?:dia|m[eê]s|plant[ãa]o)\s*)?(?=[,;.]|$)/gi, '')
       .replace(/\s{2,}/g, ' ')
       .replace(/\s+([,;.])/g, '$1');
     out.push(/[;.]$/.test(limpo) ? limpo.replace(/\.$/, ';') : `${limpo};`);
