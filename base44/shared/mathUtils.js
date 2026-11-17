@@ -718,7 +718,12 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
 
   if (temGratificacao && meses) {
     const gratVal = Number(caso.gratificacao_valor);
-    if (gratVal > 0) {
+    if (caso.gratificacao_tipo === 'monitor_eletronico' && salario) {
+      // CCT de vigilância, Grupo B (monitoramento eletrônico/CFTV): Vigilante/
+      // Monitor de Segurança Eletrônica = 5% sobre o piso (decisão 17/11/2026).
+      const pct = 0.05;
+      itens.push({ item: 'Gratificação de função (5%)', memoria: `5% × ${formatBRL(salario)} × ${meses} meses (CCT, Grupo B — Vigilante/Monitor de Segurança Eletrônica)`, valor: round2(pct * salario * meses) });
+    } else if (gratVal > 0) {
       itens.push({ item: 'Gratificação/bônus de função', memoria: `${formatBRL(gratVal)}/mês × ${meses} meses`, valor: round2(gratVal * meses) });
     } else if (salario) {
       const cl = buscarClausulaCct(dadosCct, /gratifica[çc][ãa]o de fun|condutor|motorista/i);
