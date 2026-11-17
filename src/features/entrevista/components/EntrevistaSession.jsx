@@ -311,12 +311,23 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
     return templateUrl;
   };
 
+  // Nome do arquivo: "RECLAMANTE x 1ª RECLAMADA" (pedido do escritório,
+  // 17/11/2026). Tira os caracteres que o Windows não aceita em nome de arquivo.
+  const nomeArquivo = (sufixo = '') => {
+    const d = ultimaGeracao?.dados || {};
+    const limpa = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const recl = limpa(d.RECL_NOME);
+    const reclda = limpa(d.RECLAMADA1_RAZAO);
+    const base = recl && reclda ? `${recl} x ${reclda}` : (recl || reclda || 'Petição inicial');
+    return `${base.slice(0, 150).trim()}${sufixo}`;
+  };
+
   const exportar = async () => {
     if (!temTemplate || !ultimaGeracao || !reviewConfirmed || exporting) return;
     setExporting(true);
     try {
       const urlAtual = await resolverTemplateAtual();
-      await exportarDocxTemplate(urlAtual, ultimaGeracao.dados, 'Petição inicial');
+      await exportarDocxTemplate(urlAtual, ultimaGeracao.dados, nomeArquivo());
     } catch (err) {
       // A conferência final (preencherDocxTemplate) aponta campo não preenchido,
       // tag não substituída, envelope de JSON etc. Ela AVISA, mas não decide: o
@@ -329,7 +340,7 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
           await exportarDocxTemplate(
             await resolverTemplateAtual(),
             ultimaGeracao.dados,
-            'Petição inicial (COM PENDÊNCIAS - revisar)',
+            nomeArquivo(' (COM PENDÊNCIAS - revisar)'),
             { permitirPendencias: true },
           );
         }
