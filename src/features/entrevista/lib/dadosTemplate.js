@@ -859,7 +859,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
       itensMulta.push('Não remunera corretamente as horas extras de 100% relativas às folgas e feriados trabalhados;');
     }
     if (dados.periculosidade) {
-      itensMulta.push('Não remunera corretamente o adicional de periculosidade sobre as horas extraordinárias;');
+      itensMulta.push('Não integra o adicional de periculosidade em suas horas extras;');
     }
     if (dados.dez_minutos_cct) {
       itensMulta.push(`Não concessão dos 10 (dez) minutos de descanso a cada hora trabalhada${clMulta};`);
