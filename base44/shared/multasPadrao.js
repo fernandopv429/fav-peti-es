@@ -42,7 +42,13 @@ export function finalizarItensMulta(lista = [], { ehVigilante = false } = {}) {
       continue;
     }
     if (RX_INTERVALO.test(s) || RX_FGTS.test(s) || RX_DSR.test(s) || RX_DANO.test(s)) continue;
-    out.push(/[;.]$/.test(s) ? s.replace(/\.$/, ';') : `${s};`);
+    // O valor em R$ que a IA escreve é retirado antes (sanitizarValoresIA) e
+    // sobrava "no valor de por dia" (Thais, 17/11/2026). Tira a sobra.
+    const limpo = s
+      .replace(/,?\s*(?:no|pelo)\s+valor\s+(?:de\s+)?(?:por\s+(?:dia|m[eê]s|plant[ãa]o)\s*)?(?=[,;.]|$)/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([,;.])/g, '$1');
+    out.push(/[;.]$/.test(limpo) ? limpo.replace(/\.$/, ';') : `${limpo};`);
   }
   out.push(`Não concessão do intervalo de refeição e descanso${clausula ? `, ${clausula}` : ''};`);
   out.push('Não remunera corretamente o FGTS;');
