@@ -49,6 +49,8 @@ const CALC_CAMPO = {
   // já entram no VALOR_CAUSA_TOTAL e aparecem na tela, mas para saírem no rol
   // de pedidos o modelo precisa ser tokenizado com elas.
   'Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO',
+  'Horas extras — descaracterização da escala 12x36': 'VALOR_HE_12X36',
+  'Reflexos de Horas extras — descaracterização da escala 12x36': 'VALOR_HE_12X36_REFLEXOS',
   'Reflexos de Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO_REFLEXOS',
   'Intervalo intrajornada (art. 71 da CLT)': 'VALOR_ART71',
   'Reflexos de Intervalo intrajornada (art. 71 da CLT)': 'VALOR_ART71_REFLEXOS',
@@ -90,6 +92,7 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_FT', 'VALOR_DSR', 'VALOR_DANO_MORAL_10X', 'VALOR_CAUSA_TOTAL', 'DATA_PECA',
   'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS', 'FT_100',
   'VALOR_HE_PRORROGACAO', 'VALOR_HE_PRORROGACAO_REFLEXOS',
+  'VALOR_HE_12X36', 'VALOR_HE_12X36_REFLEXOS', 'VALOR_HE_12X36_REFLEXOS_TEXTO', 'HE_12X36_RESUMO',
   'VALOR_ART71', 'VALOR_ART71_REFLEXOS',
   'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
   'VALOR_DEZ_MINUTOS', 'VALOR_DEZ_MINUTOS_REFLEXOS',
@@ -324,6 +327,8 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     // Reflexos: além do valor somado, o item traz a frase com as cinco rubricas
     // abertas (mathUtils.reflexosSobre). Vira a tag {{CAMPO_TEXTO}} usada no rol.
     if (campo && c.texto) dados[`${campo}_TEXTO`] = c.texto;
+    // Memória legível do pedido ("5 horas por plantão, 15 plantões por mês…").
+    if (campo === 'VALOR_HE_12X36' && c.resumo) dados.HE_12X36_RESUMO = c.resumo;
     // Honorários são calculados À PARTE (15% sobre o valor da causa, art. 85
     // CPC) — padrão do escritório. Não compõem o valor da causa (o rol de
     // pedidos não os lista como valor), senão o fecho fica maior que a soma
@@ -876,7 +881,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // liquidação" do rol pede a mesma coisa duas vezes — é o pedido repetido
   // apontado na revisão. Este flag desliga o genérico nesse caso.
   dados.tem_verba_por_hora = flag(
-    dados.VALOR_HE_PRORROGACAO || dados.VALOR_ART71 || dados.VALOR_NOTURNO ||
+    dados.VALOR_HE_PRORROGACAO || dados.VALOR_HE_12X36 || dados.VALOR_ART71 || dados.VALOR_NOTURNO ||
     dados.VALOR_DEZ_MINUTOS || dados.VALOR_PERICULOSIDADE_HE || dados.FT_100
   );
 
