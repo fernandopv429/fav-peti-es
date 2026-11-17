@@ -315,7 +315,7 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
   // 17/11/2026). Tira os caracteres que o Windows não aceita em nome de arquivo.
   const nomeArquivo = (sufixo = '') => {
     const d = ultimaGeracao?.dados || {};
-    const limpa = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const limpa = (s) => (/^\s*\[/.test(String(s || '')) ? '' : String(s || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
     const recl = limpa(d.RECL_NOME);
     const reclda = limpa(d.RECLAMADA1_RAZAO);
     const base = recl && reclda ? `${recl} x ${reclda}` : (recl || reclda || 'Petição inicial');
