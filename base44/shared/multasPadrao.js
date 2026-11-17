@@ -46,6 +46,8 @@ export function finalizarItensMulta(lista = [], { ehVigilante = false } = {}) {
     // sobrava "no valor de por dia" (Thais, 17/11/2026). Tira a sobra.
     const limpo = s
       .replace(/,?\s*(?:no|pelo)\s+valor\s+(?:de\b\s*)?(?:por\s+(?:dia|m[eê]s|plant[ãa]o)\s*)?(?=[,;.]|$)/gi, '')
+      // "no valor de por dia efetivamente trabalhado" → "por dia efetivamente trabalhado"
+      .replace(/\s*(?:no|pelo)\s+valor\s+de\s+(?=por\b)/gi, ' ')
       .replace(/\s{2,}/g, ' ')
       .replace(/\s+([,;.])/g, '$1');
     out.push(/[;.]$/.test(limpo) ? limpo.replace(/\.$/, ';') : `${limpo};`);
