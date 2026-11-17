@@ -271,7 +271,13 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
     try {
       dados = montarDadosTemplate({ caso, calculos, attrs: caso, dadosReceita, dadosCep, blocos });
     } catch (e) { console.error(e); }
-    Object.assign(dados, blocos);
+    // pedidos_multas já sai tratada de montarDadosTemplate (filtros e contagem
+    // do rol); copiar a lista crua dos blocos por cima desfazia o tratamento.
+    {
+      const { pedidos_multas: _pm, ...restoBlocos } = blocos;
+      Object.assign(dados, restoBlocos);
+      if (!dados.pedidos_multas && _pm) dados.pedidos_multas = _pm;
+    }
     if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
     // Preview do template preenchido
     // Preview tem de usar o MESMO modelo da exportação: o vigente do cadastro
