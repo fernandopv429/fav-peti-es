@@ -31,7 +31,9 @@ function sanitizarValoresIA(texto) {
     // peça do Marcos saiu "no montante apurado de, correspondente a dez vezes
     // a maior remuneração" — com o "de" solto antes da vírgula. Só age quando a
     // preposição encostou na pontuação, situação que já é agramatical.
-    .replace(/\b(?:de|em|por|a)\s*(?=[,;.])/gi, '')
+    // Fronteira com acentos: o \b do JS não conhece "ú" e cortava o "de" de
+    // "saúde," (saía "saú," — Thais, 17/11/2026). Exige espaço antes.
+    .replace(/(?<![\wÀ-ÿ])(?:de|em|por|a)[ \t]*(?=[,;.])/gi, '')
     // TRAVESSÃO (—): marca registrada de texto de IA, e estranha à prosa do
     // escritório, que separa com vírgula ou parênteses. Vira vírgula, e as
     // regras de limpeza logo abaixo desfazem a pontuação dobrada resultante.
