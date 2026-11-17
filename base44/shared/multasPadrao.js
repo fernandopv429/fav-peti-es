@@ -7,7 +7,8 @@
 export const ITEM_MULTA_PERICULOSIDADE = 'Não integra o adicional de periculosidade em suas horas extras;';
 
 const RX_PERIC = /periculosidade/i;
-const RX_INTERVALO = /intervalo/i;
+// Intervalo de refeição; os "10 minutos de descanso a cada hora" são outro item.
+const RX_INTERVALO = { test: (s) => /intervalo|refei[çc][ãa]o e descanso/i.test(s) && !/10\s*(?:\(dez\)\s*)?minutos/i.test(s) };
 const RX_FGTS = /\bFGTS\b/i;
 const RX_DSR = /\bDSR|descanso semanal/i;
 const RX_DANO = /dano moral/i;
