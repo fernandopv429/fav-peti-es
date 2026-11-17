@@ -499,6 +499,35 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // 8) Jornada
   dados.JORNADA_HORARIOS = horarioComProrrogacao(caso.jornada_horario, caso.prorrogacao_jornada) || '[HORÁRIOS]';
   dados.ESCALA = caso.escala || '[ESCALA]';
+  // Um horário por posto (mapearWebhook → caso.postos_jornada). Sem postos com
+  // horário, sai uma linha só, igual ao modelo antigo.
+  {
+    const periodoTxt = (p) => {
+      const m = /(\d{2}\/\d{2}(?:\/\d{2,4})?|\d{2}\/\d{4})\s*(?:-|–|—|a|à|até)\s*(\d{2}\/\d{2}(?:\/\d{2,4})?|\d{2}\/\d{4})/i.exec(p || '');
+      return m ? `de ${m[1]} a ${m[2]}` : '';
+    };
+    const postos = (Array.isArray(caso.postos_jornada) ? caso.postos_jornada : []).filter((p) => p && p.horario);
+    if (postos.length) {
+      dados.JORNADAS_POSTOS = postos.map((p) => {
+        const per = periodoTxt(p.periodo);
+        const quem = `no posto da ${p.ordinal} reclamada`;
+        return {
+          JORNADA_PREFIXO: per ? `${per.charAt(0).toUpperCase()}${per.slice(1)}, ${quem}: ` : `${quem.charAt(0).toUpperCase()}${quem.slice(1)}: `,
+          JORNADA_HORARIO_POSTO: horarioComProrrogacao(p.horario, caso.prorrogacao_jornada),
+          JORNADA_ESCALA_POSTO: p.escala || dados.ESCALA,
+        };
+      });
+      if (caso.jornada_horario) {
+        dados.JORNADAS_POSTOS.push({
+          JORNADA_PREFIXO: 'Nos demais períodos do contrato, a serviço da 1ª reclamada: ',
+          JORNADA_HORARIO_POSTO: dados.JORNADA_HORARIOS,
+          JORNADA_ESCALA_POSTO: dados.ESCALA,
+        });
+      }
+    } else {
+      dados.JORNADAS_POSTOS = [{ JORNADA_PREFIXO: '', JORNADA_HORARIO_POSTO: dados.JORNADA_HORARIOS, JORNADA_ESCALA_POSTO: dados.ESCALA }];
+    }
+  }
   // O formulário do MARCOS chegou com INTERVALO_USUFRUIDO e INTERVALO_GOZADO
   // VAZIOS (a entrevistadora só marcou "intervalo suprimido"), então o token
   // saía em branco na peça. Sem duração declarada, entra a redação padrão do
