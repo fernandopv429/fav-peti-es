@@ -121,6 +121,8 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   return d;
 }
 
+export const ITEM_MULTA_PERICULOSIDADE = 'Não integra o adicional de periculosidade em suas horas extras;';
+
 export const ESPECIALISTAS = [
   // Só há tese rescisória a redigir quando a modalidade PRECISA ser construída
   // (rescisão indireta, nulidade do pedido de demissão, reversão de justa causa).
@@ -515,7 +517,18 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
   }
   if (multasAtivo && Array.isArray(obj.PEDIDOS_MULTAS)) {
     const lista = obj.PEDIDOS_MULTAS.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
-    if (lista.length) blocos.pedidos_multas = lista;
+    // Periculosidade: redação fixa do escritório (17/11/2026). A IA escrevia
+    // "Não remunera o adicional de periculosidade de 30% sobre o salário-base",
+    // mas a falta é não integrar o adicional nas horas extras. Um item só.
+    const normalizada = [];
+    let temPericulosidade = false;
+    for (const s of lista) {
+      if (/periculosidade/i.test(s)) {
+        if (!temPericulosidade) normalizada.push(ITEM_MULTA_PERICULOSIDADE);
+        temPericulosidade = true;
+      } else normalizada.push(s);
+    }
+    if (normalizada.length) blocos.pedidos_multas = normalizada;
   }
   if (rescisaoIndireta && Array.isArray(obj.FALTAS_RESCISAO)) {
     const lista = obj.FALTAS_RESCISAO.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
