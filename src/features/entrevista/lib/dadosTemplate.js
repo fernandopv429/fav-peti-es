@@ -82,6 +82,7 @@ const CALC_CAMPO = {
   // de pedidos o modelo precisa ser tokenizado com elas.
   'Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO',
   'Horas extras — descaracterização da escala 12x36': 'VALOR_HE_12X36',
+  'Férias vencidas + 1/3': 'VALOR_FERIAS_VENCIDAS',
   'Reflexos de Horas extras — descaracterização da escala 12x36': 'VALOR_HE_12X36_REFLEXOS',
   'Reflexos de Horas extras — prorrogação da jornada': 'VALOR_HE_PRORROGACAO_REFLEXOS',
   'Intervalo intrajornada (art. 71 da CLT)': 'VALOR_ART71',
@@ -124,7 +125,7 @@ export const CAMPOS_TEMPLATE = [
   'VALOR_FT', 'VALOR_DSR', 'VALOR_DANO_MORAL_10X', 'VALOR_CAUSA_TOTAL', 'DATA_PECA',
   'VALOR_MULTA_477', 'VALOR_SALARIOS_ABERTO', 'VALOR_HONORARIOS', 'FT_100',
   'VALOR_HE_PRORROGACAO', 'VALOR_HE_PRORROGACAO_REFLEXOS',
-  'VALOR_HE_12X36', 'VALOR_HE_12X36_REFLEXOS', 'VALOR_HE_12X36_REFLEXOS_TEXTO', 'HE_12X36_RESUMO', 'PERC_HE_CONV_SUBSID',
+  'VALOR_HE_12X36', 'VALOR_HE_12X36_REFLEXOS', 'VALOR_HE_12X36_REFLEXOS_TEXTO', 'HE_12X36_RESUMO', 'PERC_HE_CONV_SUBSID', 'VALOR_FERIAS_VENCIDAS',
   'VALOR_ART71', 'VALOR_ART71_REFLEXOS',
   'VALOR_NOTURNO', 'VALOR_NOTURNO_REFLEXOS',
   'VALOR_DEZ_MINUTOS', 'VALOR_DEZ_MINUTOS_REFLEXOS',
@@ -362,6 +363,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     if (campo && c.texto) dados[`${campo}_TEXTO`] = c.texto;
     // Memória legível do pedido ("5 horas por plantão, 15 plantões por mês…").
     if (campo === 'VALOR_HE_12X36' && c.resumo) dados.HE_12X36_RESUMO = c.resumo;
+    if (campo === 'VALOR_FERIAS_VENCIDAS' && c.resumo) dados.PERIODO_FERIAS_VENCIDAS_CALC = c.resumo;
     // Honorários são calculados À PARTE (15% sobre o valor da causa, art. 85
     // CPC) — padrão do escritório. Não compõem o valor da causa (o rol de
     // pedidos não os lista como valor), senão o fecho fica maior que a soma
@@ -587,7 +589,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // a revisora marcou como incorretos. Agora são deduzidos das datas.
   dados.PERIODO_FERIAS_PROP = caso.periodo_ferias_prop || periodoAquisitivo(caso);
   dados.PERIODO_13 = caso.periodo_13 || (/^(\d{4})/.exec(caso.data_rescisao || '') ? `de ${/^(\d{4})/.exec(caso.data_rescisao)[1]}` : '');
-  dados.PERIODO_FERIAS_VENCIDAS = caso.periodo_ferias_vencidas || '';
+  dados.PERIODO_FERIAS_VENCIDAS = caso.periodo_ferias_vencidas || dados.PERIODO_FERIAS_VENCIDAS_CALC || '';
 
   // 12) Data da peça
   dados.DATA_PECA = `São Paulo, ${hojeExtenso()}`;
