@@ -17,6 +17,12 @@ const GENERO_FEM = [
   [/\bera obrigado\b/g, 'era obrigada'],
   [/\brendê-lo\b/g, 'rendê-la'],
   [/\bestava exposto\b/g, 'estava exposta'],
+  // Início de frase (maiúscula): "O reclamante foi admitida" saía nas peças femininas.
+  [/\bO reclamante\b/g, 'A reclamante'],
+  [/\bAo reclamante\b/g, 'À reclamante'],
+  [/\bDo reclamante\b/g, 'Da reclamante'],
+  [/\bPelo reclamante\b/g, 'Pela reclamante'],
+  [/\bO obreiro\b/g, 'A obreira'],
   [/\bo reclamante\b/g, 'a reclamante'],
   [/\bdo reclamante\b/g, 'da reclamante'],
   [/\bao reclamante\b/g, 'à reclamante'],
@@ -32,7 +38,8 @@ const GENERO_FEM = [
   [/\bresidente e domiciliado\b/g, 'residente e domiciliada'],
   [/\bdomiciliado\b/g, 'domiciliada'],
   [/\badmitido\b/g, 'admitida'],
-  [/\bdispensado\b/g, 'dispensada'],
+  // "ao empregado dispensado por justa causa" (texto genérico) não é a autora.
+  [/(?<!empregado )\bdispensado\b/g, 'dispensada'],
   [/\bcoagido\b/g, 'coagida'],
   [/\bameaçado\b/g, 'ameaçada'],
   [/\bcompelido\b/g, 'compelida'],
@@ -149,7 +156,10 @@ function corrigirTextoFinal(zip) {
   let xml = file.asText();
   // 1) Remove duplicação "palavra palavra" dentro de cada nó de texto <w:t>
   xml = xml.replace(/(<w:t[^>]*>)([^<]*)(<\/w:t>)/g, (m, open, text, close) => {
-    const corrigido = text.replace(/\b([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1\b/gi, '$1');
+    // Fronteira de palavra que entende acento: o \b do JS trata "ç" e "ã" como
+    // não-letra, então "Reforça a conclusão o princípio" virava "Reforça
+    // conclusão princípio" (o "a" final de "Reforça" casava com o artigo).
+    const corrigido = text.replace(/(?<![\wÀ-ÿ])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ])/gi, '$1');
     return open + corrigido + close;
   });
   // 2) Correções de redação (tolerante a tags entre palavras)
