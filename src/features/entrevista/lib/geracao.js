@@ -365,7 +365,12 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
         || (Array.isArray(blocos?.faltas_rescisao) && blocos.faltas_rescisao.length)) {
         Object.assign(dados, montarDadosTemplate({ caso, calculos, attrs, dadosReceita: dadosReceitaFinal, dadosCep: dadosCepFinal, blocos }));
       }
-      Object.assign(dados, blocos);
+      {
+        // pedidos_multas já vem tratada de montarDadosTemplate (filtros/contagem).
+        const { pedidos_multas: _pm, ...restoBlocos } = blocos;
+        Object.assign(dados, restoBlocos);
+        if (!dados.pedidos_multas && _pm) dados.pedidos_multas = _pm;
+      }
       // O template usa {{DANO_MORAL_FATO_ESPECIFICO}} para a narrativa concreta
       // do dano moral (após a fundamentação constitucional fixa). Quando a IA
       // redige o bloco, ele substitui o dano_fatos bruto do parser (que pode vir
