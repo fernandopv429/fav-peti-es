@@ -715,6 +715,12 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.acumulo_funcao = flag(caso.tem_acumulo && caso.acumulo_atividades && !mesmoFatoDesvio);
   dados.desvio_funcao = flag(caso.tem_desvio);
   dados.gratificacao_funcao = flag(caso.tem_gratificacao);
+  // Gratificação do monitoramento eletrônico/CFTV (Grupo B, 5%) tem capítulo e
+  // rótulo próprios; a do vigilante-condutor (cl. 3ª, 10%) segue como antes.
+  dados.gratificacao_monitor = dados.gratificacao_funcao && caso.gratificacao_tipo === 'monitor_eletronico';
+  dados.GRATIFICACAO_DESC = dados.gratificacao_monitor
+    ? '5%, Vigilante/Monitor de Segurança Eletrônica — Grupo B da CCT'
+    : '10%, cláusula 3ª';
   dados.escala_12x36 = /12\s*x\s*36/i.test(escalaTxt);
   dados.escala_4x2 = /\b(4\s*x\s*2|6\s*x\s*2)\b/i.test(escalaTxt);
   dados.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
