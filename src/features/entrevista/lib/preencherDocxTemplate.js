@@ -166,7 +166,10 @@ function corrigirTextoFinal(zip) {
     // Fronteira de palavra que entende acento: o \b do JS trata "ç" e "ã" como
     // não-letra, então "Reforça a conclusão o princípio" virava "Reforça
     // conclusão princípio" (o "a" final de "Reforça" casava com o artigo).
-    const corrigido = text.replace(/(?<![\wÀ-ÿ])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ])/gi, '$1');
+    // Hífen fora da fronteira: "submetendo-a a plantões" não é palavra
+    // repetida (o pronome enclítico "-a" seguido da preposição "a") — a regra
+    // apagava o "a" (Thais, 17/11/2026).
+    const corrigido = text.replace(/(?<![\wÀ-ÿ-])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ-])/gi, '$1');
     return open + corrigido + close;
   });
   // 2) Correções de redação (tolerante a tags entre palavras)
