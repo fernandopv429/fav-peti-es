@@ -7,6 +7,7 @@ import { blocoRegrasCriticas } from './regrasCriticas';
 import { blocoReferencias, attrsDoCaso } from '../../../../base44/shared/referencias.js';
 import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 import { removerTravessoes } from '../../../../base44/shared/texto.js';
+import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 
 // ============================================================
 // REDAÇÃO POR IA — ANÁLISE ÚNICA (um único LLM para todos os capítulos)
@@ -454,11 +455,8 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
       const lista = obj.PEDIDOS_MULTAS
         .map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : ''))
         .filter(Boolean);
-      // Periculosidade: redação fixa do escritório (17/11/2026), um item só.
-      const semPeric = lista.filter((s) => !/periculosidade/i.test(s));
-      const final = semPeric.length < lista.length
-        ? [...semPeric.slice(0, lista.findIndex((s) => /periculosidade/i.test(s))), 'Não integra o adicional de periculosidade em suas horas extras;', ...semPeric.slice(lista.findIndex((s) => /periculosidade/i.test(s)))]
-        : lista;
+      // Itens fixos do escritório (multasPadrao.js).
+      const final = finalizarItensMulta(lista, { ehVigilante: /vigil/i.test(c?.funcao || '') });
       if (final.length) blocos.pedidos_multas = final;
     }
     const escritos = Object.keys(blocos);
