@@ -31,6 +31,7 @@ export function horarioComProrrogacao(jornada, prorrogTxt) {
   );
 }
 import { categoriaEntidadeCct, tomadoraEhPublica } from '../../../../base44/shared/consultas.js';
+import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 
 // ============================================================
@@ -869,10 +870,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     if (dados.desvio_funcao || dados.acumulo_funcao) {
       itensMulta.push(`Não remunera corretamente o desvio/acúmulo de função${clMulta};`);
     }
-    itensMulta.push('Não remunera o FGTS corretamente;');
-    itensMulta.push('Não remunera corretamente os seus DSR´s;');
-    if (temDanoMoralConcreto(caso)) itensMulta.push('Incorre em dano moral em virtude das condições supramencionadas;');
-    dados.pedidos_multas = itensMulta;
+    // Intervalo, FGTS, DSR e dano moral: itens fixos do escritório, no fim
+    // (multasPadrao.js — a mesma regra aplicada à lista da IA).
+    dados.pedidos_multas = finalizarItensMulta(itensMulta, { ehVigilante: /vigil/i.test(caso.funcao || '') });
   }
 
   // No rol, a linha das multas convencionais saía "a apurar em liquidação", sem
