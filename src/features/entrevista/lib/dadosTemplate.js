@@ -1,4 +1,35 @@
-import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm } from './mathUtils';
+import { formatBRL, round2, brlComExtenso, temDanoMoralConcreto, salarioMinimoEm, horasDoTexto } from './mathUtils';
+
+// JORNADA (pedido do escritório, 17/11/2026): o horário da peça já sai com a
+// prorrogação embutida — "07:00 às 19:00" com 30 min antes e 30 min depois
+// vira "06:30 às 19:30". SEMPRE 30 min de cada lado, salvo se a entrevista
+// informar outro tempo para aquele lado.
+function minutosDoTexto(s) {
+  if (!s) return null;
+  const h = horasDoTexto(s, { somar: true });
+  if (h) return Math.round(h * 60);
+  const n = parseFloat(String(s).replace(',', '.'));
+  return Number.isFinite(n) && n > 0 && n <= 180 ? n : null;
+}
+export function horarioComProrrogacao(jornada, prorrogTxt) {
+  if (!jornada) return jornada;
+  const t = String(prorrogTxt || '');
+  const ladoRe = (lado) => new RegExp(`(\\d[\\d.,:]*\\s*(?:h(?:oras?)?|min(?:utos?)?)?(?:\\s*\\d+\\s*min(?:utos?)?)?)\\s*(?:de\\s+)?${lado}`, 'i');
+  const antes = minutosDoTexto(ladoRe('antes').exec(t)?.[1]) || 30;
+  const depois = minutosDoTexto(ladoRe('depois').exec(t)?.[1]) || 30;
+  const fmt = (min) => {
+    const m = ((min % 1440) + 1440) % 1440;
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  };
+  return String(jornada).replace(
+    /\b(\d{1,2})(?::|h)(\d{2})?\s*(às|as|a|-|–|até)\s*(\d{1,2})(?::|h)?(\d{2})?\b/gi,
+    (m, h1, m1, sep, h2, m2) => {
+      const ini = Number(h1) * 60 + Number(m1 || 0) - antes;
+      const fim = Number(h2) * 60 + Number(m2 || 0) + depois;
+      return `${fmt(ini)} às ${fmt(fim)}`;
+    },
+  );
+}
 import { categoriaEntidadeCct, tomadoraEhPublica } from '../../../../base44/shared/consultas.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 
@@ -462,7 +493,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.DANO_MORAL_FATO_ESPECIFICO = narrativaDanoMoral(caso);
 
   // 8) Jornada
-  dados.JORNADA_HORARIOS = caso.jornada_horario || '[HORÁRIOS]';
+  dados.JORNADA_HORARIOS = horarioComProrrogacao(caso.jornada_horario, caso.prorrogacao_jornada) || '[HORÁRIOS]';
   dados.ESCALA = caso.escala || '[ESCALA]';
   // O formulário do MARCOS chegou com INTERVALO_USUFRUIDO e INTERVALO_GOZADO
   // VAZIOS (a entrevistadora só marcou "intervalo suprimido"), então o token
