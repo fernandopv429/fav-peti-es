@@ -696,6 +696,10 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.pede_saldo_salario = temCalc('Saldo de salário');
   dados.pede_multa_467 = temCalc('Multa do art. 467 da CLT');
   dados.pede_multa_477 = temCalc('Multa do art. 477 da CLT');
+  // A periculosidade sobre HE inclui as FTs quando houver (mathUtils): o título,
+  // o capítulo e o rol passam a dizer "e folgas trabalhadas" (Vânia, 17/11/2026).
+  dados.peric_inclui_ft = (calculos || []).some((c) => c?.item === 'Adicional de periculosidade sobre as horas extras'
+    && /folgas trabalhadas/i.test(String(c.memoria || '')));
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
   dados.coacao_demissao = tipo === 'nulidade_pedido_demissao';
   dados.reversao_justa_causa = tipo === 'reversao_justa_causa';
