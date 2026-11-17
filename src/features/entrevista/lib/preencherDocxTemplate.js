@@ -260,6 +260,26 @@ function quebrarParagrafo(doc, p, pPrModelo) {
   return novos.length;
 }
 
+// Parágrafo sem texto (linha em branco do modelo, sobra de tag condicional ou
+// quebra dupla de bloco da IA) que herdou a numeração automática do corpo sai
+// como "10." sozinho na peça. Tira a numeração só desses; os demais ficam.
+export function removerNumeracaoDeVazios(zip) {
+  const alvo = 'word/document.xml';
+  const file = zip.file(alvo);
+  if (!file) return 0;
+  let n = 0;
+  const xml = file.asText().replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (p) => {
+    if (!p.includes('<w:numPr>')) return p;
+    if (/<w:(?:drawing|pict|object)\b/.test(p)) return p;
+    const texto = (p.match(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g) || []).map((t) => t.replace(/<[^>]+>/g, '')).join('');
+    if (texto.trim()) return p;
+    n += 1;
+    return p.replace(/<w:numPr>[\s\S]*?<\/w:numPr>/, '');
+  });
+  zip.file(alvo, xml);
+  return n;
+}
+
 export function dividirParagrafosInjetados(zip) {
   const alvo = 'word/document.xml';
   const file = zip.file(alvo);
@@ -435,6 +455,9 @@ export function preencherDocxTemplate(arrayBuffer, dados, { permitirPendencias =
   // Quebras de linha dos blocos da IA -> parágrafos reais, herdando a numeração
   // do corpo (antes o capítulo inteiro saía como um parágrafo sem número).
   dividirParagrafosInjetados(outZip);
+  // Linha em branco NUNCA leva número (peça da Thais, 17/11/2026: "10.", "12.",
+  // "14." vazios entre os parágrafos do capítulo de reversão).
+  removerNumeracaoDeVazios(outZip);
   // Correções pós-preenchimento (erros recorrentes do template e duplicações do docxtemplater)
   corrigirTextoFinal(outZip);
   // Concordância de gênero após o preenchimento. O template-mestre veio com
