@@ -1,4 +1,5 @@
 // Redação por IA dos capítulos da petição — porta backend de
+import { finalizarItensMulta } from './multasPadrao.js';
 // src/lib/trabalhista/redacaoTeses.js + módulos de contexto. Recebe
 // `invokeLLM` por injeção (backend: base44.asServiceRole.integrations.Core.InvokeLLM)
 // e `configs` (EspecialistaConfig) já carregados pelo orquestrador.
