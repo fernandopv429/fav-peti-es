@@ -503,7 +503,8 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // horário, sai uma linha só, igual ao modelo antigo.
   {
     const periodoTxt = (p) => {
-      const m = /(\d{2}\/\d{2}(?:\/\d{2,4})?|\d{2}\/\d{4})\s*(?:-|–|—|a|à|até)\s*(\d{2}\/\d{2}(?:\/\d{2,4})?|\d{2}\/\d{4})/i.exec(p || '');
+      const D = '(\\d{2}\\/\\d{2}\\/\\d{4}|\\d{2}\\/\\d{4}|\\d{2}\\/\\d{2}\\/\\d{2}|\\d{2}\\/\\d{2})(?!\\d)';
+      const m = new RegExp(`${D}\\s*(?:-|–|—|a|à|até)\\s*${D}`, 'i').exec(p || '');
       return m ? `de ${m[1]} a ${m[2]}` : '';
     };
     const postos = (Array.isArray(caso.postos_jornada) ? caso.postos_jornada : []).filter((p) => p && p.horario);
