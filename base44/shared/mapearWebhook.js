@@ -1,4 +1,4 @@
-import { presumirRescisaoNaElaboracao } from './mathUtils.js';
+import { presumirRescisaoNaElaboracao, aplicarIntervaloPadrao } from './mathUtils.js';
 // Mapeamento determinístico do payload do webhook → objeto `caso`.
 // Fonte unica do contrato do webhook (a copia do frontend foi removida por ser morta).
 
