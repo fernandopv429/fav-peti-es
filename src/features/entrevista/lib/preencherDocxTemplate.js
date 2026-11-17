@@ -197,6 +197,9 @@ function corrigirTextoFinal(zip) {
     const corrigido = percentualEmNumero(text.replace(/(?<![\wÀ-ÿ-])([\wÀ-ÿ][\wÀ-ÿ-]*)\s+\1(?![\wÀ-ÿ-])/gi, '$1'));
     return open + corrigido + close;
   });
+  // "60%" e "(sessenta por cento)" em runs separados viravam "60% (60%)":
+  // tira o parênteses repetido mesmo com tags no meio.
+  xml = xml.replace(/(\d+(?:,\d+)?%)((?:\s|<[^>]+>)*)\(((?:\s|<[^>]+>)*)\1((?:\s|<[^>]+>)*)\)/g, '$1$2$3$4');
   // 2) Correções de redação (tolerante a tags entre palavras)
   // A troca da Súmula 425 pelo art. 791-A tem de levar a PREPOSIÇÃO junto. O
   // modelo diz "nos termos DA Súmula 425 do Tribunal Superior do Trabalho" e a
