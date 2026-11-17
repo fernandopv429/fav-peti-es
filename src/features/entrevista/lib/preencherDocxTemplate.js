@@ -35,20 +35,24 @@ const GENERO_FEM = [
   [/\bao obreiro\b/g, 'à obreira'],
   [/\bobreiro\b/g, 'obreira'],
   [/\bportador\b/g, 'portadora'],
-  [/\binscrito\b/g, 'inscrita'],
+  // "Dr. Fernando Andrade Vieira, inscrito na OAB" é o advogado, não a autora.
+  [/\binscrito\b(?! na OAB)/g, 'inscrita'],
   [/\bnascido\b/g, 'nascida'],
   [/\bfilho de\b/g, 'filha de'],
   [/\bresidente e domiciliado\b/g, 'residente e domiciliada'],
   [/\bdomiciliado\b/g, 'domiciliada'],
   [/\badmitido\b/g, 'admitida'],
   // "ao empregado dispensado por justa causa" (texto genérico) não é a autora.
-  [/(?<!empregado )\bdispensado\b/g, 'dispensada'],
+  // Só quando o verbo aponta para a autora ("sendo/foi/ser dispensado").
+  // Antes trocava qualquer "dispensado": "o tratamento indigno dispensado à
+  // reclamante" e "tendo a reclamada dispensado o reclamante" saíam errados.
+  [/(\b(?:sendo|foi|ser|sido|é|era|fora|seja)\s+(?:[a-zà-ÿ]+mente\s+)?)dispensado\b/g, '$1dispensada'],
   [/\bcoagido\b/g, 'coagida'],
   [/\bameaçado\b/g, 'ameaçada'],
   [/\bcompelido\b/g, 'compelida'],
   [/\bsubmetido\b/g, 'submetida'],
   [/\bcontratado\b/g, 'contratada'],
-  [/\bprejudicado\b/g, 'prejudicado(a)'],
+  [/\bprejudicado\b/g, 'prejudicada'],
   [/\bregistrado\b/g, 'registrada'],
   [/\bbrasileiro\b/g, 'brasileira'],
   [/\bcasado\b/g, 'casada'],
