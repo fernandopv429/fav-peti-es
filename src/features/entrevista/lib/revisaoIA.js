@@ -46,6 +46,7 @@ export const ROTULO_CAPITULO = {
   BLOCO_DANO_MORAL: 'Do dano moral',
   DANO_MORAL_FATO_ESPECIFICO: 'Do dano moral (fatos)',
   BLOCO_ENQUADRAMENTO: 'Do enquadramento funcional',
+  BLOCO_REVERSAO_FATOS: 'Da reversão da justa causa (fatos)',
   BLOCO_MULTAS_CONVENCIONAIS: 'Das multas convencionais',
   BLOCO_INSALUBRIDADE: 'Da insalubridade',
   BLOCO_SUMULA_331: 'Da responsabilidade subsidiária',
