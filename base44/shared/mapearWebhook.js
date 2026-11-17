@@ -434,8 +434,17 @@ export function mapearCasoDeWebhook(data) {
     // registrado para o advogado conferir a função.
     const txtDesvio = String(d.funcoes_acumuladas || '');
     const teseDePorteiro = /porteir|controlador|(?:atividades?|fun[cç][õo]es|atribui[cç][õo]es|fun[cç][ãa]o)\s+de\s+vigilan/i.test(txtDesvio);
+    // Vigilante que fazia MONITORAMENTO/CFTV: não é desvio (a cl. 64ª trata de
+    // contratação irregular); é a GRATIFICAÇÃO DE FUNÇÃO do Grupo B da CCT —
+    // Vigilante/Monitor de Segurança Eletrônica, 5% do piso (decisão do
+    // usuário, 17/11/2026, Vânia).
+    const teseMonitoramento = /cftv|c[âa]meras?|monitorament|monitor de seguran/i.test(txtDesvio);
     if (ehVigilante && teseDePorteiro) {
       caso.desvio_descartado = txtDesvio;
+    } else if (ehVigilante && teseMonitoramento) {
+      caso.tem_gratificacao = true;
+      caso.gratificacao_tipo = 'monitor_eletronico';
+      caso.gratificacao_atividades = txtDesvio;
     } else if (ehVigilante) {
       caso.tem_desvio = true;
       caso.desvio_atividades = d.funcoes_acumuladas || '';
