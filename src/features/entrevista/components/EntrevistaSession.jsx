@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck, Check,
+  Loader2, FileText, FileDown, Library, RefreshCw, CheckCircle2, ScrollText, AlertTriangle, Inbox, Wand2, BadgeCheck, Check, Hourglass,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import SessionLogsModal from '@/features/entrevista/components/SessionLogsModal';
