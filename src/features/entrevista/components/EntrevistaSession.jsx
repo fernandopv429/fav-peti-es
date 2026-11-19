@@ -410,6 +410,15 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
             <Inbox className="w-3.5 h-3.5" /> Fila
             {filaCount > 0 && <span className="font-semibold">{filaCount}</span>}
           </button>
+          {/* Casos que não viraram peça por falta de dados do Fav Sales (fase 1) */}
+          <button
+            onClick={() => { setFilaModo('aguardando'); setFilaOpen(true); }}
+            className={btnNeutro}
+            title="Entrevistas que chegaram sem salário, datas ou escala — aguardando o comercial completar"
+          >
+            <Hourglass className={`w-3.5 h-3.5 ${aguardandoCount > 0 ? 'text-destructive' : ''}`} /> <span className="hidden sm:inline">Aguardando dados</span>
+            {aguardandoCount > 0 && <span className="font-semibold text-destructive">{aguardandoCount}</span>}
+          </button>
           <button
             onClick={() => { setFilaModo('confirmadas'); setFilaOpen(true); }}
             className={btnNeutro}
