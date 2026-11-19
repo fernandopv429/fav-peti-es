@@ -14,7 +14,8 @@
         "auditado",
         "gerado",
         "revisao",
-        "pronto"
+        "pronto",
+        "aguardando_dados"
       ],
       "default": "rascunho",
       "title": "Status"
