@@ -76,6 +76,52 @@ export default async function(req) {
     // 2) Mapeia o caso + cria (ou atualiza) o registro "gerando"
     const caso = mapearCasoDeWebhook(data);
 
+    // 2a) DADOS MÍNIMOS (fase 1, 19/11/2026). Sem salário real, admissão, saída,
+    // escala/horário e tipo de dispensa a peça saía sem base de cálculo (Karina:
+    // causa R$ 0,00; Suellen: R$ 0,20). Em vez de gerar e jogar na Fila, o caso
+    // fica "aguardando_dados" — sem gastar IA — até o comercial completar no Fav
+    // Sales (o reenvio refaz tudo). { gerar_mesmo_assim: true } pula a trava.
+    const pendenciasDados = [];
+    if (!(Number(caso.salario) >= 100)) pendenciasDados.push('Salário-base');
+    if (!caso.data_admissao) pendenciasDados.push('Data de admissão');
+    if (!caso.data_rescisao && !caso.continua_trabalhando) pendenciasDados.push('Último dia trabalhado');
+    if (!caso.escala && !caso.jornada_horario) pendenciasDados.push('Escala / horário');
+    if (!caso.tipo_dispensa) pendenciasDados.push('Tipo de dispensa');
+    if (pendenciasDados.length && !body.gerar_mesmo_assim) {
+      const agora = new Date().toISOString();
+      const camposAguardando = {
+        titulo: (caso.recl_nome || 'Caso webhook').slice(0, 120),
+        status: 'aguardando_dados',
+        origem_evento_id: origemEventoId || undefined,
+        recl_nome: caso.recl_nome || '',
+        recl_cpf: caso.recl_cpf || '',
+        recl1_nome: caso.recl1_nome || '',
+        funcao: caso.funcao || '',
+        analise_json: {
+          ...(casoExistente?.analise_json || {}),
+          origem: 'webhook',
+          evento_id,
+          origem_evento_id: origemEventoId,
+          caso,
+          pendencias_dados: pendenciasDados,
+          aguardando_desde: casoExistente?.analise_json?.aguardando_desde || agora,
+          verificado_em: agora,
+        },
+      };
+      let casoAguardandoId = casoExistente?.id || null;
+      if (casoExistente) {
+        await base44.asServiceRole.entities.CasoTrabalhista.update(casoExistente.id, camposAguardando);
+      } else {
+        casoAguardandoId = (await base44.asServiceRole.entities.CasoTrabalhista.create(camposAguardando)).id;
+      }
+      await base44.asServiceRole.entities.WebhookEvento.update(evento_id, {
+        status: 'aguardando_dados',
+        erro_mensagem: `Aguardando dados do Fav Sales: ${pendenciasDados.join(', ')}`,
+        processado_em: agora,
+      }).catch(() => {});
+      return Response.json({ ok: true, aguardando_dados: true, caso_id: casoAguardandoId, pendencias: pendenciasDados });
+    }
+
     // 2b) MODELO ÚNICO. A peça inicial sai sempre do template padrão marcado
     // com a tag "blocos" (dialeto de entrevista): a variação por sindicato/
     // função é feita pelos capítulos condicionais ({{BLOCO_*}}), não por um
