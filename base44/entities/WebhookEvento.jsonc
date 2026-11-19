@@ -28,7 +28,8 @@
         "recebido",
         "processando",
         "processado",
-        "erro"
+        "erro",
+        "aguardando_dados"
       ],
       "default": "recebido",
       "title": "Status"
