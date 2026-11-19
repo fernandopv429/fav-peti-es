@@ -151,7 +151,7 @@ export function calcularIndicadores(casos, periodoId = "30d", agora = new Date()
   const revisadasNoPeriodo = noPeriodo.filter((c) => c.status === "pronto");
 
   // Fila e casos parados
-  const naFila = casos.filter((c) => c.status !== "pronto")
+  const naFila = casos.filter((c) => c.status !== "pronto" && c.status !== "aguardando_dados")
     .map((c) => ({ caso: c, dias: diasDesde(dataDe(c), agora) }))
     .sort((a, b) => b.dias - a.dias);
   const atrasados = naFila.filter((f) => f.dias >= DIAS_ALERTA).length;
