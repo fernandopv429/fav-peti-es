@@ -24,7 +24,8 @@ export function useCasosWebhook({ intervaloMs = 60000 } = {}) {
     return () => { vivo = false; if (t) clearInterval(t); };
   }, [intervaloMs]);
 
-  const naFila = casos.filter((c) => c.status !== "pronto" && c.status !== "em_analise");
+  // "aguardando_dados" não é Fila: a peça nem foi gerada (falta dado do Fav Sales).
+  const naFila = casos.filter((c) => c.status !== "pronto" && c.status !== "em_analise" && c.status !== "aguardando_dados");
   const gerando = casos.filter((c) => c.status === "em_analise");
   const revisadas = casos.filter((c) => c.status === "pronto");
   const agora = new Date();
