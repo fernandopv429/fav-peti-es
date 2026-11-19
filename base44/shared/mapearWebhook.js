@@ -511,6 +511,12 @@ export function mapearCasoDeWebhook(data) {
   }
 
   if (d.doenca_acidente || d.tem_doenca) caso.tem_doenca = true;
+  // Descrição da doença/acidente (campo novo do Fav Sales, obrigatório com
+  // "Sim" desde 19/11/2026). Sem ela a peça saía com "[A PREENCHER: qual doença…]".
+  {
+    const descDoenca = String(pick(d, 'DOENCA_DESCRICAO', 'doenca_descricao') || '').trim();
+    if (descDoenca) caso.doenca_descricao = descDoenca.slice(0, 600);
+  }
 
   // GRATIFICAÇÃO DE FUNÇÃO é a tese do VIGILANTE-CONDUTOR (motoronda): 10%
   // sobre o salário base, cláusula 3º da CCT de vigilância. Ligar a flag por um
