@@ -72,6 +72,7 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
   const [filaModo, setFilaModo] = useState('pendentes');
   const [filaCount, setFilaCount] = useState(0);
   const [confirmadasCount, setConfirmadasCount] = useState(0);
+  const [aguardandoCount, setAguardandoCount] = useState(0);
 
   // Documento vivo — preview do template .docx preenchido
   const [docHtml, setDocHtml] = useState('');
@@ -116,8 +117,9 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
     base44.entities.CasoTrabalhista.list('-created_date', 1000)
       .then((l) => {
         const webhooks = (l || []).filter((c) => c.analise_json?.origem === 'webhook');
-        setFilaCount(webhooks.filter((c) => c.status !== 'pronto').length);
+        setFilaCount(webhooks.filter((c) => c.status !== 'pronto' && c.status !== 'aguardando_dados').length);
         setConfirmadasCount(webhooks.filter((c) => c.status === 'pronto').length);
+        setAguardandoCount(webhooks.filter((c) => c.status === 'aguardando_dados').length);
       })
       .catch(() => {});
   };
