@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "docx": "^8.5.0",
     "docxtemplater": "^3.68.7",
+    "input-otp": "^1.4.2",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.475.0",
     "mammoth": "^1.12.0",
