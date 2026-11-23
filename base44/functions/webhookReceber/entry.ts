@@ -88,7 +88,7 @@ export default async function(req) {
     // foi recebido e persistido; só marcamos o próprio registro como erro.
     if (String(eventoTipo) === "entrevista.salva") {
       try {
-        await base44.asServiceRole.functions.invoke("gerarPecaWebhook", { evento_id: registro.id });
+        await base44.asServiceRole.functions.invoke("gerarPecaWebhook", { evento_id: registro.id, segredo });
       } catch (e) {
         await base44.asServiceRole.entities.WebhookEvento.update(registro.id, {
           status: "erro",
