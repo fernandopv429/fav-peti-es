@@ -31,6 +31,20 @@ export default async function(req) {
     // 1) Carrega o evento do webhook
     const evento = await base44.asServiceRole.entities.WebhookEvento.get(evento_id);
     if (!evento) return Response.json({ error: 'evento não encontrado' }, { status: 404 });
+
+    // ACESSO. Quem pode chamar: (a) o webhookReceber, que manda o segredo
+    // compartilhado; (b) usuário logado (botões Reprocessar / Gerar mesmo assim);
+    // (c) o gatilho automático por entidade, sem usuário — esse só processa
+    // evento recém-recebido, uma única vez. Chamada anônima não pode forçar
+    // reprocessamento, furar a trava de dados nem refazer evento já tratado.
+    const segredoWebhook = String(secrets.get('WEBHOOK_SECRET') || '').trim();
+    const tokenInformado = String(body.segredo || req.headers.get('x-webhook-secret') || '').trim();
+    const tokenOk = Boolean(segredoWebhook) && tokenInformado === segredoWebhook;
+    let usuarioLogado = null;
+    if (!tokenOk) { try { usuarioLogado = await base44.auth.me(); } catch { usuarioLogado = null; } }
+    if (!tokenOk && !usuarioLogado && (body.forcar || body.gerar_mesmo_assim || evento.status !== 'recebido')) {
+      return Response.json({ error: 'Não autorizado' }, { status: 401 });
+    }
     // IDEMPOTÊNCIA. O mesmo evento chega aqui por DOIS caminhos: a invocação
     // direta do webhookReceber e o workflow "Gerar Peça do Webhook" (gatilho por
     // entidade), que dispara com atraso de ~1 min a quase 1 h. Sem esta guarda a
