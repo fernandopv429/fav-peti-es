@@ -71,7 +71,7 @@ async function recalcular(base44, emailBruto) {
   const vinculos = (await base44.asServiceRole.entities.AcessoUsuario.filter({ user_email: email }))
     .filter((v) => v.ativo !== false);
   const grupos = [...new Set(vinculos.flatMap((v) => v.grupos || []))];
-  const liberado = vinculos.length > 0;
+  const liberado = grupos.length > 0;
   const usuarios = await base44.asServiceRole.entities.User.filter({ email });
   if (!usuarios[0]) return { grupos, aviso: 'Usuário ainda não fez o primeiro acesso' };
   await base44.asServiceRole.entities.User.update(usuarios[0].id, {
