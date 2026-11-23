@@ -3,7 +3,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    // Autenticação via createClientFromRequest já garante o contexto do usuário
+    // Só usuário logado: a função gasta crédito de IA e lê dados do caso.
+    let usuario = null;
+    try { usuario = await base44.auth.me(); } catch { usuario = null; }
+    if (!usuario) return Response.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { petitionId, aiPrompt, templateParts, templateContent, templateName, templateId, modeloIA, petitionConfig } = await req.json();
     if (!petitionId || !templateParts) {
