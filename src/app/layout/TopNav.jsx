@@ -11,6 +11,7 @@ const ABAS = [
   { label: "Entrevistas", path: "/entrevista", contador: true },
   { label: "Modelos", path: "/modelos" },
   { label: "Webhooks", path: "/webhooks" },
+  { label: "Usuários e acessos", path: "/usuarios-acessos", soAdmin: true },
 ];
 
 function iniciais(nome) {
@@ -41,7 +42,7 @@ export default function TopNav() {
         </Link>
 
         <nav className="flex-1 min-w-0 flex items-stretch gap-5 sm:gap-7 h-full overflow-x-auto no-scrollbar">
-          {ABAS.map((aba) => {
+          {ABAS.filter((aba) => !aba.soAdmin || user?.role === "admin").map((aba) => {
             const ativo = aba.path === "/"
               ? location.pathname === "/"
               : location.pathname.startsWith(aba.path);
