@@ -4,7 +4,7 @@
   "properties": {
     "titulo": {
       "type": "string",
-      "title": "T\u00edtulo"
+      "title": "Título"
     },
     "status": {
       "type": "string",
@@ -23,7 +23,7 @@
     "origem_evento_id": {
       "type": "string",
       "title": "ID do evento de origem (webhook)",
-      "description": "ID est\u00e1vel do lead/entrevista de origem (payload.id), igual em reenvios \u2014 usado para atualizar em vez de duplicar a pe\u00e7a ao reprocessar o mesmo evento."
+      "description": "ID estável do lead/entrevista de origem (payload.id), igual em reenvios — usado para atualizar em vez de duplicar a peça ao reprocessar o mesmo evento."
     },
     "entrevista_texto": {
       "type": "string",
@@ -51,61 +51,61 @@
     },
     "recl_endereco": {
       "type": "string",
-      "title": "Endere\u00e7o do Reclamante"
+      "title": "Endereço do Reclamante"
     },
     "recl1_nome": {
       "type": "string",
-      "title": "1\u00aa Reclamada - Nome"
+      "title": "1ª Reclamada - Nome"
     },
     "recl1_cnpj": {
       "type": "string",
-      "title": "1\u00aa Reclamada - CNPJ"
+      "title": "1ª Reclamada - CNPJ"
     },
     "recl1_logradouro": {
       "type": "string",
-      "title": "1\u00aa Reclamada - Logradouro"
+      "title": "1ª Reclamada - Logradouro"
     },
     "recl1_complemento": {
       "type": "string",
-      "title": "1\u00aa Reclamada - Complemento"
+      "title": "1ª Reclamada - Complemento"
     },
     "recl2_nome": {
       "type": "string",
-      "title": "2\u00aa Reclamada - Nome"
+      "title": "2ª Reclamada - Nome"
     },
     "recl2_cnpj": {
       "type": "string",
-      "title": "2\u00aa Reclamada - CNPJ"
+      "title": "2ª Reclamada - CNPJ"
     },
     "recl3_nome": {
       "type": "string",
-      "title": "3\u00aa Reclamada - Nome"
+      "title": "3ª Reclamada - Nome"
     },
     "recl3_cnpj": {
       "type": "string",
-      "title": "3\u00aa Reclamada - CNPJ"
+      "title": "3ª Reclamada - CNPJ"
     },
     "data_admissao": {
       "type": "string",
       "format": "date",
-      "title": "Data de Admiss\u00e3o"
+      "title": "Data de Admissão"
     },
     "data_rescisao": {
       "type": "string",
       "format": "date",
-      "title": "Data de Rescis\u00e3o"
+      "title": "Data de Rescisão"
     },
     "funcao": {
       "type": "string",
-      "title": "Fun\u00e7\u00e3o"
+      "title": "Função"
     },
     "salario": {
       "type": "number",
-      "title": "Sal\u00e1rio"
+      "title": "Salário"
     },
     "jornada_horario": {
       "type": "string",
-      "title": "Jornada/Hor\u00e1rio"
+      "title": "Jornada/Horário"
     },
     "jornada_extrapola": {
       "type": "boolean",
@@ -113,7 +113,7 @@
     },
     "jornada_freq_extra": {
       "type": "string",
-      "title": "Frequ\u00eancia de Extras"
+      "title": "Frequência de Extras"
     },
     "intervalo_gozado": {
       "type": "boolean",
@@ -128,7 +128,7 @@
         "reversao_justa_causa",
         "acordo"
       ],
-      "title": "Modalidade de Rescis\u00e3o"
+      "title": "Modalidade de Rescisão"
     },
     "val_ft": {
       "type": "number",
@@ -136,15 +136,15 @@
     },
     "ft_qtd_media": {
       "type": "number",
-      "title": "Qtd M\u00e9dia FT"
+      "title": "Qtd Média FT"
     },
     "val_conducao": {
       "type": "number",
-      "title": "Valor Condu\u00e7\u00e3o"
+      "title": "Valor Condução"
     },
     "val_alimentacao": {
       "type": "number",
-      "title": "Valor Alimenta\u00e7\u00e3o"
+      "title": "Valor Alimentação"
     },
     "comarca_uf": {
       "type": "string",
@@ -152,7 +152,7 @@
     },
     "regiao_trt": {
       "type": "string",
-      "title": "Regi\u00e3o TRT"
+      "title": "Região TRT"
     },
     "dano_supervisor": {
       "type": "string",
@@ -176,15 +176,15 @@
     },
     "tem_desvio": {
       "type": "boolean",
-      "title": "Tem Desvio de Fun\u00e7\u00e3o"
+      "title": "Tem Desvio de Função"
     },
     "tem_acumulo": {
       "type": "boolean",
-      "title": "Tem Ac\u00famulo de Fun\u00e7\u00e3o"
+      "title": "Tem Acúmulo de Função"
     },
     "acumulo_funcao": {
       "type": "string",
-      "title": "Descri\u00e7\u00e3o Ac\u00famulo"
+      "title": "Descrição Acúmulo"
     },
     "tem_insalubridade": {
       "type": "boolean",
@@ -221,11 +221,11 @@
         "erro"
       ],
       "default": "pendente",
-      "title": "Status da An\u00e1lise"
+      "title": "Status da Análise"
     },
     "analise_laudo": {
       "type": "string",
-      "title": "Laudo da An\u00e1lise"
+      "title": "Laudo da Análise"
     },
     "analise_json": {
       "type": "object",
@@ -248,9 +248,104 @@
         "aprovado"
       ],
       "title": "Status Final da Auditoria"
+    },
+    "grupo_funcao": {
+      "type": "string",
+      "title": "Grupo de função",
+      "description": "Grupo derivado da função registrada (GrupoFuncao); define quem enxerga o registro"
     }
   },
   "required": [
     "titulo"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.grupo_funcao": {
+            "$in": "{{user.data.grupos_visiveis}}"
+          }
+        },
+        {
+          "$and": [
+            {
+              "user_condition": {
+                "data.ve_sem_categoria": true
+              }
+            },
+            {
+              "$or": [
+                {
+                  "data.grupo_funcao": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "data.grupo_funcao": "Sem categoria"
+                },
+                {
+                  "data.grupo_funcao": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "create": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.grupo_funcao": {
+            "$in": "{{user.data.grupos_visiveis}}"
+          }
+        },
+        {
+          "$and": [
+            {
+              "user_condition": {
+                "data.ve_sem_categoria": true
+              }
+            },
+            {
+              "data.grupo_funcao": {
+                "$in": [
+                  "Sem categoria",
+                  ""
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    }
+  }
 }

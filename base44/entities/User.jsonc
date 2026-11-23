@@ -7,6 +7,32 @@
         "admin",
         "user"
       ]
+    },
+    "grupos_visiveis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Grupos de função que enxerga",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "collaborator_role": "editor"
+          }
+        }
+      }
+    },
+    "ve_sem_categoria": {
+      "type": "boolean",
+      "default": false,
+      "title": "Enxerga casos sem categoria",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "collaborator_role": "editor"
+          }
+        }
+      }
     }
   },
   "required": [

@@ -1,0 +1,44 @@
+{
+  "name": "GrupoFuncao",
+  "type": "object",
+  "description": "Grupos de função (a partir da função registrada na CTPS) usados para definir quais casos cada usuário enxerga.",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome do grupo"
+    },
+    "sinonimos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Sinônimos da função registrada"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true,
+      "title": "Ativo"
+    }
+  },
+  "required": [
+    "nome"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

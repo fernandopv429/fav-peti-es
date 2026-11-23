@@ -4,7 +4,7 @@
   "properties": {
     "title": {
       "type": "string",
-      "description": "T\u00edtulo da peti\u00e7\u00e3o"
+      "description": "Título da petição"
     },
     "status": {
       "type": "string",
@@ -16,7 +16,7 @@
         "pronto_para_protocolo"
       ],
       "default": "rascunho",
-      "description": "Status da peti\u00e7\u00e3o"
+      "description": "Status da petição"
     },
     "case_type": {
       "type": "string",
@@ -27,7 +27,7 @@
         "consumidor",
         "outro"
       ],
-      "description": "Tipo de a\u00e7\u00e3o"
+      "description": "Tipo de ação"
     },
     "rite": {
       "type": "string",
@@ -56,7 +56,7 @@
     },
     "claimant_ctps": {
       "type": "string",
-      "description": "N\u00famero da CTPS"
+      "description": "Número da CTPS"
     },
     "claimant_pis": {
       "type": "string",
@@ -64,15 +64,15 @@
     },
     "claimant_address": {
       "type": "string",
-      "description": "Endere\u00e7o completo do reclamante"
+      "description": "Endereço completo do reclamante"
     },
     "claimant_role": {
       "type": "string",
-      "description": "Fun\u00e7\u00e3o/cargo do reclamante (ex: Vigilante)"
+      "description": "Função/cargo do reclamante (ex: Vigilante)"
     },
     "defendant_name": {
       "type": "string",
-      "description": "Raz\u00e3o social da reclamada principal (empregadora)"
+      "description": "Razão social da reclamada principal (empregadora)"
     },
     "defendant_cnpj": {
       "type": "string",
@@ -80,11 +80,11 @@
     },
     "defendant_address": {
       "type": "string",
-      "description": "Endere\u00e7o completo da reclamada principal"
+      "description": "Endereço completo da reclamada principal"
     },
     "extra_defendants": {
       "type": "array",
-      "description": "Reclamadas adicionais (tomadoras, respons\u00e1veis solid\u00e1rias, etc.)",
+      "description": "Reclamadas adicionais (tomadoras, responsáveis solidárias, etc.)",
       "items": {
         "type": "object",
         "properties": {
@@ -103,32 +103,32 @@
     "contract_start": {
       "type": "string",
       "format": "date",
-      "description": "Data de admiss\u00e3o"
+      "description": "Data de admissão"
     },
     "contract_end": {
       "type": "string",
       "format": "date",
-      "description": "Data de demiss\u00e3o/rescis\u00e3o"
+      "description": "Data de demissão/rescisão"
     },
     "salary": {
       "type": "number",
-      "description": "Sal\u00e1rio base mensal em R$ (ex: 2148.22)"
+      "description": "Salário base mensal em R$ (ex: 2148.22)"
     },
     "work_schedule": {
       "type": "string",
-      "description": "Jornada de trabalho alegada (ex: 18:30 \u00e0s 07:30)"
+      "description": "Jornada de trabalho alegada (ex: 18:30 às 07:30)"
     },
     "irregularities": {
       "type": "string",
-      "description": "Irregularidades alegadas pelo reclamante \u2014 texto livre descritivo"
+      "description": "Irregularidades alegadas pelo reclamante — texto livre descritivo"
     },
     "additional_facts": {
       "type": "string",
-      "description": "Contexto adicional do caso, fatos relevantes ou pend\u00eancias de valida\u00e7\u00e3o identificadas pela IA"
+      "description": "Contexto adicional do caso, fatos relevantes ou pendências de validação identificadas pela IA"
     },
     "claims": {
       "type": "array",
-      "description": "Lista de pedidos/teses da peti\u00e7\u00e3o",
+      "description": "Lista de pedidos/teses da petição",
       "items": {
         "type": "string"
       }
@@ -139,15 +139,15 @@
     },
     "generated_content": {
       "type": "string",
-      "description": "Conte\u00fado da peti\u00e7\u00e3o gerado pela IA \u2014 texto completo ou URL do arquivo .txt/.docx gerado"
+      "description": "Conteúdo da petição gerado pela IA — texto completo ou URL do arquivo .txt/.docx gerado"
     },
     "template_used": {
       "type": "string",
-      "description": "ID ou nome do template utilizado na gera\u00e7\u00e3o"
+      "description": "ID ou nome do template utilizado na geração"
     },
     "document_urls": {
       "type": "array",
-      "description": "URLs dos documentos anexados \u00e0 peti\u00e7\u00e3o (provas, holerites, CTPS, etc.)",
+      "description": "URLs dos documentos anexados à petição (provas, holerites, CTPS, etc.)",
       "items": {
         "type": "string"
       }
@@ -161,12 +161,12 @@
     },
     "jurisdiction": {
       "type": "string",
-      "description": "Comarca/Vara de compet\u00eancia (ex: ARUJ\u00c1/SP \u2014 2\u00aa Regi\u00e3o)"
+      "description": "Comarca/Vara de competência (ex: ARUJÁ/SP — 2ª Região)"
     },
     "free_justice": {
       "type": "boolean",
       "default": true,
-      "description": "Benefici\u00e1rio da justi\u00e7a gratuita"
+      "description": "Beneficiário da justiça gratuita"
     },
     "digital_court": {
       "type": "boolean",
@@ -175,7 +175,7 @@
     },
     "analise_documentos": {
       "type": "string",
-      "description": "Laudo de issue-spotting gerado pela IA a partir dos documentos anexados. Revis\u00e3o obrigat\u00f3ria pelo advogado antes da gera\u00e7\u00e3o da inicial."
+      "description": "Laudo de issue-spotting gerado pela IA a partir dos documentos anexados. Revisão obrigatória pelo advogado antes da geração da inicial."
     },
     "analise_status": {
       "type": "string",
@@ -186,7 +186,12 @@
         "sem_documentos"
       ],
       "default": "pendente",
-      "description": "Status da an\u00e1lise de documentos"
+      "description": "Status da análise de documentos"
+    },
+    "grupo_funcao": {
+      "type": "string",
+      "title": "Grupo de função",
+      "description": "Grupo derivado da função registrada (GrupoFuncao); define quem enxerga o registro"
     }
   },
   "required": [
@@ -194,5 +199,95 @@
     "case_type",
     "claimant_name",
     "defendant_name"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.grupo_funcao": {
+            "$in": "{{user.data.grupos_visiveis}}"
+          }
+        },
+        {
+          "$and": [
+            {
+              "user_condition": {
+                "data.ve_sem_categoria": true
+              }
+            },
+            {
+              "$or": [
+                {
+                  "data.grupo_funcao": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "data.grupo_funcao": "Sem categoria"
+                },
+                {
+                  "data.grupo_funcao": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "create": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "data.grupo_funcao": {
+            "$in": "{{user.data.grupos_visiveis}}"
+          }
+        },
+        {
+          "$and": [
+            {
+              "user_condition": {
+                "data.ve_sem_categoria": true
+              }
+            },
+            {
+              "data.grupo_funcao": {
+                "$in": [
+                  "Sem categoria",
+                  ""
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    }
+  }
 }
