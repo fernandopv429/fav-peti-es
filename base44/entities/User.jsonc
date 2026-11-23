@@ -45,6 +45,18 @@
           }
         }
       }
+    },
+    "ve_todas": {
+      "type": "boolean",
+      "default": false,
+      "title": "Gerente: enxerga todas as categorias",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "collaborator_role": "editor"
+          }
+        }
+      }
     }
   },
   "required": [

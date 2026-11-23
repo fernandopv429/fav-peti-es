@@ -306,6 +306,11 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "user_condition": {
+                    "data.ve_todas": true
+                  }
                 }
               ]
             }
@@ -367,6 +372,11 @@
                       }
                     }
                   ]
+                },
+                {
+                  "user_condition": {
+                    "data.ve_todas": true
+                  }
                 }
               ]
             }

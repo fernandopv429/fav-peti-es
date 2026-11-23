@@ -28,14 +28,14 @@ export default async function (req) {
     const existentes = await base44.asServiceRole.entities.AcessoUsuario.filter({ user_email: email });
 
     if (corpo.acao === 'remover') {
-      for (const a of existentes) await base44.asServiceRole.entities.AcessoUsuario.update(a.id, { ativo: false, grupos: [] });
+      for (const a of existentes) await base44.asServiceRole.entities.AcessoUsuario.update(a.id, { ativo: false, grupos: [], gerente: false });
       return Response.json({ ok: true, acessos: await recalcular(base44, email) });
     }
 
     if (corpo.acao === 'salvar') {
       const validos = (await base44.asServiceRole.entities.GrupoFuncao.list()).map((g) => g.nome);
       const grupos = (Array.isArray(corpo.grupos) ? corpo.grupos : []).filter((g) => validos.includes(g));
-      const dados = { user_email: email, grupos, ativo: true, convidado_por: user.email };
+      const dados = { user_email: email, grupos, gerente: corpo.gerente === true, ativo: true, convidado_por: user.email };
       if (corpo.user_nome) dados.user_nome = String(corpo.user_nome).trim();
       if (existentes[0]) await base44.asServiceRole.entities.AcessoUsuario.update(existentes[0].id, dados);
       else await base44.asServiceRole.entities.AcessoUsuario.create(dados);
@@ -71,15 +71,17 @@ async function recalcular(base44, emailBruto) {
   const vinculos = (await base44.asServiceRole.entities.AcessoUsuario.filter({ user_email: email }))
     .filter((v) => v.ativo !== false);
   const grupos = [...new Set(vinculos.flatMap((v) => v.grupos || []))];
-  const liberado = grupos.length > 0;
+  const gerente = vinculos.some((v) => v.gerente === true);
+  const liberado = gerente || grupos.length > 0;
   const usuarios = await base44.asServiceRole.entities.User.filter({ email });
   if (!usuarios[0]) return { grupos, aviso: 'Usuário ainda não fez o primeiro acesso' };
   await base44.asServiceRole.entities.User.update(usuarios[0].id, {
     grupos_visiveis: grupos,
-    ve_sem_categoria: grupos.includes('Sem categoria'),
+    ve_sem_categoria: gerente || grupos.includes('Sem categoria'),
+    ve_todas: gerente,
     acesso_liberado: liberado,
   });
-  return { grupos, acesso_liberado: liberado };
+  return { grupos, gerente, acesso_liberado: liberado };
 }
 
 function esc(t) {

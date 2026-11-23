@@ -14,7 +14,8 @@ export default function UsuariosAcessos() {
   const [linhas, setLinhas] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [edicao, setEdicao] = useState({});
-  const [convite, setConvite] = useState({ email: '', nome: '', grupos: [] });
+  const [convite, setConvite] = useState({ email: '', nome: '', grupos: [], gerente: false });
+  const [gerentes, setGerentes] = useState({});
   const [mensagem, setMensagem] = useState('');
   const [ocupado, setOcupado] = useState(null);
 
@@ -43,6 +44,7 @@ export default function UsuariosAcessos() {
     }
     setLinhas(lista);
     setEdicao(Object.fromEntries(lista.map((l) => [l.email, l.acesso?.ativo !== false ? (l.acesso?.grupos || []) : []])));
+    setGerentes(Object.fromEntries(lista.map((l) => [l.email, l.acesso?.ativo !== false && l.acesso?.gerente === true])));
   };
 
   const alternar = (lista, g) => (lista.includes(g) ? lista.filter((x) => x !== g) : [...lista, g]);
@@ -52,18 +54,18 @@ export default function UsuariosAcessos() {
   const convidar = async () => {
     const email = convite.email.trim().toLowerCase();
     if (!email) return;
-    if (!convite.grupos.length) {
-      setMensagem('Marque pelo menos um grupo para a pessoa.');
+    if (!convite.grupos.length && !convite.gerente) {
+      setMensagem('Marque pelo menos um grupo, ou o perfil Gerente.');
       return;
     }
     setMensagem('');
     setOcupado('convite');
     try {
       await base44.users.inviteUser(email, 'user');
-      const r = await gerenciar({ acao: 'salvar', user_email: email, user_nome: convite.nome, grupos: convite.grupos, enviar_boas_vindas: true });
+      const r = await gerenciar({ acao: 'salvar', user_email: email, user_nome: convite.nome, grupos: convite.grupos, gerente: convite.gerente, enviar_boas_vindas: true });
       const bv = r?.boas_vindas === 'enviado' ? ' E-mail de boas-vindas enviado.' : ' O e-mail de boas-vindas não saiu agora; use "Reenviar boas-vindas" depois.';
-      setMensagem(r?.error ? `Convite enviado, mas os grupos não foram salvos: ${r.error}` : `Convite enviado para ${email} com os grupos: ${convite.grupos.join(', ')}.${bv}`);
-      setConvite({ email: '', nome: '', grupos: [] });
+      setMensagem(r?.error ? `Convite enviado, mas os grupos não foram salvos: ${r.error}` : `Convite enviado para ${email} ${convite.gerente ? 'como Gerente (todas as categorias)' : 'com os grupos: ' + convite.grupos.join(', ')}.${bv}`);
+      setConvite({ email: '', nome: '', grupos: [], gerente: false });
       carregar();
     } catch (e) {
       setMensagem(`Não foi possível convidar: ${e?.message || e}`);
@@ -75,7 +77,7 @@ export default function UsuariosAcessos() {
   const salvar = async (l, enviar = false) => {
     setOcupado(l.email);
     try {
-      const r = await gerenciar({ acao: 'salvar', user_email: l.email, user_nome: l.nome, grupos: edicao[l.email] || [], enviar_boas_vindas: enviar });
+      const r = await gerenciar({ acao: 'salvar', user_email: l.email, user_nome: l.nome, grupos: edicao[l.email] || [], gerente: gerentes[l.email] === true, enviar_boas_vindas: enviar });
       if (r?.error) setMensagem(`Erro: ${r.error}`);
       else setMensagem(enviar
         ? (r?.boas_vindas === 'enviado' ? `Boas-vindas reenviado para ${l.email}.` : `Não foi possível reenviar agora para ${l.email}.`)
@@ -112,6 +114,13 @@ export default function UsuariosAcessos() {
     </div>
   );
 
+  const Gerente = ({ ativo, onChange }) => (
+    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+      <input type="checkbox" checked={ativo} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-amber-500" />
+      <span><strong>Gerente</strong> — vê todas as categorias, inclusive grupos criados no futuro</span>
+    </label>
+  );
+
   if (me && me.role !== 'admin') {
     return <div className="p-8 text-slate-600">Apenas administradores acessam esta tela.</div>;
   }
@@ -130,8 +139,13 @@ export default function UsuariosAcessos() {
           <Input placeholder="Nome (opcional)" value={convite.nome} onChange={(e) => setConvite({ ...convite, nome: e.target.value })} />
         </div>
         <div>
-          <div className="text-xs text-slate-500 mb-2">Grupos que a pessoa vai enxergar</div>
-          <Chips selecionados={convite.grupos} onToggle={(g) => setConvite({ ...convite, grupos: alternar(convite.grupos, g) })} />
+          <Gerente ativo={convite.gerente} onChange={(v) => setConvite({ ...convite, gerente: v })} />
+          {!convite.gerente && (
+            <>
+              <div className="text-xs text-slate-500 mb-2 mt-3">Grupos que a pessoa vai enxergar</div>
+              <Chips selecionados={convite.grupos} onToggle={(g) => setConvite({ ...convite, grupos: alternar(convite.grupos, g) })} />
+            </>
+          )}
         </div>
         <Button onClick={convidar} disabled={ocupado === 'convite'}>
           {ocupado === 'convite' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
@@ -152,15 +166,18 @@ export default function UsuariosAcessos() {
               {l.admin ? (
                 <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">Administrador — vê tudo</span>
               ) : l.entrou ? (
-                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Ativo</span>
+                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded">{l.acesso?.gerente && l.acesso?.ativo !== false ? 'Gerente · ativo' : 'Ativo'}</span>
               ) : (
                 <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Aguardando primeiro acesso</span>
               )}
             </div>
             {!l.admin && (
               <>
-                <div className="mt-3">
-                  <Chips selecionados={edicao[l.email] || []} onToggle={(g) => setEdicao({ ...edicao, [l.email]: alternar(edicao[l.email] || [], g) })} />
+                <div className="mt-3 space-y-3">
+                  <Gerente ativo={gerentes[l.email] === true} onChange={(v) => setGerentes({ ...gerentes, [l.email]: v })} />
+                  {gerentes[l.email] !== true && (
+                    <Chips selecionados={edicao[l.email] || []} onToggle={(g) => setEdicao({ ...edicao, [l.email]: alternar(edicao[l.email] || [], g) })} />
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => salvar(l)} disabled={ocupado === l.email}>Salvar</Button>

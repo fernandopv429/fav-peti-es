@@ -21,6 +21,11 @@
     },
     "convidado_por": {
       "type": "string"
+    },
+    "gerente": {
+      "type": "boolean",
+      "default": false,
+      "title": "Gerente: vê todas as categorias"
     }
   },
   "required": [
