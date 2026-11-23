@@ -91,7 +91,15 @@ export const AuthProvider = ({ children }) => {
     try {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
+      let currentUser = await base44.auth.me();
+      // Primeiro acesso / mudança de grupos: aplica no usuário os acessos que o
+      // administrador gravou no convite (mesmo padrão do Grupo S&C).
+      try {
+        await base44.functions.invoke('gerenciarAcessos', { acao: 'meus_acessos' });
+        currentUser = await base44.auth.me();
+      } catch (e) {
+        console.error('Falha ao aplicar acessos:', e);
+      }
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
@@ -116,7 +124,7 @@ export const AuthProvider = ({ children }) => {
     
     if (shouldRedirect) {
       // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
+      base44.auth.logout(window.location.origin + "/entrar");
     } else {
       // Just remove the token without redirect
       base44.auth.logout();
@@ -125,7 +133,10 @@ export const AuthProvider = ({ children }) => {
 
   const navigateToLogin = () => {
     // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    // Tela de entrada própria em português (/entrar), voltando para onde a pessoa estava
+    if (window.location.pathname.startsWith("/entrar")) return;
+    const atual = window.location.pathname + window.location.search;
+    window.location.href = atual && atual !== "/" ? "/entrar?returnTo=" + encodeURIComponent(atual) : "/entrar";
   };
 
   return (

@@ -12,6 +12,13 @@ import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
 import Webhooks from "@/pages/Webhooks";
 import UsuariosAcessos from "@/pages/UsuariosAcessos";
 import NotFound from "@/pages/NotFound";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
+
+/** Telas de acesso: abrem sem sessão (mesmo padrão do Grupo S&C). */
+const ROTA_PUBLICA = /^\/(entrar|primeiro-acesso|forgot-password|reset-password)(\/|$)/;
 
 /**
  * Mapa de rotas do app + porteiro de autenticação.
@@ -22,6 +29,18 @@ import NotFound from "@/pages/NotFound";
  */
 export default function AppRoutes() {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  // 0. Telas de acesso (entrar, primeiro acesso, recuperar senha) não dependem de sessão
+  if (ROTA_PUBLICA.test(window.location.pathname)) {
+    return (
+      <Routes>
+        <Route path="/entrar" element={<Login />} />
+        <Route path="/primeiro-acesso" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    );
+  }
 
   // 1. Ainda verificando sessão / configurações públicas do app
   if (isLoadingPublicSettings || isLoadingAuth) {
