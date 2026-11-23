@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Home, Scale, LogOut, FolderOpen, MessagesSquare, Webhook,
+  Home, Scale, LogOut, FolderOpen, MessagesSquare, Webhook, Users,
 } from "lucide-react";
 import { useAuth } from "@/app/auth/AuthContext";
 
@@ -18,6 +18,7 @@ const NAV = [
       { label: "Gerar por Entrevista", icon: MessagesSquare, path: "/entrevista" },
       { label: "Modelos", icon: FolderOpen, path: "/modelos" },
       { label: "Webhooks", icon: Webhook, path: "/webhooks" },
+      { label: "Usuários e acessos", icon: Users, path: "/usuarios-acessos" },
     ],
   },
 ];

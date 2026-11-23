@@ -10,6 +10,7 @@ import PetitionView from "@/pages/PetitionView";
 import Modelos from "@/pages/Modelos";
 import GerarPorEntrevista from "@/pages/GerarPorEntrevista";
 import Webhooks from "@/pages/Webhooks";
+import UsuariosAcessos from "@/pages/UsuariosAcessos";
 import NotFound from "@/pages/NotFound";
 
 /**
@@ -59,6 +60,7 @@ export default function AppRoutes() {
 
         {/* Ferramentas */}
         <Route path="/webhooks" element={<Webhooks />} />
+        <Route path="/usuarios-acessos" element={<UsuariosAcessos />} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
