@@ -253,6 +253,27 @@
       "type": "string",
       "title": "Grupo de função",
       "description": "Grupo derivado da função registrada (GrupoFuncao); define quem enxerga o registro"
+    },
+    "revisado_por": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Revisado por (e-mail)"
+    },
+    "revisado_por_nome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Revisado por (nome)"
+    },
+    "revisado_em": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Revisado em"
     }
   },
   "required": [

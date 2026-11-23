@@ -489,7 +489,15 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
                 onClick={() => {
                   setReviewConfirmed(true);
                   if (casoDbId) {
-                    base44.entities.CasoTrabalhista.update(casoDbId, { status: 'pronto' }).catch(() => {});
+                    // Registra QUEM revisou e QUANDO (nov/2026): base do cartão "Por usuário" do painel inicial.
+                    base44.auth.me().catch(() => null).then((eu) =>
+                      base44.entities.CasoTrabalhista.update(casoDbId, {
+                        status: 'pronto',
+                        revisado_por: eu?.email ? String(eu.email).toLowerCase() : null,
+                        revisado_por_nome: eu?.full_name || null,
+                        revisado_em: new Date().toISOString(),
+                      })
+                    ).catch(() => {});
                   }
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:brightness-95 transition"
