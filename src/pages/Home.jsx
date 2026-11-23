@@ -8,6 +8,7 @@ import {
 } from "@/features/painel/indicadores";
 import { Cartao, Sparkline, LinhasFluxo, LegendaFluxo, Funil, BarraSegmentada } from "@/features/painel/Graficos";
 import ListaCasos from "@/features/painel/ListaCasos";
+import PorUsuario from "@/features/painel/PorUsuario";
 
 const CHAVE_PERIODO = "fav.inicio.periodo";
 function periodoSalvo() {
@@ -299,6 +300,13 @@ export default function Home() {
             )}
           </Cartao>
         </div>
+
+        {/* Produção por usuário: só diretoria (admin) */}
+        {user?.role === "admin" && (
+          <div className="mt-3">
+            <PorUsuario casos={casos} periodoId={ind.periodo.id} onVer={ver} />
+          </div>
+        )}
 
         {/* Últimas entrevistas */}
         <div className="mt-3 bg-card border border-border rounded-xl overflow-hidden card-soft">
