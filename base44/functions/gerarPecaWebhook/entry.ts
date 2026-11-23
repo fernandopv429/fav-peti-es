@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
+import { classificarGrupo } from '../../shared/grupoFuncao.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
@@ -101,6 +102,7 @@ export default async function(req) {
     if (!caso.data_rescisao && !caso.continua_trabalhando) pendenciasDados.push('Último dia trabalhado');
     if (!caso.escala && !caso.jornada_horario) pendenciasDados.push('Escala / horário');
     if (!caso.tipo_dispensa) pendenciasDados.push('Tipo de dispensa');
+    const grupoFuncao = await classificarGrupo(base44, caso.funcao);
     if (pendenciasDados.length && !body.gerar_mesmo_assim) {
       const agora = new Date().toISOString();
       const camposAguardando = {
@@ -111,6 +113,7 @@ export default async function(req) {
         recl_cpf: caso.recl_cpf || '',
         recl1_nome: caso.recl1_nome || '',
         funcao: caso.funcao || '',
+        grupo_funcao: grupoFuncao,
         analise_json: {
           ...(casoExistente?.analise_json || {}),
           origem: 'webhook',
@@ -186,6 +189,7 @@ export default async function(req) {
       data_admissao: caso.data_admissao || undefined,
       data_rescisao: caso.data_rescisao || undefined,
       funcao: caso.funcao || '',
+      grupo_funcao: grupoFuncao,
       salario: caso.salario || undefined,
       tipo_dispensa: caso.tipo_dispensa || undefined,
       analise_status: 'em_andamento',
@@ -573,6 +577,7 @@ export default async function(req) {
       claimant_ctps: caso.recl_ctps || undefined,
       claimant_address: caso.recl_endereco || undefined,
       claimant_role: caso.funcao || undefined,
+      grupo_funcao: grupoFuncao,
       defendant_cnpj: caso.recl1_cnpj || undefined,
       defendant_address: caso.recl1_logradouro || undefined,
       contract_start: caso.data_admissao || undefined,
