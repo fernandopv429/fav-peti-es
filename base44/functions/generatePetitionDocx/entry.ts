@@ -359,8 +359,10 @@ function buildBaseTokens(petition, extraDefendants) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    // Autenticação via createClientFromRequest já garante o contexto do usuário
-    // Não é necessário chamar base44.auth.me() explicitamente
+    // Só usuário logado: a função gasta crédito de IA e lê dados do caso.
+    let usuario = null;
+    try { usuario = await base44.auth.me(); } catch { usuario = null; }
+    if (!usuario) return Response.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { petitionId, templateId, modeloIA, formTokens, casoVigilanteId } = await req.json();
     if (!petitionId || !templateId) {
