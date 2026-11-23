@@ -209,32 +209,45 @@
           }
         },
         {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "data.grupo_funcao": {
-            "$in": "{{user.data.grupos_visiveis}}"
-          }
-        },
-        {
           "$and": [
             {
               "user_condition": {
-                "data.ve_sem_categoria": true
+                "data.acesso_liberado": true
               }
             },
             {
               "$or": [
                 {
+                  "created_by_id": "{{user.id}}"
+                },
+                {
                   "data.grupo_funcao": {
-                    "$exists": false
+                    "$in": "{{user.data.grupos_visiveis}}"
                   }
                 },
                 {
-                  "data.grupo_funcao": "Sem categoria"
-                },
-                {
-                  "data.grupo_funcao": ""
+                  "$and": [
+                    {
+                      "user_condition": {
+                        "data.ve_sem_categoria": true
+                      }
+                    },
+                    {
+                      "$or": [
+                        {
+                          "data.grupo_funcao": {
+                            "$exists": false
+                          }
+                        },
+                        {
+                          "data.grupo_funcao": "Sem categoria"
+                        },
+                        {
+                          "data.grupo_funcao": ""
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -242,7 +255,20 @@
         }
       ]
     },
-    "create": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
     "update": {
       "$or": [
         {
@@ -251,27 +277,40 @@
           }
         },
         {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "data.grupo_funcao": {
-            "$in": "{{user.data.grupos_visiveis}}"
-          }
-        },
-        {
           "$and": [
             {
               "user_condition": {
-                "data.ve_sem_categoria": true
+                "data.acesso_liberado": true
               }
             },
             {
-              "data.grupo_funcao": {
-                "$in": [
-                  "Sem categoria",
-                  ""
-                ]
-              }
+              "$or": [
+                {
+                  "created_by_id": "{{user.id}}"
+                },
+                {
+                  "data.grupo_funcao": {
+                    "$in": "{{user.data.grupos_visiveis}}"
+                  }
+                },
+                {
+                  "$and": [
+                    {
+                      "user_condition": {
+                        "data.ve_sem_categoria": true
+                      }
+                    },
+                    {
+                      "data.grupo_funcao": {
+                        "$in": [
+                          "Sem categoria",
+                          ""
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -285,7 +324,16 @@
           }
         },
         {
-          "created_by_id": "{{user.id}}"
+          "$and": [
+            {
+              "user_condition": {
+                "data.acesso_liberado": true
+              }
+            },
+            {
+              "created_by_id": "{{user.id}}"
+            }
+          ]
         }
       ]
     }

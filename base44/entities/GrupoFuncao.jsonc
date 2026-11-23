@@ -24,7 +24,20 @@
     "nome"
   ],
   "rls": {
-    "read": {},
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
     "create": {
       "user_condition": {
         "role": "admin"

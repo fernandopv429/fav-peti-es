@@ -1,7 +1,7 @@
 {
   "name": "ErrorLog",
   "type": "object",
-  "description": "Log de erros do sistema para diagn\u00f3stico",
+  "description": "Log de erros do sistema para diagnóstico",
   "properties": {
     "context": {
       "type": "string",
@@ -23,7 +23,7 @@
     },
     "petition_id": {
       "type": "string",
-      "description": "ID da peti\u00e7\u00e3o relacionada"
+      "description": "ID da petição relacionada"
     },
     "template_id": {
       "type": "string",
@@ -46,5 +46,63 @@
     "context",
     "error_type",
     "message"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

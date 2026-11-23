@@ -4,7 +4,7 @@
   "properties": {
     "numero": {
       "type": "string",
-      "title": "N\u00famero"
+      "title": "Número"
     },
     "nome": {
       "type": "string",
@@ -12,7 +12,7 @@
     },
     "descricao": {
       "type": "string",
-      "title": "Descri\u00e7\u00e3o"
+      "title": "Descrição"
     },
     "prompt_sistema": {
       "type": "string",
@@ -39,5 +39,63 @@
     "numero",
     "nome",
     "prompt_sistema"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

@@ -8,11 +8,11 @@
     },
     "template_title": {
       "type": "string",
-      "title": "T\u00edtulo do Template"
+      "title": "Título do Template"
     },
     "variable_values": {
       "type": "object",
-      "title": "Valores das Vari\u00e1veis"
+      "title": "Valores das Variáveis"
     },
     "source_files": {
       "type": "array",
@@ -34,5 +34,63 @@
   },
   "required": [
     "template_id"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

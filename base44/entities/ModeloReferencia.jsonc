@@ -4,15 +4,15 @@
   "properties": {
     "titulo": {
       "type": "string",
-      "title": "T\u00edtulo"
+      "title": "Título"
     },
     "partes": {
       "type": "string",
-      "title": "Partes (Reclamante \u00d7 Reclamada)"
+      "title": "Partes (Reclamante × Reclamada)"
     },
     "funcao": {
       "type": "string",
-      "title": "Fun\u00e7\u00e3o",
+      "title": "Função",
       "description": "Ex.: Controlador de acesso, Porteiro"
     },
     "sindicato": {
@@ -26,7 +26,7 @@
     },
     "regiao_trt": {
       "type": "string",
-      "title": "Regi\u00e3o TRT"
+      "title": "Região TRT"
     },
     "rito": {
       "type": "string",
@@ -45,11 +45,11 @@
         "reversao_justa_causa",
         "acordo"
       ],
-      "title": "Modalidade de rescis\u00e3o"
+      "title": "Modalidade de rescisão"
     },
     "tem_tomadora": {
       "type": "boolean",
-      "title": "Tem tomadora (responsabilidade subsidi\u00e1ria)",
+      "title": "Tem tomadora (responsabilidade subsidiária)",
       "default": false
     },
     "teses": {
@@ -57,26 +57,26 @@
       "items": {
         "type": "string"
       },
-      "title": "Teses jur\u00eddicas"
+      "title": "Teses jurídicas"
     },
     "secoes": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "title": "Esqueleto de se\u00e7\u00f5es"
+      "title": "Esqueleto de seções"
     },
     "diferencial": {
       "type": "string",
-      "title": "Diferencial (o que \u00e9 particular desta pe\u00e7a \u2014 usado pela IA na reda\u00e7\u00e3o)"
+      "title": "Diferencial (o que é particular desta peça — usado pela IA na redação)"
     },
     "resumo": {
       "type": "string",
-      "title": "Resumo t\u00e9cnico"
+      "title": "Resumo técnico"
     },
     "conteudo": {
       "type": "string",
-      "title": "Conte\u00fado de refer\u00eancia (anonimizado)"
+      "title": "Conteúdo de referência (anonimizado)"
     },
     "arquivo_nome": {
       "type": "string",
@@ -90,7 +90,7 @@
       "type": "number",
       "default": 0,
       "title": "Prioridade no matching",
-      "description": "Pontos somados ao matching. Use > 0 nas pe\u00e7as do padr\u00e3o vigente, para que sirvam de exemplo antes das antigas; as antigas (0) ficam de reserva para as situa\u00e7\u00f5es que as novas n\u00e3o cobrem."
+      "description": "Pontos somados ao matching. Use > 0 nas peças do padrão vigente, para que sirvam de exemplo antes das antigas; as antigas (0) ficam de reserva para as situações que as novas não cobrem."
     },
     "ativo": {
       "type": "boolean",
@@ -100,5 +100,63 @@
   },
   "required": [
     "titulo"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

@@ -1,0 +1,58 @@
+{
+  "name": "AcessoUsuario",
+  "type": "object",
+  "description": "Vínculo do usuário (pelo e-mail do convite) com os grupos de função que ele enxerga. Criado no convite, antes do primeiro acesso.",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "user_nome": {
+      "type": "string"
+    },
+    "grupos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "convidado_por": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_email"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.user_email": "{{user.email}}"
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,15 +1,15 @@
 {
   "name": "DefesaConfig",
   "type": "object",
-  "description": "Configura\u00e7\u00f5es do gerador de defesas/contesta\u00e7\u00f5es",
+  "description": "Configurações do gerador de defesas/contestações",
   "properties": {
     "escritorio": {
       "type": "string",
-      "description": "Nome do escrit\u00f3rio"
+      "description": "Nome do escritório"
     },
     "prompt_sistema": {
       "type": "string",
-      "description": "Prompt de sistema para gera\u00e7\u00e3o das defesas"
+      "description": "Prompt de sistema para geração das defesas"
     },
     "modelo_ia": {
       "type": "string",
@@ -27,5 +27,63 @@
   },
   "required": [
     "escritorio"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

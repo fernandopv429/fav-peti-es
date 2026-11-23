@@ -15,11 +15,11 @@
         "consumidor",
         "outro"
       ],
-      "description": "Tipo de a\u00e7\u00e3o"
+      "description": "Tipo de ação"
     },
     "description": {
       "type": "string",
-      "description": "Descri\u00e7\u00e3o do modelo"
+      "description": "Descrição do modelo"
     },
     "file_url": {
       "type": "string",
@@ -31,11 +31,11 @@
     },
     "content": {
       "type": "string",
-      "description": "Conte\u00fado extra\u00eddo do modelo"
+      "description": "Conteúdo extraído do modelo"
     },
     "modelo_docx_url": {
       "type": "string",
-      "description": "URL do arquivo .docx oficial tokenizado (para gera\u00e7\u00e3o determin\u00edstica)"
+      "description": "URL do arquivo .docx oficial tokenizado (para geração determinística)"
     },
     "modelo_docx_name": {
       "type": "string",
@@ -46,21 +46,79 @@
       "items": {
         "type": "string"
       },
-      "description": "Tags para organiza\u00e7\u00e3o e filtragem"
+      "description": "Tags para organização e filtragem"
     },
     "use_count": {
       "type": "number",
       "default": 0,
-      "description": "Quantidade de vezes utilizado em peti\u00e7\u00f5es"
+      "description": "Quantidade de vezes utilizado em petições"
     },
     "is_active": {
       "type": "boolean",
       "default": true,
-      "description": "Se o modelo est\u00e1 ativo"
+      "description": "Se o modelo está ativo"
     }
   },
   "required": [
     "name",
     "case_type"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

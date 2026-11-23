@@ -9,7 +9,7 @@
     },
     "reference": {
       "type": "string",
-      "description": "N\u00famero da s\u00famula/OJ"
+      "description": "Número da súmula/OJ"
     },
     "source_url": {
       "type": "string",
@@ -22,15 +22,73 @@
     "verified_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Data de verifica\u00e7\u00e3o do link"
+      "description": "Data de verificação do link"
     },
     "notes": {
       "type": "string",
-      "description": "Observa\u00e7\u00f5es sobre o status da s\u00famula"
+      "description": "Observações sobre o status da súmula"
     }
   },
   "required": [
     "precedent_id",
     "source_url"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

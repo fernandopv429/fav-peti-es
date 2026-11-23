@@ -17,19 +17,19 @@
       "type": "string",
       "description": "Area do Direito",
       "enum": [
-        "Gest\u00e3o & Prazos",
+        "Gestão & Prazos",
         "Atendimento & Clientes",
-        "Pesquisa Jur\u00eddica",
-        "C\u00edvel",
+        "Pesquisa Jurídica",
+        "Cível",
         "Recursos",
         "Trabalhista",
-        "Fam\u00edlia & Sucess\u00f5es",
+        "Família & Sucessões",
         "Criminal",
-        "Tribut\u00e1rio",
+        "Tributário",
         "Empresarial & Contratos",
-        "Imobili\u00e1rio & Loca\u00e7\u00e3o",
-        "Previdenci\u00e1rio",
-        "Execu\u00e7\u00e3o & C\u00e1lculo"
+        "Imobiliário & Locação",
+        "Previdenciário",
+        "Execução & Cálculo"
       ]
     },
     "icone": {
@@ -66,5 +66,63 @@
     "descricao",
     "prompt_sistema"
   ],
-  "name": "Especialista"
+  "name": "Especialista",
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

@@ -1,11 +1,11 @@
 {
   "name": "Defendant",
   "type": "object",
-  "description": "Cadastro de empresas reclamadas para reutiliza\u00e7\u00e3o em m\u00faltiplas peti\u00e7\u00f5es",
+  "description": "Cadastro de empresas reclamadas para reutilização em múltiplas petições",
   "properties": {
     "company_name": {
       "type": "string",
-      "description": "Raz\u00e3o social"
+      "description": "Razão social"
     },
     "trade_name": {
       "type": "string",
@@ -17,7 +17,7 @@
     },
     "address": {
       "type": "string",
-      "description": "Endere\u00e7o completo"
+      "description": "Endereço completo"
     },
     "city": {
       "type": "string",
@@ -44,7 +44,7 @@
     },
     "notes": {
       "type": "string",
-      "description": "Observa\u00e7\u00f5es relevantes"
+      "description": "Observações relevantes"
     },
     "is_active": {
       "type": "boolean",
@@ -55,5 +55,63 @@
   "required": [
     "company_name",
     "cnpj"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

@@ -1,19 +1,19 @@
 {
   "name": "PetitionConfig",
   "type": "object",
-  "description": "Configura\u00e7\u00f5es globais do gerador de peti\u00e7\u00f5es por IA",
+  "description": "Configurações globais do gerador de petições por IA",
   "properties": {
     "escritorio": {
       "type": "string",
-      "description": "Nome do escrit\u00f3rio"
+      "description": "Nome do escritório"
     },
     "advogado_principal": {
       "type": "string",
-      "description": "Nome do advogado respons\u00e1vel"
+      "description": "Nome do advogado responsável"
     },
     "oab": {
       "type": "string",
-      "description": "N\u00famero OAB"
+      "description": "Número OAB"
     },
     "uf_oab": {
       "type": "string",
@@ -21,7 +21,7 @@
     },
     "email_contato": {
       "type": "string",
-      "description": "E-mail do escrit\u00f3rio"
+      "description": "E-mail do escritório"
     },
     "telefone": {
       "type": "string",
@@ -37,19 +37,19 @@
     },
     "site": {
       "type": "string",
-      "description": "Site do escrit\u00f3rio"
+      "description": "Site do escritório"
     },
     "logo_url": {
       "type": "string",
-      "description": "URL do logotipo/timbre do escrit\u00f3rio"
+      "description": "URL do logotipo/timbre do escritório"
     },
     "cabecalho_texto": {
       "type": "string",
-      "description": "Texto do cabe\u00e7alho do documento (ex: endere\u00e7o, telefone formatados)"
+      "description": "Texto do cabeçalho do documento (ex: endereço, telefone formatados)"
     },
     "rodape_texto": {
       "type": "string",
-      "description": "Texto do rodap\u00e9 do documento"
+      "description": "Texto do rodapé do documento"
     },
     "papel_timbrado_url": {
       "type": "string",
@@ -57,21 +57,21 @@
     },
     "modelo_ia": {
       "type": "string",
-      "description": "Modelo de IA para gera\u00e7\u00e3o",
+      "description": "Modelo de IA para geração",
       "default": "claude_sonnet_4_6"
     },
     "prompt_sistema": {
       "type": "string",
-      "description": "Prompt de sistema para gera\u00e7\u00e3o das peti\u00e7\u00f5es"
+      "description": "Prompt de sistema para geração das petições"
     },
     "max_tokens": {
       "type": "number",
-      "description": "M\u00e1ximo de tokens por gera\u00e7\u00e3o",
+      "description": "Máximo de tokens por geração",
       "default": 4000
     },
     "threshold_confianca": {
       "type": "number",
-      "description": "Limiar de confian\u00e7a para sele\u00e7\u00e3o autom\u00e1tica de modelo (0.0\u20131.0). Acima deste valor a IA seleciona automaticamente; abaixo, encaminha para revis\u00e3o humana. Padr\u00e3o: 0.6",
+      "description": "Limiar de confiança para seleção automática de modelo (0.0–1.0). Acima deste valor a IA seleciona automaticamente; abaixo, encaminha para revisão humana. Padrão: 0.6",
       "default": 0.6
     },
     "ativo": {
@@ -83,5 +83,63 @@
     "escritorio",
     "advogado_principal",
     "oab"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

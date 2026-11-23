@@ -1,7 +1,7 @@
 {
   "name": "Client",
   "type": "object",
-  "description": "Cadastro de clientes/reclamantes para reutiliza\u00e7\u00e3o em m\u00faltiplas peti\u00e7\u00f5es",
+  "description": "Cadastro de clientes/reclamantes para reutilização em múltiplas petições",
   "properties": {
     "full_name": {
       "type": "string",
@@ -22,7 +22,7 @@
     },
     "address": {
       "type": "string",
-      "description": "Endere\u00e7o completo"
+      "description": "Endereço completo"
     },
     "city": {
       "type": "string",
@@ -42,7 +42,7 @@
     },
     "ctps": {
       "type": "string",
-      "description": "N\u00famero da CTPS"
+      "description": "Número da CTPS"
     },
     "pis": {
       "type": "string",
@@ -54,7 +54,7 @@
     },
     "bank_agency": {
       "type": "string",
-      "description": "Ag\u00eancia"
+      "description": "Agência"
     },
     "bank_account": {
       "type": "string",
@@ -63,11 +63,11 @@
     "free_justice": {
       "type": "boolean",
       "default": true,
-      "description": "Benefici\u00e1rio de justi\u00e7a gratuita"
+      "description": "Beneficiário de justiça gratuita"
     },
     "notes": {
       "type": "string",
-      "description": "Observa\u00e7\u00f5es"
+      "description": "Observações"
     },
     "is_active": {
       "type": "boolean",
@@ -78,5 +78,63 @@
   "required": [
     "full_name",
     "cpf"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

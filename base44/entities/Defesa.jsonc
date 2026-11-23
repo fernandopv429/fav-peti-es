@@ -1,15 +1,15 @@
 {
   "name": "Defesa",
   "type": "object",
-  "description": "Contesta\u00e7\u00f5es trabalhistas geradas pelo sistema",
+  "description": "Contestações trabalhistas geradas pelo sistema",
   "properties": {
     "title": {
       "type": "string",
-      "description": "T\u00edtulo da defesa"
+      "description": "Título da defesa"
     },
     "process_number": {
       "type": "string",
-      "description": "N\u00famero do processo"
+      "description": "Número do processo"
     },
     "reclamante_name": {
       "type": "string",
@@ -26,28 +26,28 @@
     "contract_start": {
       "type": "string",
       "format": "date",
-      "description": "Data de admiss\u00e3o"
+      "description": "Data de admissão"
     },
     "contract_end": {
       "type": "string",
       "format": "date",
-      "description": "Data de demiss\u00e3o"
+      "description": "Data de demissão"
     },
     "funcao": {
       "type": "string",
-      "description": "Fun\u00e7\u00e3o do reclamante"
+      "description": "Função do reclamante"
     },
     "salario": {
       "type": "number",
-      "description": "Sal\u00e1rio do reclamante"
+      "description": "Salário do reclamante"
     },
     "inicial_texto": {
       "type": "string",
-      "description": "Texto da reclama\u00e7\u00e3o inicial"
+      "description": "Texto da reclamação inicial"
     },
     "generated_content": {
       "type": "string",
-      "description": "Contesta\u00e7\u00e3o gerada pela IA"
+      "description": "Contestação gerada pela IA"
     },
     "status": {
       "type": "string",
@@ -63,5 +63,63 @@
     "title",
     "reclamante_name",
     "reclamada_name"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

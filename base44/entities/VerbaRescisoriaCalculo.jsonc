@@ -1,11 +1,11 @@
 {
   "name": "VerbaRescisoriaCalculo",
   "type": "object",
-  "description": "C\u00e1lculo de verbas rescis\u00f3rias (TRCT) gerado pela Calculadora de Verbas \u2014 espelha o agente calculo-verbas-rescisorias",
+  "description": "Cálculo de verbas rescisórias (TRCT) gerado pela Calculadora de Verbas — espelha o agente calculo-verbas-rescisorias",
   "properties": {
     "title": {
       "type": "string",
-      "description": "Identifica\u00e7\u00e3o do c\u00e1lculo"
+      "description": "Identificação do cálculo"
     },
     "claimant_name": {
       "type": "string",
@@ -18,12 +18,12 @@
     "admission_date": {
       "type": "string",
       "format": "date",
-      "description": "Data de admiss\u00e3o"
+      "description": "Data de admissão"
     },
     "termination_date": {
       "type": "string",
       "format": "date",
-      "description": "Data de demiss\u00e3o"
+      "description": "Data de demissão"
     },
     "termination_reason": {
       "type": "string",
@@ -37,7 +37,7 @@
         "falecimento",
         "rescisao_indireta"
       ],
-      "description": "Motivo do desligamento \u2014 define quais verbas s\u00e3o devidas"
+      "description": "Motivo do desligamento — define quais verbas são devidas"
     },
     "aviso_tipo": {
       "type": "string",
@@ -46,16 +46,16 @@
         "indenizado",
         "dispensado"
       ],
-      "description": "Tipo de aviso pr\u00e9vio"
+      "description": "Tipo de aviso prévio"
     },
     "salary_base": {
       "type": "number",
-      "description": "Sal\u00e1rio base mensal"
+      "description": "Salário base mensal"
     },
     "media_variavel": {
       "type": "number",
       "default": 0,
-      "description": "M\u00e9dia de parcelas vari\u00e1veis dos \u00faltimos 12 meses (HE, comiss\u00f5es)"
+      "description": "Média de parcelas variáveis dos últimos 12 meses (HE, comissões)"
     },
     "saldo_fgts": {
       "type": "number",
@@ -68,31 +68,31 @@
     },
     "aviso_dias": {
       "type": "number",
-      "description": "Dias de aviso pr\u00e9vio calculados"
+      "description": "Dias de aviso prévio calculados"
     },
     "saldo_salario": {
       "type": "number",
-      "description": "Saldo de sal\u00e1rio"
+      "description": "Saldo de salário"
     },
     "aviso_valor": {
       "type": "number",
-      "description": "Aviso pr\u00e9vio indenizado"
+      "description": "Aviso prévio indenizado"
     },
     "ferias_vencidas": {
       "type": "number",
-      "description": "F\u00e9rias vencidas + 1/3"
+      "description": "Férias vencidas + 1/3"
     },
     "ferias_proporcionais": {
       "type": "number",
-      "description": "F\u00e9rias proporcionais + 1/3 (com aviso projetado)"
+      "description": "Férias proporcionais + 1/3 (com aviso projetado)"
     },
     "decimo_terceiro": {
       "type": "number",
-      "description": "13\u00ba proporcional (com aviso projetado)"
+      "description": "13º proporcional (com aviso projetado)"
     },
     "fgts_deposito_rescisorio": {
       "type": "number",
-      "description": "Dep\u00f3sitos de FGTS rescis\u00f3rios (8% sobre aviso e 13\u00ba)"
+      "description": "Depósitos de FGTS rescisórios (8% sobre aviso e 13º)"
     },
     "multa_fgts": {
       "type": "number",
@@ -100,7 +100,7 @@
     },
     "multa_477": {
       "type": "number",
-      "description": "Multa do art. 477 \u00a78\u00ba, se pagamento fora do prazo"
+      "description": "Multa do art. 477 §8º, se pagamento fora do prazo"
     },
     "total_bruto": {
       "type": "number",
@@ -108,24 +108,82 @@
     },
     "total_liquido": {
       "type": "number",
-      "description": "Total l\u00edquido (ap\u00f3s INSS e IRRF, respeitando n\u00e3o-incid\u00eancias)"
+      "description": "Total líquido (após INSS e IRRF, respeitando não-incidências)"
     },
     "memoria_calculo": {
       "type": "string",
-      "description": "Mem\u00f3ria de c\u00e1lculo detalhada (TRCT em texto)"
+      "description": "Memória de cálculo detalhada (TRCT em texto)"
     },
     "petition_id": {
       "type": "string",
-      "description": "ID da peti\u00e7\u00e3o vinculada, quando gerado a partir de um caso"
+      "description": "ID da petição vinculada, quando gerado a partir de um caso"
     },
     "notes": {
       "type": "string",
-      "description": "Observa\u00e7\u00f5es e alertas (n\u00e3o-incid\u00eancias, pend\u00eancias)"
+      "description": "Observações e alertas (não-incidências, pendências)"
     }
   },
   "required": [
     "title",
     "termination_reason",
     "salary_base"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

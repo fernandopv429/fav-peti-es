@@ -4,11 +4,11 @@
   "properties": {
     "petition_id": {
       "type": "string",
-      "description": "ID da peti\u00e7\u00e3o"
+      "description": "ID da petição"
     },
     "comment": {
       "type": "string",
-      "description": "Coment\u00e1rio ou anota\u00e7\u00e3o"
+      "description": "Comentário ou anotação"
     },
     "type": {
       "type": "string",
@@ -19,12 +19,70 @@
         "rejeicao"
       ],
       "default": "comentario",
-      "description": "Tipo de entrada no hist\u00f3rico"
+      "description": "Tipo de entrada no histórico"
     }
   },
   "required": [
     "petition_id",
     "comment",
     "type"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

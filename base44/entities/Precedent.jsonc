@@ -4,28 +4,28 @@
   "properties": {
     "title": {
       "type": "string",
-      "description": "T\u00edtulo do precedente/jurisprud\u00eancia"
+      "description": "Título do precedente/jurisprudência"
     },
     "source": {
       "type": "string",
-      "description": "Tribunal/\u00d3rg\u00e3o (ex: TST, TRT-2)"
+      "description": "Tribunal/Órgão (ex: TST, TRT-2)"
     },
     "reference": {
       "type": "string",
-      "description": "N\u00famero do ac\u00f3rd\u00e3o ou s\u00famula"
+      "description": "Número do acórdão ou súmula"
     },
     "category": {
       "type": "string",
       "enum": [
         "horas_extras",
-        "verbas_rescis\u00f3rias",
+        "verbas_rescisórias",
         "dano_moral",
-        "equipara\u00e7\u00e3o_salarial",
+        "equiparação_salarial",
         "assedio",
         "intervalo",
         "outro"
       ],
-      "description": "Categoria tem\u00e1tica"
+      "description": "Categoria temática"
     },
     "content": {
       "type": "string",
@@ -52,5 +52,63 @@
     "source",
     "content",
     "category"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }

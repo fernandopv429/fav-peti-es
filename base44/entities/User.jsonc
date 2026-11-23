@@ -33,6 +33,18 @@
           }
         }
       }
+    },
+    "acesso_liberado": {
+      "type": "boolean",
+      "default": false,
+      "title": "Acesso liberado pelo administrador",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "collaborator_role": "editor"
+          }
+        }
+      }
     }
   },
   "required": [

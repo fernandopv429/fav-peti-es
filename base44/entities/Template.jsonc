@@ -4,19 +4,19 @@
   "properties": {
     "title": {
       "type": "string",
-      "title": "T\u00edtulo"
+      "title": "Título"
     },
     "description": {
       "type": "string",
-      "title": "Descri\u00e7\u00e3o"
+      "title": "Descrição"
     },
     "content": {
       "type": "string",
-      "title": "Conte\u00fado"
+      "title": "Conteúdo"
     },
     "content_url": {
       "type": "string",
-      "title": "URL do Conte\u00fado"
+      "title": "URL do Conteúdo"
     },
     "skill": {
       "type": "string",
@@ -29,16 +29,16 @@
     },
     "search_sites": {
       "type": "string",
-      "title": "Sites Priorit\u00e1rios"
+      "title": "Sites Prioritários"
     },
     "is_default": {
       "type": "boolean",
       "default": false,
-      "title": "Modelo padr\u00e3o"
+      "title": "Modelo padrão"
     },
     "variables": {
       "type": "array",
-      "title": "Vari\u00e1veis",
+      "title": "Variáveis",
       "items": {
         "type": "object",
         "properties": {
@@ -48,7 +48,7 @@
           },
           "description": {
             "type": "string",
-            "title": "Descri\u00e7\u00e3o"
+            "title": "Descrição"
           },
           "example": {
             "type": "string",
@@ -60,5 +60,63 @@
   },
   "required": [
     "title"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "data.acesso_liberado": true
+          }
+        }
+      ]
+    }
+  }
 }
