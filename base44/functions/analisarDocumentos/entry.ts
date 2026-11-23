@@ -38,7 +38,10 @@ Deno.serve(async (req) => {
   let petitionId = null;
   try {
     const base44 = createClientFromRequest(req);
-    // Autenticação via createClientFromRequest já garante o contexto do usuário
+    // Só usuário logado: a função gasta crédito de IA e lê dados do caso.
+    let usuario = null;
+    try { usuario = await base44.auth.me(); } catch { usuario = null; }
+    if (!usuario) return Response.json({ error: 'Não autorizado' }, { status: 401 });
 
     const body = await req.json();
     petitionId = body.petitionId;
