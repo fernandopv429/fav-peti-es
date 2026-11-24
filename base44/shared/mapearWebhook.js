@@ -1,4 +1,5 @@
 import { presumirRescisaoNaElaboracao, aplicarIntervaloPadrao } from './mathUtils.js';
+import { enderecoUltimaTomadora } from './localPrestacao.js';
 // Mapeamento determinístico do payload do webhook → objeto `caso`.
 // Fonte unica do contrato do webhook (a copia do frontend foi removida por ser morta).
 
@@ -218,7 +219,8 @@ export function mapearCasoDeWebhook(data) {
     const t = pick(d, `RECL${n}_TEMPO_LABORADO`);
     if (t) caso[`recl${n}_tempo_laborado`] = String(t).trim();
   }
-  caso.local_prestacao = caso.recl2_logradouro || caso.recl1_logradouro || '';
+  // Competência: endereço da ÚLTIMA tomadora (regra FAV), senão a empregadora.
+  caso.local_prestacao = enderecoUltimaTomadora(caso) || caso.recl1_logradouro || '';
 
   // Admissão = a MENOR data de início entre os períodos de escala (RECLn_ESCALA_PERIODO_INICIO).
   const inicios = Object.keys(d)
