@@ -33,6 +33,7 @@ export function horarioComProrrogacao(jornada, prorrogTxt) {
 import { categoriaEntidadeCct, tomadoraEhPublica } from '../../../../base44/shared/consultas.js';
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
+import { enderecoUltimaTomadora } from '../../../../base44/shared/localPrestacao.js';
 
 // ============================================================
 // FONTE ÚNICA DE DADOS DA PETIÇÃO
@@ -223,7 +224,9 @@ function cepDoEndereco(end) {
 // prestação informado > endereço da empregadora. Rejeita o endereço residencial.
 function localPrestacao(caso, dadosCep = []) {
   const resid = (caso?.recl_endereco || '').trim();
-  const cand = [caso?.recl2_logradouro, caso?.local_prestacao, caso?.recl1_logradouro]
+  // Regra FAV: última tomadora em que prestou serviço (vale também para casos
+  // antigos, cujo local_prestacao gravado era sempre a 2ª reclamada).
+  const cand = [enderecoUltimaTomadora(caso), caso?.local_prestacao, caso?.recl1_logradouro]
     .filter(Boolean)
     .map((s) => String(s).trim())
     .filter((s) => s !== resid);
@@ -269,7 +272,7 @@ function cidadeUfDoEndereco(end) {
 function montarVaraCidadeRegiao(caso, local) {
   const daComarca = partesComarca(caso.comarca_uf);
   const doEndereco = cidadeUfDoEndereco(
-    caso.local_prestacao || caso.recl2_logradouro || caso.recl1_logradouro || ''
+    enderecoUltimaTomadora(caso) || caso.local_prestacao || caso.recl1_logradouro || ''
   );
   const municipio = corrigirMunicipio(local?.municipio || daComarca.municipio || doEndereco.municipio || '');
   const uf = String(local?.uf || daComarca.uf || doEndereco.uf || '').toUpperCase().slice(0, 2);
@@ -430,7 +433,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   };
   const localInformado = caso.local_prestacao && !rejeitarResid(caso.local_prestacao) ? caso.local_prestacao : null;
   const candLocal = [
-    localInformado, caso.recl2_logradouro, (r2 && r2.endereco), caso.recl1_logradouro, (r1 && r1.endereco),
+    enderecoUltimaTomadora(caso), localInformado, caso.recl2_logradouro, (r2 && r2.endereco), caso.recl1_logradouro, (r1 && r1.endereco),
   ].filter(Boolean).map((s) => String(s).trim()).filter((s) => !rejeitarResid(s));
   dados.LOCAL_PRESTACAO_ENDERECO = candLocal[0] || '[LOCAL DE PRESTAÇÃO]';
   dados.RITO = attrs.rito === 'sumarissimo' ? 'sumaríssimo' : 'ordinário';
