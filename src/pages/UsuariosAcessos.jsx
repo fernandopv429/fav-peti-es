@@ -9,13 +9,21 @@ import { Loader2, Mail } from 'lucide-react';
  * pelo e-mail (AcessoUsuario), a pessoa aparece na lista na hora e os grupos
  * são aplicados no primeiro acesso.
  */
+const ROTULO_PERFIL = { admin: 'Administrador', gerente: 'Gerente', usuario: 'Usuário' };
+
+function perfilDe(l) {
+  if (l.admin) return 'admin';
+  return l.acesso?.ativo !== false && l.acesso?.gerente === true ? 'gerente' : 'usuario';
+}
+
 export default function UsuariosAcessos() {
   const [me, setMe] = useState(null);
   const [linhas, setLinhas] = useState([]);
   const [grupos, setGrupos] = useState([]);
   const [edicao, setEdicao] = useState({});
   const [convite, setConvite] = useState({ email: '', nome: '', grupos: [], gerente: false });
-  const [gerentes, setGerentes] = useState({});
+  // Perfil de cada linha: 'admin' | 'gerente' | 'usuario'.
+  const [perfis, setPerfis] = useState({});
   const [mensagem, setMensagem] = useState('');
   const [ocupado, setOcupado] = useState(null);
 
@@ -44,7 +52,7 @@ export default function UsuariosAcessos() {
     }
     setLinhas(lista);
     setEdicao(Object.fromEntries(lista.map((l) => [l.email, l.acesso?.ativo !== false ? (l.acesso?.grupos || []) : []])));
-    setGerentes(Object.fromEntries(lista.map((l) => [l.email, l.acesso?.ativo !== false && l.acesso?.gerente === true])));
+    setPerfis(Object.fromEntries(lista.map((l) => [l.email, perfilDe(l)])));
   };
 
   const alternar = (lista, g) => (lista.includes(g) ? lista.filter((x) => x !== g) : [...lista, g]);
@@ -75,13 +83,23 @@ export default function UsuariosAcessos() {
   };
 
   const salvar = async (l, enviar = false) => {
+    const perfil = perfis[l.email] || 'usuario';
+    const grupos = edicao[l.email] || [];
+    if (!enviar && perfil === 'usuario' && !grupos.length) {
+      setMensagem(`Marque pelo menos um grupo para ${l.email}, ou escolha o perfil Gerente.`);
+      return;
+    }
     setOcupado(l.email);
     try {
-      const r = await gerenciar({ acao: 'salvar', user_email: l.email, user_nome: l.nome, grupos: edicao[l.email] || [], gerente: gerentes[l.email] === true, enviar_boas_vindas: enviar });
+      // Quem já entrou troca o perfil de verdade (inclusive administrador);
+      // convite pendente só grava o vínculo, aplicado no primeiro acesso.
+      const r = l.entrou && !enviar
+        ? await gerenciar({ acao: 'perfil', user_email: l.email, user_nome: l.nome, perfil, grupos })
+        : await gerenciar({ acao: 'salvar', user_email: l.email, user_nome: l.nome, grupos, gerente: perfil === 'gerente', enviar_boas_vindas: enviar });
       if (r?.error) setMensagem(`Erro: ${r.error}`);
       else setMensagem(enviar
         ? (r?.boas_vindas === 'enviado' ? `Boas-vindas reenviado para ${l.email}.` : `Não foi possível reenviar agora para ${l.email}.`)
-        : `Acessos de ${l.email} salvos.`);
+        : `${l.nome || l.email}: perfil ${ROTULO_PERFIL[perfil]} salvo.`);
       carregar();
     } finally {
       setOcupado(null);
@@ -118,6 +136,21 @@ export default function UsuariosAcessos() {
     <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
       <input type="checkbox" checked={ativo} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-amber-500" />
       <span><strong>Gerente</strong> — vê todas as categorias, inclusive grupos criados no futuro</span>
+    </label>
+  );
+
+  const SeletorPerfil = ({ l }) => (
+    <label className="flex items-center gap-2 text-sm text-slate-700">
+      <span className="text-xs text-slate-500">Perfil</span>
+      <select
+        value={perfis[l.email] || 'usuario'}
+        onChange={(e) => setPerfis({ ...perfis, [l.email]: e.target.value })}
+        className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm"
+      >
+        <option value="admin" disabled={!l.entrou}>Administrador — vê tudo e gerencia usuários</option>
+        <option value="gerente">Gerente — vê todas as categorias</option>
+        <option value="usuario">Usuário — só os grupos marcados</option>
+      </select>
     </label>
   );
 
@@ -163,19 +196,21 @@ export default function UsuariosAcessos() {
                 <div className="font-medium text-slate-900">{l.nome || l.email}</div>
                 <div className="text-xs text-slate-500">{l.email}</div>
               </div>
-              {l.admin ? (
-                <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">Administrador — vê tudo</span>
-              ) : l.entrou ? (
-                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded">{l.acesso?.gerente && l.acesso?.ativo !== false ? 'Gerente · ativo' : 'Ativo'}</span>
+              {l.entrou ? (
+                <span className={`text-xs px-2 py-1 rounded ${l.admin ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>
+                  {ROTULO_PERFIL[perfilDe(l)]} · ativo
+                </span>
               ) : (
                 <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Aguardando primeiro acesso</span>
               )}
             </div>
-            {!l.admin && (
+            {souEu(l) ? (
+              <p className="mt-3 text-xs text-slate-500">É o seu usuário: o seu próprio perfil só pode ser trocado por outro administrador.</p>
+            ) : (
               <>
                 <div className="mt-3 space-y-3">
-                  <Gerente ativo={gerentes[l.email] === true} onChange={(v) => setGerentes({ ...gerentes, [l.email]: v })} />
-                  {gerentes[l.email] !== true && (
+                  <SeletorPerfil l={l} />
+                  {(perfis[l.email] || 'usuario') === 'usuario' && (
                     <Chips selecionados={edicao[l.email] || []} onToggle={(g) => setEdicao({ ...edicao, [l.email]: alternar(edicao[l.email] || [], g) })} />
                   )}
                 </div>
