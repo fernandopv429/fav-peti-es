@@ -7,6 +7,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
  *
  * acao 'meus_acessos' (qualquer usuário logado): recalcula só os acessos de quem chamou.
  * acao 'salvar' | 'remover' (só admin): grava/remove o vínculo e recalcula.
+ * acao 'perfil' (só admin): troca o perfil — 'admin' | 'gerente' | 'usuario' —
+ *   e grava os grupos. Ninguém troca o próprio perfil e o último administrador
+ *   não pode ser rebaixado (o sistema ficaria sem quem gerencie acessos).
  */
 const ENDERECO = 'https://inicial.base44.app';
 
@@ -30,6 +33,30 @@ export default async function (req) {
     if (corpo.acao === 'remover') {
       for (const a of existentes) await base44.asServiceRole.entities.AcessoUsuario.update(a.id, { ativo: false, grupos: [], gerente: false });
       return Response.json({ ok: true, acessos: await recalcular(base44, email) });
+    }
+
+    if (corpo.acao === 'perfil') {
+      const perfil = String(corpo.perfil || '');
+      if (!['admin', 'gerente', 'usuario'].includes(perfil)) return Response.json({ error: 'Perfil inválido' }, { status: 400 });
+      if (email === String(user.email || '').toLowerCase()) return Response.json({ error: 'Você não pode trocar o seu próprio perfil' }, { status: 400 });
+      const alvo = (await base44.asServiceRole.entities.User.filter({ email }))[0];
+      if (!alvo) return Response.json({ error: 'A pessoa ainda não fez o primeiro acesso; só dá para tornar administrador depois disso' }, { status: 400 });
+      if (alvo.role === 'admin' && perfil !== 'admin') {
+        const admins = (await base44.asServiceRole.entities.User.list()).filter((u) => u.role === 'admin' && !u.disabled);
+        if (admins.length <= 1) return Response.json({ error: 'É o único administrador; promova outra pessoa antes' }, { status: 400 });
+      }
+      const novoRole = perfil === 'admin' ? 'admin' : 'user';
+      if (alvo.role !== novoRole) await base44.asServiceRole.entities.User.update(alvo.id, { role: novoRole });
+      const validos = (await base44.asServiceRole.entities.GrupoFuncao.list()).map((g) => g.nome);
+      const grupos = perfil === 'usuario'
+        ? (Array.isArray(corpo.grupos) ? corpo.grupos : []).filter((g) => validos.includes(g))
+        : [];
+      const dados = { user_email: email, grupos, gerente: perfil === 'gerente', ativo: true, convidado_por: user.email };
+      if (corpo.user_nome) dados.user_nome = String(corpo.user_nome).trim();
+      if (existentes[0]) await base44.asServiceRole.entities.AcessoUsuario.update(existentes[0].id, dados);
+      else await base44.asServiceRole.entities.AcessoUsuario.create(dados);
+      const acessos = await recalcular(base44, email);
+      return Response.json({ ok: true, perfil, role: novoRole, acessos });
     }
 
     if (corpo.acao === 'salvar') {
