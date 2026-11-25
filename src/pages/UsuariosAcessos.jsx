@@ -55,6 +55,8 @@ export default function UsuariosAcessos() {
     setPerfis(Object.fromEntries(lista.map((l) => [l.email, perfilDe(l)])));
   };
 
+  const souEu = (l) => String(l.email || '').toLowerCase() === String(me?.email || '').toLowerCase();
+
   const alternar = (lista, g) => (lista.includes(g) ? lista.filter((x) => x !== g) : [...lista, g]);
 
   const gerenciar = (dados) => base44.functions.invoke('gerenciarAcessos', dados).then((r) => r?.data || r);
