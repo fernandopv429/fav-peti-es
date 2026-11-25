@@ -3,7 +3,7 @@ import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { classificarGrupo } from '../../shared/grupoFuncao.js';
-import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
+import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, pisoDaTabelaOficial, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
 // ============================================================
@@ -335,12 +335,24 @@ export default async function(req) {
       // raspado da cláusula da API pegava o piso de outra função (vigilantes
       // saíram com R$ 1.703,91 em vez de R$ 2.271,74). A API vira reserva.
       const pisoBase = pisoDaBaseCct(cctCadastrada, caso.funcao);
-      const piso = pisoBase ? null : (dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null);
-      if (piso || pisoBase) {
-        const valor = piso || pisoBase.valor;
-        const fonte = piso
-          ? 'piso da CCT consultada'
-          : `piso da CCT cadastrada (${pisoBase.chave})`;
+      // 2ª fonte: tabela oficial de cálculo (exata, por cargo/UF/data) — só
+      // quando a base curada não tem o piso. Entra antes do regex de cláusula,
+      // que foi quem já pegou piso de outra função em peça real.
+      const pisoTabela = pisoBase ? null : await pisoDaTabelaOficial({
+        categoria: dadosCct?.categoria,
+        uf: dadosCct?.uf,
+        data_fato: dadosCct?.data_fato,
+        funcao: caso.funcao,
+        apiKey: secrets.get('CCT_API_KEY'),
+      });
+      const piso = (pisoBase || pisoTabela) ? null : (dadosCct ? extrairPisoCct(dadosCct, caso.funcao) : null);
+      if (piso || pisoBase || pisoTabela) {
+        const valor = pisoBase?.valor ?? pisoTabela?.valor ?? piso;
+        const fonte = pisoBase
+          ? `piso da CCT cadastrada (${pisoBase.chave})`
+          : pisoTabela
+            ? `tabela oficial de cálculo da CCT ${pisoTabela.uf} (cargo "${pisoTabela.cargo}")`
+            : 'piso da CCT consultada';
         caso.salario = valor;
         caso.salario_origem = fonte;
         avisosDados.push(
