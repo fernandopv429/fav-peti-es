@@ -244,6 +244,20 @@ function municipioDeLocal(local) {
   return m ? m[1].trim().replace(/[.,;]+$/, '') : '';
 }
 
+// UF do caso, na mesma ordem de fontes do município: local de prestação
+// ("Cidade/UF" ou "Cidade - UF") e comarca_uf. O regex acima sempre capturou
+// a UF no grupo 2 e a descartava — com o banco de CCTs cobrindo SP, SC, RJ e
+// PE, consultar sem UF mistura convenções de estados diferentes na resposta.
+const UFS_VALIDAS = /^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/;
+
+function ufDeLocal(local) {
+  if (!local) return '';
+  const s = String(local).replace(/\d{5}-?\d{3}/g, '').trim();
+  const m = s.match(/[A-ZÀ-Ý][A-ZÀ-Ý\s'.-]*?\s*[-/]\s*([A-Z]{2})\b/i);
+  const uf = m ? m[1].toUpperCase() : '';
+  return UFS_VALIDAS.test(uf) ? uf : '';
+}
+
 export async function enriquecerCct(caso, attrs, config, apiKey) {
   if (!config?.cct_ativo) return null;
   if (!apiKey) return null;
@@ -258,7 +272,10 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   const municipio = municipioDeLocal(caso?.local_prestacao)
     || (daComarca.length > 2 ? daComarca : '')
     || undefined;
-  const uf = undefined;
+  const daComarcaUf = String(caso?.comarca_uf || '').split('/')[1]?.trim().toUpperCase() || '';
+  const uf = ufDeLocal(caso?.local_prestacao)
+    || (UFS_VALIDAS.test(daComarcaUf) ? daComarcaUf : '')
+    || undefined;
   const perguntas = perguntasCct(caso, attrs);
 
   const consultar = async (body) => {
@@ -282,6 +299,7 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
     const body = { pergunta, limite: 3 };
     if (categoria) body.categoria = categoria;
     if (municipio) body.municipio = municipio;
+    if (uf) body.uf = uf;
     if (data_fato) body.data_fato = data_fato;
     try {
       let resultados = await consultar(body);
