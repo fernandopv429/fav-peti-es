@@ -407,6 +407,44 @@ export function pisoDaBaseCct(registroCct, funcao = '') {
   return generica ? { valor: generica.valor, chave: generica.chave } : null;
 }
 
+// PISO DA TABELA OFICIAL DE CÁLCULO (GET /valores da cct-api).
+//
+// Fonte estruturada: as tabelas salariais das CCTs parseadas para linhas
+// (cargo, item, valor) com UF e vigência — busca EXATA, não semântica. Entra
+// DEPOIS da base curada (decisão do incidente de 12/11: curadoria manual tem
+// prioridade) e ANTES do regex sobre cláusula, que foi quem pegou piso de
+// função errada. Hoje cobre vigilância SP/PE; categoria sem linhas devolve
+// null e o fluxo segue para a próxima fonte.
+export async function pisoDaTabelaOficial({ categoria, uf, data_fato, funcao, apiKey }) {
+  if (!apiKey || !categoria || !uf) return null;
+  try {
+    const qs = new URLSearchParams({ categoria, uf });
+    if (data_fato) qs.set('data_fato', String(data_fato));
+    let res;
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      res = await fetch(`https://ccts.nexusdevhub.com/valores?${qs}`, { headers: { 'X-API-Key': apiKey } });
+      if (res.status !== 429 && res.status < 500) break;
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pisos = (data?.valores || []).filter((v) => v.item === 'piso' && Number(v.valor) > 500);
+    if (!pisos.length) return null;
+    const nn = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const termos = nn(funcao).split(/[^a-z0-9]+/).filter((t) => t.length > 3);
+    if (!termos.length) return null; // sem função não dá pra escolher o cargo — não chuta
+    // entre os cargos que casam, o nome mais CURTO é o cargo base
+    // ("Vigilante" antes de "Vigilante/Cond.Veículos")
+    const casa = pisos
+      .filter((p) => termos.some((t) => nn(p.cargo).includes(t)))
+      .sort((a, b) => String(a.cargo).length - String(b.cargo).length);
+    if (!casa.length) return null;
+    return { valor: Number(casa[0].valor), cargo: casa[0].cargo, fonte: casa[0].fonte || '', uf: data.uf };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Pisos de último recurso. NÃO são usados por padrão — ver extrairPisoCct.
 const PISOS_FALLBACK = {
   vigilante_2025: 2127.66,
