@@ -143,8 +143,8 @@ export async function enriquecerDatajud(attrs, config) {
 // Categoria da convenção a partir da função/sindicato do caso.
 // Mesma regra de base44/shared/consultas.js (fonte única): função fora das
 // três convenções cadastradas devolve null, em vez de cair no SINDEEPRES.
-export { categoriaCct } from '../../../../base44/shared/consultas.js';
-import { categoriaCct } from '../../../../base44/shared/consultas.js';
+export { categoriaCct, categoriaEntidadeCct, ufDoCaso, casoEmSP } from '../../../../base44/shared/consultas.js';
+import { categoriaCct, localDaCct, cctDeReferencia } from '../../../../base44/shared/consultas.js';
 
 export async function consultarCct({ pergunta, categoria, data_fato, municipio, uf, limite = 4 }) {
   try {
@@ -200,28 +200,32 @@ export function perguntasCct(caso = {}, attrs = {}) {
   return [...new Set([...CCT_PERGUNTAS_BASE, ...condicionais])];
 }
 
-// Município onde o reclamante prestava serviços — define a base territorial
-// da CCT. Extraído do endereço de prestação (formato BR: "..., Cidade - UF, CEP").
-function municipioDeLocal(local) {
-  if (!local) return '';
-  const s = String(local).replace(/\d{5}-?\d{3}/g, '').trim();
-  const m = s.match(/([A-ZÀ-Ý][A-ZÀ-Ý\s'.-]*?)\s*-\s*([A-Z]{2})\b/i);
-  return m ? m[1].trim().replace(/[.,;]+$/, '') : '';
-}
-
+// Município e UF do filtro territorial: MESMA regra do webhook
+// (base44/shared/consultas.js — localDaCct). Antes esta tela nunca mandava a
+// UF à API, e a busca misturava convenções de SP, RJ, SC e PE; o município só
+// era lido no formato "Cidade - UF" (o mapeamento grava "Cidade/UF").
 export async function enriquecerCct(caso, attrs, config, local = {}) {
   if (!config?.cct_ativo) return null;
   const categoria = config.cct_categoria || categoriaCct(caso, attrs);
   if (!categoria) return null;
   const data_fato = caso?.data_rescisao || caso?.data_admissao || undefined;
-  const municipio = local.municipio || municipioDeLocal(caso?.local_prestacao) || caso?.comarca || undefined;
-  const uf = local.uf || undefined;
+  const doCaso = localDaCct(caso);
+  const municipio = local.municipio || doCaso.municipio || undefined;
+  const uf = local.uf || doCaso.uf || undefined;
   const perguntas = perguntasCct(caso, attrs);
   const key = runtimeCacheKey({ categoria, data_fato, municipio, uf, perguntas });
   return withRuntimeCache('cct', key, async () => {
-    const buscas = await Promise.all(
-      perguntas.map((pergunta) => consultarCct({ pergunta, categoria, data_fato, municipio, uf, limite: 3 }))
-    );
+    let semMunicipio = false;
+    const buscas = await Promise.all(perguntas.map(async (pergunta) => {
+      let r = await consultarCct({ pergunta, categoria, data_fato, municipio, uf, limite: 3 });
+      // Mesmo critério do webhook: CCT municipal mais estreita que o caso zera
+      // a busca; refaz sem município (ainda filtrando a UF) e sinaliza.
+      if (!r.resultados.length && municipio) {
+        r = await consultarCct({ pergunta, categoria, data_fato, uf, limite: 3 });
+        if (r.resultados.length) semMunicipio = true;
+      }
+      return r;
+    }));
     // dedup por cláusula (título da CCT + referência da cláusula)
     const vistos = new Set();
     const clausulas = [];
@@ -233,37 +237,23 @@ export async function enriquecerCct(caso, attrs, config, local = {}) {
         clausulas.push(r);
       }
     }
-    const top = clausulas[0] || null;
     return {
       categoria,
       data_fato,
       municipio,
+      municipio_nao_filtrado: semMunicipio,
       uf,
       perguntas,
       clausulas,
-      meta: top ? {
-        titulo: top.titulo,
-        ano_base: top.ano_base,
-        vigencia_inicio: top.vigencia_inicio,
-        vigencia_fim: top.vigencia_fim,
-        sindicato_laboral: top.sindicato_laboral,
-        fonte_url: top.fonte_url,
-      } : null,
+      // A convenção vigente na data do fato, não o 1º resultado da busca.
+      meta: cctDeReferencia(clausulas, data_fato),
     };
   }, { ttlMs: 30 * 60 * 1000 });
 }
 
 // ============================================================
-// Categoria da entidade CCT cadastrada (espelha base44/shared/consultas.js).
-const CATEGORIA_ENTIDADE = {
-  vigilancia: 'vigilante',
-  asseio_conservacao: 'porteiro_siemaco',
-  terceirizados: 'porteiro_sindeepres',
-};
-
-export function categoriaEntidadeCct(caso = {}, attrs = {}) {
-  return CATEGORIA_ENTIDADE[categoriaCct(caso, attrs)] || null;
-}
+// Categoria da entidade CCT cadastrada: reexportada de
+// base44/shared/consultas.js (acima). Era uma cópia que não olhava o estado.
 
 // PISO DA BASE CURADA DE CCTs (entidade CCT, campo `pisos`).
 // Segunda fonte do salário, entre a cláusula consultada e a desistência.
