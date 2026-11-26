@@ -8,6 +8,7 @@ import { blocoReferencias, attrsDoCaso } from '../../../../base44/shared/referen
 import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 import { removerTravessoes } from '../../../../base44/shared/texto.js';
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
+import { regrasVigilanciaSP, avisoUfParaIA } from '../../../../base44/shared/consultas.js';
 
 // ============================================================
 // REDAÇÃO POR IA — ANÁLISE ÚNICA (um único LLM para todos os capítulos)
@@ -339,6 +340,7 @@ export function montarContextoCompartilhado({ caso, calculos, dadosCct, blocosAt
     '',
     'CLÁUSULAS DA CCT (grounding — só cite estas):',
     resumoCct(dadosCct),
+    avisoUfParaIA(caso),
     '',
     // referenciasTexto (trechos REAIS dos capítulos das peças revisadas) é o
     // caminho novo, comum ao webhook; resumoReferencias fica como fallback para
@@ -456,7 +458,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
         .map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : ''))
         .filter(Boolean);
       // Itens fixos do escritório (multasPadrao.js).
-      const final = finalizarItensMulta(lista, { ehVigilante: /vigil/i.test(c?.funcao || '') });
+      const final = finalizarItensMulta(lista, { ehVigilante: /vigil/i.test(c?.funcao || '') && regrasVigilanciaSP(c || {}) });
       if (final.length) blocos.pedidos_multas = final;
     }
     const escritos = Object.keys(blocos);
