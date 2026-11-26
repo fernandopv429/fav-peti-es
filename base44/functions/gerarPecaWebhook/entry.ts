@@ -3,7 +3,7 @@ import { secrets } from 'base44:runtime';
 import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { classificarGrupo } from '../../shared/grupoFuncao.js';
-import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, pisoDaTabelaOficial, categoriaEntidadeCct, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
+import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, pisoDaTabelaOficial, categoriaEntidadeCct, categoriaCct, ufDoCaso, casoEmSP, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
 
 // ============================================================
@@ -259,10 +259,19 @@ export default async function(req) {
       : cctsDaCategoria.filter((c) => iniCct(c) && iniCct(c) <= dataRefCct).sort(porInicioDesc)[0] || null;
     const cctCadastrada = cctCobre || cctAnterior || [...cctsDaCategoria].sort(porInicioDesc)[0] || null;
     const avisoCct = [];
-    if (!categoriaEnt) {
-      // Função fora das três convenções cadastradas (vigilância, asseio, portaria).
+    // "Sem CCT" depende da CATEGORIA do banco de CCTs (vigilância, asseio,
+    // terceirizados, carro-forte, bombeiro civil), não da base curada: esta só
+    // tem SP, e um caso de RJ/SC/PE ficaria marcado como sem convenção mesmo
+    // com a CCT do estado no banco.
+    const categoriaBanco = config.cct_categoria || categoriaCct(caso);
+    const ufCaso = ufDoCaso(caso);
+    const emSP = casoEmSP(caso);
+    if (!categoriaBanco) {
       caso.sem_cct = true;
       avisoCct.push(`CATEGORIA SEM CCT CADASTRADA (função "${caso.funcao || 'não informada'}"): nenhuma convenção foi aplicada — sem piso, sem auxílio-alimentação convencional e sem cláusulas. Os capítulos que dependem de convenção coletiva (multas convencionais, adicionais convencionais, benefícios) precisam de REDAÇÃO MANUAL com a CCT da categoria.`);
+    } else if (!dadosCct?.clausulas?.length && !cctCadastrada) {
+      caso.sem_cct = true;
+      avisoCct.push(`CCT NÃO ENCONTRADA: nenhuma convenção de ${categoriaBanco.replace(/_/g, ' ')}${ufCaso ? ` em ${ufCaso}` : ''} foi localizada no banco de CCTs para a data do caso. Os capítulos que dependem de convenção coletiva precisam de REDAÇÃO MANUAL.`);
     } else if (cctCadastrada && !cctCobre) {
       avisoCct.push(`CCT: a convenção cadastrada usada (${cctCadastrada.nome}, vigência a partir de ${iniCct(cctCadastrada)}) NÃO cobre a data de referência ${dataRefCct}. Valores e números de cláusula podem ser de outro ano — CONFERIR na convenção vigente à época.`);
     }
@@ -326,7 +335,24 @@ export default async function(req) {
     // de PISOS_FALLBACK (R$ 1.699,23) quando o salário real era R$ 1.912,07 —
     // ~11% a menos em tudo, sem aviso nenhum. Agora: piso só vale se vier de
     // cláusula da CCT consultada, sempre com aviso; sem isso, é pendência.
-    const avisosDados = [...avisoCct];
+    // Fora de SP: as teses e números próprios da CCT de vigilância de SP ficam
+    // desligados até o jurídico definir (26/11/2026) — o advogado completa com a
+    // CCT do estado. Ver regrasVigilanciaSP (shared/consultas.js).
+    if (!emSP) {
+      avisoCct.push(`CASO EM ${ufCaso}: aplicada a CCT de ${ufCaso} do banco de CCTs (a base conferida de SP NÃO foi usada). Percentuais e cláusulas próprios da CCT de vigilância de SP (HE 60%, 10 minutos da cl. 33ª, intervalo cl. 41ª, desvio cl. 64ª, multa de 3%, gratificação Grupo B/condutor) NÃO foram presumidos: CONFERIR na convenção de ${ufCaso} e completar o que couber.`);
+    }
+    // Qual CCT a peça usou — vai para o caso (analise_json) e para a revisão.
+    const cctAplicada = cctCadastrada
+      ? { origem: 'base conferida', nome: cctCadastrada.nome, uf: 'SP', vigencia_inicio: cctCadastrada.vigencia_inicio || null }
+      : dadosCct?.meta
+        ? { origem: 'banco de CCTs', nome: dadosCct.meta.titulo, uf: dadosCct.meta.uf || dadosCct.uf || ufCaso || null, vigencia_inicio: dadosCct.meta.vigencia_inicio || null, vigencia_fim: dadosCct.meta.vigencia_fim || null, sindicato: dadosCct.meta.sindicato_laboral || null }
+        : null;
+    const avisosDados = [];
+    if (cctAplicada) {
+      const vig = [cctAplicada.vigencia_inicio, cctAplicada.vigencia_fim].filter(Boolean).join(' a ');
+      avisosDados.push(`CCT usada (${cctAplicada.origem}): ${cctAplicada.nome || 'sem título'}${cctAplicada.uf ? ` — ${cctAplicada.uf}` : ''}${vig ? ` — vigência ${vig}` : ''}.`);
+    }
+    avisosDados.push(...avisoCct);
     if (caso.desvio_descartado) {
       avisosDados.push(`Desvio de função NÃO pedido: a entrevista diz "${String(caso.desvio_descartado).trim().slice(0, 160)}", que é tese de porteiro/controlador, mas a função informada é vigilante. CONFERIR a função registrada na CTPS.`);
     }
@@ -503,8 +529,10 @@ export default async function(req) {
       calculos,
       dadosReceita,
       dadosCep,
+      cct_aplicada: cctAplicada,
       dadosCct: dadosCct ? {
         categoria: dadosCct.categoria,
+        uf: dadosCct.uf || null,
         meta: dadosCct.meta,
         clausulas: (dadosCct.clausulas || []).slice(0, 12).map((c) => ({
           clausula_ref: c.clausula_ref, titulo: c.titulo, ementa: c.ementa, conteudo: c.conteudo, fonte_url: c.fonte_url,
