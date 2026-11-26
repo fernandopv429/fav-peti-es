@@ -1,6 +1,8 @@
 // Cálculos trabalhistas determinísticos (JavaScript puro) — cópia backend.
 // Fonte única de verdade mantida em sincronia com src/lib/trabalhista/mathUtils.js.
 
+import { regrasVigilanciaSP } from './consultas.js';
+
 export const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 export function formatBRL(n) {
@@ -543,6 +545,10 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // Prioridade: desvio (mais específico) > acúmulo; gratificação de função só
   // existe para vigilante-condutor (cláusula 3º da CCT de vigilância).
   const ehVigilanteFuncao = /vigilante|vigil/i.test(caso.funcao || '');
+  // Números e cláusulas da CCT de vigilância de SP (60%, cl. 3ª/33ª/64ª, Grupo
+  // B) só valem para vigilante de SP. Fora de SP: o que a CCT do estado trouxer
+  // (buscarClausulaCct) ou o padrão legal; sem base, a verba não é presumida.
+  const vigilanciaSP = regrasVigilanciaSP(caso);
   const temDesvio = !!caso.tem_desvio;
   const temAcumulo = !!caso.tem_acumulo && !temDesvio;
   const temGratificacao = !!caso.tem_gratificacao && ehVigilanteFuncao;
@@ -718,26 +724,28 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
 
   if (temGratificacao && meses) {
     const gratVal = Number(caso.gratificacao_valor);
-    if (caso.gratificacao_tipo === 'monitor_eletronico' && salario) {
+    if (caso.gratificacao_tipo === 'monitor_eletronico' && salario && vigilanciaSP) {
       // CCT de vigilância, Grupo B (monitoramento eletrônico/CFTV): Vigilante/
       // Monitor de Segurança Eletrônica = 5% sobre o piso (decisão 17/11/2026).
       const pct = 0.05;
       itens.push({ item: 'Gratificação de função (5%)', memoria: `5% × ${formatBRL(salario)} × ${meses} meses (CCT, Grupo B — Vigilante/Monitor de Segurança Eletrônica)`, valor: round2(pct * salario * meses) });
     } else if (gratVal > 0) {
       itens.push({ item: 'Gratificação/bônus de função', memoria: `${formatBRL(gratVal)}/mês × ${meses} meses`, valor: round2(gratVal * meses) });
-    } else if (salario) {
+    } else if (salario && caso.gratificacao_tipo !== 'monitor_eletronico') {
       const cl = buscarClausulaCct(dadosCct, /gratifica[çc][ãa]o de fun|condutor|motorista/i);
-      const pct = cl?.percentual ?? 0.1;
-      const clTxt = cl?.clausula || 'cláusula 3ª';
-      itens.push({ item: `Gratificação de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
+      // 10% e cl. 3ª são da CCT de vigilância de SP; fora dela só com cláusula.
+      const pct = cl?.percentual ?? (vigilanciaSP ? 0.1 : null);
+      const clTxt = cl?.clausula || (vigilanciaSP ? 'cláusula 3ª' : 'CCT');
+      if (pct) itens.push({ item: `Gratificação de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
     }
   }
 
   if (temDesvio && salario && meses) {
     const cl = buscarClausulaCct(dadosCct, /desvio de fun/i);
-    const pct = cl?.percentual ?? 0.5;
-    const clTxt = cl?.clausula || 'cláusula 64ª';
-    itens.push({ item: `Desvio de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
+    // 50% e cl. 64ª são da CCT de vigilância de SP; fora dela só com cláusula.
+    const pct = cl?.percentual ?? (vigilanciaSP ? 0.5 : null);
+    const clTxt = cl?.clausula || (vigilanciaSP ? 'cláusula 64ª' : 'CCT');
+    if (pct) itens.push({ item: `Desvio de função (${Math.round(pct * 100)}%)`, memoria: `${Math.round(pct * 100)}% × ${formatBRL(salario)} × ${meses} meses (${clTxt})`, valor: round2(pct * salario * meses) });
   }
 
   // ADICIONAL DE INSALUBRIDADE. Decisão do jurídico (12/11/2026): na inicial
@@ -799,7 +807,10 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // ---- Verbas que dependem de contagem de horas ----
   if (horaNormal && meses) {
     const ehVigilante = ehVigilanteFuncao;
-    const adicConv = ehVigilante
+    // 60% é o adicional da CCT de vigilância de SP (cl. 12ª). Fora dela, 50%
+    // (art. 59 / art. 71, §4º, da CLT) — piso legal; percentual maior da CCT do
+    // estado entra pela revisão.
+    const adicConv = vigilanciaSP
       ? PARAMS_HORAS.adicional_convencional_vigilancia
       : PARAMS_HORAS.adicional_convencional_demais;
     const adicTxt = `${Math.round(adicConv * 100)}%`;
@@ -880,7 +891,7 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     }
 
     // 4) 10 minutos de descanso a cada hora (cl. 33º CCT vigilância)
-    if (ehVigilante || caso.tem_dez_min_cct) {
+    if (vigilanciaSP || caso.tem_dez_min_cct) {
       const horasDia = round2((PARAMS_HORAS.minutos_descanso_por_hora / 60) * PARAMS_HORAS.horas_jornada_dia);
       const horas = round2(horasDia * diasTotais);
       addComReflexos(
