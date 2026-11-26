@@ -92,6 +92,9 @@ const CALC_CAMPO = {
   'Reflexos de Adicional noturno e hora noturna reduzida': 'VALOR_NOTURNO_REFLEXOS',
   '10 minutos de descanso (cláusula 33º da CCT)': 'VALOR_DEZ_MINUTOS',
   'Reflexos de 10 minutos de descanso (cláusula 33º da CCT)': 'VALOR_DEZ_MINUTOS_REFLEXOS',
+  // Vigilante fora de SP, com a cláusula equivalente na CCT do estado.
+  '10 minutos de descanso (CCT do estado)': 'VALOR_DEZ_MINUTOS',
+  'Reflexos de 10 minutos de descanso (CCT do estado)': 'VALOR_DEZ_MINUTOS_REFLEXOS',
   'Adicional de periculosidade sobre as horas extras': 'VALOR_PERICULOSIDADE_HE',
   'Reflexos de Adicional de periculosidade sobre as horas extras': 'VALOR_PERICULOSIDADE_HE_REFLEXOS',
 };
@@ -119,7 +122,7 @@ export const CAMPOS_TEMPLATE = [
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'INTERVALO_ART71', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
   'DOENCA_DESCRICAO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
-  'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA',
+  'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA', 'DEZ_MIN_FUNDAMENTO', 'DESVIO_DESC',
   'PERIODO_FERIAS_PROP', 'PERIODO_13', 'PERIODO_FERIAS_VENCIDAS',
   'VALOR_SALDO_SALARIO', 'VALOR_MULTA_467',
   'VALOR_AVISO_PREVIO', 'VALOR_13', 'VALOR_FERIAS', 'VALOR_FGTS', 'VALOR_MULTA_40',
@@ -144,7 +147,7 @@ export const FLAGS_TEMPLATE = [
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
-  'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora',
+  'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora', 'DEZ_MINUTOS_APURAR',
 ];
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
