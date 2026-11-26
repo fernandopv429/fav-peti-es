@@ -1,7 +1,7 @@
 // Cálculos trabalhistas determinísticos (JavaScript puro) — cópia backend.
 // Fonte única de verdade mantida em sincronia com src/lib/trabalhista/mathUtils.js.
 
-import { regrasVigilanciaSP } from './consultas.js';
+import { regrasVigilanciaSP, categoriaCct } from './consultas.js';
 
 export const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
@@ -549,6 +549,10 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
   // B) só valem para vigilante de SP. Fora de SP: o que a CCT do estado trouxer
   // (buscarClausulaCct) ou o padrão legal; sem base, a verba não é presumida.
   const vigilanciaSP = regrasVigilanciaSP(caso);
+  // Vigilante FORA de SP (decisão 26/11/2026): as teses do vigilante de SP
+  // entram, mas os percentuais e cláusulas vêm SÓ da CCT do estado (dadosCct
+  // consultado por UF). O que ela não trouxer fica a apurar, com aviso.
+  const vigilanciaForaSP = !vigilanciaSP && ehVigilanteFuncao && categoriaCct(caso) === 'vigilancia';
   const temDesvio = !!caso.tem_desvio;
   const temAcumulo = !!caso.tem_acumulo && !temDesvio;
   const temGratificacao = !!caso.tem_gratificacao && ehVigilanteFuncao;
@@ -810,9 +814,25 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
     // 60% é o adicional da CCT de vigilância de SP (cl. 12ª). Fora dela, 50%
     // (art. 59 / art. 71, §4º, da CLT) — piso legal; percentual maior da CCT do
     // estado entra pela revisão.
-    const adicConv = vigilanciaSP
+    let adicConv = vigilanciaSP
       ? PARAMS_HORAS.adicional_convencional_vigilancia
       : PARAMS_HORAS.adicional_convencional_demais;
+    // Vigilante fora de SP: adicional da cláusula de horas extras da CCT do
+    // estado; sem ela, 50% (mínimo legal). O item informativo (valor null) leva
+    // percentual e cláusula para o texto da peça (dadosTemplate).
+    if (vigilanciaForaSP) {
+      const clHe = buscarClausulaCct(dadosCct, /horas?\s+extra|extraordin[aá]ri/i);
+      const pctHe = clHe?.percentual && clHe.percentual >= 0.5 ? clHe.percentual : null;
+      if (pctHe) adicConv = pctHe;
+      itens.push({
+        item: 'Adicional convencional de horas extras',
+        memoria: pctHe
+          ? `${Math.round(pctHe * 100)}% (${clHe.clausula || 'CCT'} da CCT do estado)`
+          : 'cláusula de horas extras não localizada na CCT do estado — usado o mínimo legal de 50%',
+        valor: null,
+        adicional_cct: pctHe ? { pct: pctHe, clausula: clHe.clausula || null } : null,
+      });
+    }
     const adicTxt = `${Math.round(adicConv * 100)}%`;
     const horaExtra = round2(horaNormal * (1 + adicConv));
     const eh12x36 = /12\s*x\s*36/i.test(`${caso.escala || ''} ${caso.jornada_horario || ''}`);
@@ -890,8 +910,27 @@ export function calcularVerbasCaso(caso = {}, dadosCct = null) {
       );
     }
 
-    // 4) 10 minutos de descanso a cada hora (cl. 33º CCT vigilância)
-    if (vigilanciaSP || caso.tem_dez_min_cct) {
+    // 4) 10 minutos de descanso a cada hora (cl. 33º CCT vigilância de SP).
+    // Fora de SP: só com a cláusula equivalente na CCT do estado; sem ela, o
+    // capítulo sai e o pedido fica a apurar (item informativo, valor null).
+    const clDez = vigilanciaForaSP && !caso.tem_dez_min_cct
+      ? buscarClausulaCct(dadosCct, /dez\s*(?:\(10\)\s*)?minutos|10\s*(?:\(dez\)\s*)?minutos|descanso\s+sentad|assento/i)
+      : null;
+    if (vigilanciaForaSP && !caso.tem_dez_min_cct) {
+      if (clDez) {
+        const horasDia = round2((PARAMS_HORAS.minutos_descanso_por_hora / 60) * PARAMS_HORAS.horas_jornada_dia);
+        const horas = round2(horasDia * diasTotais);
+        addComReflexos(
+          '10 minutos de descanso (CCT do estado)',
+          `${horas}h (${PARAMS_HORAS.minutos_descanso_por_hora} min × ${PARAMS_HORAS.horas_jornada_dia}h = ${horasDia}h/dia × ${diasTotais} dias) × ${base} + ${adicTxt} (${clDez.clausula || 'CCT'} da CCT do estado)`,
+          horas * horaExtra,
+        );
+        const it = itens.find((i) => i.item === '10 minutos de descanso (CCT do estado)');
+        if (it) it.clausula = clDez.clausula || null;
+      } else {
+        itens.push({ item: '10 minutos de descanso — a apurar', memoria: 'cláusula de descanso de 10 minutos não localizada na CCT do estado', valor: null });
+      }
+    } else if (vigilanciaSP || caso.tem_dez_min_cct) {
       const horasDia = round2((PARAMS_HORAS.minutos_descanso_por_hora / 60) * PARAMS_HORAS.horas_jornada_dia);
       const horas = round2(horasDia * diasTotais);
       addComReflexos(
