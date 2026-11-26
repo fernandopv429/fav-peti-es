@@ -180,7 +180,9 @@ export function regrasVigilanciaSP(caso = {}, attrs = {}) {
 export function avisoUfParaIA(caso = {}) {
   if (casoEmSP(caso)) return '';
   const uf = ufDoCaso(caso);
-  return `ATENÇÃO — CASO EM ${uf}: as cláusulas e percentuais citados nas diretrizes acima (cláusulas 3ª, 12ª, 33ª/34ª, 41ª e 64ª; adicional de 60%; multa de 3% ou de 50%; 10 minutos de descanso sentado) são da CCT de vigilância de SÃO PAULO e NÃO se aplicam a este caso. Use somente a convenção de ${uf} listada em CLÁUSULAS DA CCT; o que não constar dela, fundamente na CLT, sem número de cláusula nem percentual convencional.`;
+  // Decisão 26/11/2026: as TESES do vigilante de SP entram em outros estados,
+  // mas números de cláusula e percentuais vêm só da CCT do estado.
+  return `ATENÇÃO — CASO EM ${uf}: as TESES das diretrizes acima valem (inclusive 10 minutos de descanso, adicional convencional, desvio/gratificação e multas convencionais), mas os NÚMEROS DE CLÁUSULA e PERCENTUAIS ali citados (cláusulas 3ª, 12ª, 33ª/34ª, 41ª e 64ª; 60%; 3%; 50%) são da CCT de vigilância de SÃO PAULO e NÃO podem ser usados. Cite somente cláusulas e percentuais da convenção de ${uf} listada em CLÁUSULAS DA CCT e os VALORES CALCULADOS; se a convenção de ${uf} não trouxer o tema, sustente a tese na "Convenção Coletiva da Categoria" e na CLT, sem número de cláusula nem percentual.`;
 }
 
 // ------------------------------------------------------------------
