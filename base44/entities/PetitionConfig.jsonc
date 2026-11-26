@@ -1,19 +1,19 @@
 {
   "name": "PetitionConfig",
   "type": "object",
-  "description": "Configurações globais do gerador de petições por IA",
+  "description": "Configura\u00e7\u00f5es globais do gerador de peti\u00e7\u00f5es por IA",
   "properties": {
     "escritorio": {
       "type": "string",
-      "description": "Nome do escritório"
+      "description": "Nome do escrit\u00f3rio"
     },
     "advogado_principal": {
       "type": "string",
-      "description": "Nome do advogado responsável"
+      "description": "Nome do advogado respons\u00e1vel"
     },
     "oab": {
       "type": "string",
-      "description": "Número OAB"
+      "description": "N\u00famero OAB"
     },
     "uf_oab": {
       "type": "string",
@@ -21,7 +21,7 @@
     },
     "email_contato": {
       "type": "string",
-      "description": "E-mail do escritório"
+      "description": "E-mail do escrit\u00f3rio"
     },
     "telefone": {
       "type": "string",
@@ -37,19 +37,19 @@
     },
     "site": {
       "type": "string",
-      "description": "Site do escritório"
+      "description": "Site do escrit\u00f3rio"
     },
     "logo_url": {
       "type": "string",
-      "description": "URL do logotipo/timbre do escritório"
+      "description": "URL do logotipo/timbre do escrit\u00f3rio"
     },
     "cabecalho_texto": {
       "type": "string",
-      "description": "Texto do cabeçalho do documento (ex: endereço, telefone formatados)"
+      "description": "Texto do cabe\u00e7alho do documento (ex: endere\u00e7o, telefone formatados)"
     },
     "rodape_texto": {
       "type": "string",
-      "description": "Texto do rodapé do documento"
+      "description": "Texto do rodap\u00e9 do documento"
     },
     "papel_timbrado_url": {
       "type": "string",
@@ -57,26 +57,43 @@
     },
     "modelo_ia": {
       "type": "string",
-      "description": "Modelo de IA para geração",
+      "description": "Modelo de IA para gera\u00e7\u00e3o",
       "default": "claude_sonnet_4_6"
     },
     "prompt_sistema": {
       "type": "string",
-      "description": "Prompt de sistema para geração das petições"
+      "description": "Prompt de sistema para gera\u00e7\u00e3o das peti\u00e7\u00f5es"
     },
     "max_tokens": {
       "type": "number",
-      "description": "Máximo de tokens por geração",
+      "description": "M\u00e1ximo de tokens por gera\u00e7\u00e3o",
       "default": 4000
     },
     "threshold_confianca": {
       "type": "number",
-      "description": "Limiar de confiança para seleção automática de modelo (0.0–1.0). Acima deste valor a IA seleciona automaticamente; abaixo, encaminha para revisão humana. Padrão: 0.6",
+      "description": "Limiar de confian\u00e7a para sele\u00e7\u00e3o autom\u00e1tica de modelo (0.0\u20131.0). Acima deste valor a IA seleciona automaticamente; abaixo, encaminha para revis\u00e3o humana. Padr\u00e3o: 0.6",
       "default": 0.6
     },
     "ativo": {
       "type": "boolean",
       "default": true
+    },
+    "cct_ativo": {
+      "type": "boolean",
+      "description": "Consultar a base de Conven\u00e7\u00f5es Coletivas (cct-api) ao gerar a pe\u00e7a. Desligado, nenhuma cl\u00e1usula de CCT \u00e9 citada e a pe\u00e7a sai s\u00f3 com a CLT.",
+      "default": true
+    },
+    "cct_categoria": {
+      "type": "string",
+      "description": "For\u00e7a a categoria da CCT em vez de deduzi-la pela fun\u00e7\u00e3o. Em branco: deduz pela fun\u00e7\u00e3o do caso, que \u00e9 o correto na maioria dos casos.",
+      "enum": [
+        "",
+        "vigilancia",
+        "asseio_conservacao",
+        "terceirizados",
+        "carro_forte",
+        "bombeiro_civil"
+      ]
     }
   },
   "required": [
