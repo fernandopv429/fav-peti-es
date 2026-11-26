@@ -411,16 +411,7 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   // Marcos citou "CCT 2024" onde a especialista cita a de 2026, e a revisora
   // marcou o tópico das multas. Agora preferimos a convenção cuja vigência cobre
   // a data do fato e, na falta dela, a mais recente.
-  const fimVigencia = (c) => c?.vigencia_fim || c?.vigencia_fim_sociais || c?.vigencia_fim_economicas || '';
-  const cobreDataFato = (c) => {
-    if (!data_fato || !c?.vigencia_inicio) return false;
-    const fim = fimVigencia(c);
-    return String(c.vigencia_inicio) <= String(data_fato) && (!fim || String(data_fato) <= String(fim));
-  };
-  const porInicioDesc = (a, b) => String(b?.vigencia_inicio || '').localeCompare(String(a?.vigencia_inicio || ''));
-  const top = clausulas.filter(cobreDataFato).sort(porInicioDesc)[0]
-    || [...clausulas].sort(porInicioDesc)[0]
-    || null;
+  const meta = cctDeReferencia(clausulas, data_fato);
   return {
     categoria,
     data_fato,
@@ -431,14 +422,7 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
     uf,
     perguntas,
     clausulas,
-    meta: top ? {
-      titulo: top.titulo,
-      ano_base: top.ano_base,
-      vigencia_inicio: top.vigencia_inicio,
-      vigencia_fim: top.vigencia_fim,
-      sindicato_laboral: top.sindicato_laboral,
-      fonte_url: top.fonte_url,
-    } : null,
+    meta,
   };
 }
 
