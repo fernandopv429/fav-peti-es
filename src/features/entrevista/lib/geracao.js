@@ -231,7 +231,7 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
     // Fora de SP a base conferida (só SP) não entra e os números próprios da
     // CCT de vigilância de SP não são presumidos (regrasVigilanciaSP).
     if (!casoEmSP(caso)) {
-      notify(`Caso em ${ufDoCaso(caso)}: usando a CCT de ${ufDoCaso(caso)} do banco de CCTs. Percentuais e cláusulas próprios da CCT de vigilância de SP não foram presumidos — conferir na convenção do estado.`);
+      notify(`Caso em ${ufDoCaso(caso)}: usando a CCT de ${ufDoCaso(caso)} do banco de CCTs. As teses do vigilante entram, com percentuais e cláusulas só da CCT do estado (o que faltar sai a apurar) — conferir na convenção.`);
     }
     if (dadosCct?.municipio_nao_filtrado) {
       notify(`CCT: nenhuma cláusula para o município "${dadosCct.municipio}"; usadas as do estado. Conferir a abrangência da convenção.`);
