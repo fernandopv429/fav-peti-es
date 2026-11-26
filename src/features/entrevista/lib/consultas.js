@@ -143,7 +143,7 @@ export async function enriquecerDatajud(attrs, config) {
 // Categoria da convenção a partir da função/sindicato do caso.
 // Mesma regra de base44/shared/consultas.js (fonte única): função fora das
 // três convenções cadastradas devolve null, em vez de cair no SINDEEPRES.
-export { categoriaCct, categoriaEntidadeCct, ufDoCaso, casoEmSP } from '../../../../base44/shared/consultas.js';
+export { categoriaCct, categoriaEntidadeCct, ufDoCaso, casoEmSP, regrasVigilanciaSP } from '../../../../base44/shared/consultas.js';
 import { categoriaCct, localDaCct, cctDeReferencia } from '../../../../base44/shared/consultas.js';
 
 export async function consultarCct({ pergunta, categoria, data_fato, municipio, uf, limite = 4 }) {
