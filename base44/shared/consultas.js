@@ -120,14 +120,22 @@ const RX_BOMBEIRO_CIVIL = /bombeiro\s+civil|brigadista|brigada\s+de\s+(?:inc[êe
 // piso normativo de portaria (R$ 1.805,43), auxílio-refeição e cláusulas de uma
 // convenção que não é a deles — auditoria de 12/11/2026, ~40% das entrevistas.
 // Agora essas funções voltam null e quem chama trata como "sem CCT cadastrada".
-export function categoriaCct(caso = {}, attrs = {}) {
-  const t = `${caso.funcao || attrs.funcao || ''} ${caso.sindicato || ''}`.toLowerCase();
+// A FUNÇÃO decide antes do sindicato: caso.sindicato é preenchido depois com o
+// nome da entidade da CCT consultada, e nomes de federação citam outras
+// categorias (a FETRAVESP, da vigilância de SP, é "...Vigilância Privada,
+// Transporte de Valores...") — lidos juntos, um vigilante viraria carro-forte.
+function categoriaDoTexto(t) {
   if (RX_CARRO_FORTE.test(t)) return 'carro_forte';
   if (RX_BOMBEIRO_CIVIL.test(t)) return 'bombeiro_civil';
   if (RX_VIGILANCIA.test(t)) return 'vigilancia';
   if (RX_ASSEIO.test(t)) return 'asseio_conservacao';
   if (RX_PORTARIA.test(t)) return 'terceirizados';
   return null;
+}
+
+export function categoriaCct(caso = {}, attrs = {}) {
+  return categoriaDoTexto(String(caso.funcao || attrs.funcao || '').toLowerCase())
+    || categoriaDoTexto(String(caso.sindicato || '').toLowerCase());
 }
 
 // ------------------------------------------------------------------
