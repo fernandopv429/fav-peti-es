@@ -42,6 +42,8 @@ import {
   extrairPisoCct,
   pisoDaBaseCct,
   categoriaEntidadeCct,
+  ufDoCaso,
+  casoEmSP,
 } from './consultas';
 
 // ============================================================
@@ -223,7 +225,15 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
     if (dadosCct?.meta) {
       if (!caso.cct_ano && dadosCct.meta.ano_base) caso.cct_ano = String(dadosCct.meta.ano_base);
       if (!caso.sindicato && dadosCct.meta.sindicato_laboral) caso.sindicato = dadosCct.meta.sindicato_laboral;
-      if (dadosCct.meta.titulo) notify(`CCT aplicável: ${dadosCct.meta.titulo}`);
+      if (dadosCct.meta.titulo) notify(`CCT aplicável: ${dadosCct.meta.titulo}${dadosCct.meta.uf || dadosCct.uf ? ` (${dadosCct.meta.uf || dadosCct.uf})` : ''}`);
+    }
+    // Fora de SP a base conferida (só SP) não entra e os números próprios da
+    // CCT de vigilância de SP não são presumidos (regrasVigilanciaSP).
+    if (!casoEmSP(caso)) {
+      notify(`Caso em ${ufDoCaso(caso)}: usando a CCT de ${ufDoCaso(caso)} do banco de CCTs. Percentuais e cláusulas próprios da CCT de vigilância de SP não foram presumidos — conferir na convenção do estado.`);
+    }
+    if (dadosCct?.municipio_nao_filtrado) {
+      notify(`CCT: nenhuma cláusula para o município "${dadosCct.municipio}"; usadas as do estado. Conferir a abrangência da convenção.`);
     }
     // Enriquecer automaticamente com valores da CCT quando não informados na entrevista
     if (dadosCct?.clausulas?.length) {
@@ -301,7 +311,9 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   if (ehVig && caso.tem_ft) {
     caso.tem_vale_transporte = true;
     caso.tem_auxilio_alimentacao = true;
-    if (!caso.valor_aux_alimentacao) caso.valor_aux_alimentacao = 42; // padrão Vigilância (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
+    // R$ 42/dia é o da CCT de vigilância de SP (cl. 17ª SESVESP 2026). Fora de
+    // SP o valor vem da cláusula consultada ou fica para preencher.
+    if (!caso.valor_aux_alimentacao && casoEmSP(caso)) caso.valor_aux_alimentacao = 42; // padrão Vigilância SP (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
   }
 
   // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
