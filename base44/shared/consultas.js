@@ -303,6 +303,46 @@ function ufDeLocal(local) {
   return UFS_VALIDAS.test(uf) ? uf : '';
 }
 
+// Município e UF usados no filtro territorial da consulta à CCT. Exportado
+// para a tela de entrevista usar a MESMA regra do webhook: lá a UF nunca era
+// enviada e a busca misturava convenções de estados diferentes.
+export function localDaCct(caso = {}) {
+  // caso.comarca não existe no contrato do caso — o campo é comarca_uf
+  // ("Cidade/UF"), de onde tiramos só a cidade.
+  const daComarca = String(caso?.comarca_uf || caso?.comarca || '').split('/')[0].trim();
+  const municipio = municipioDeLocal(caso?.local_prestacao)
+    || (daComarca.length > 2 ? daComarca : '')
+    || undefined;
+  const uf = ufDoCaso(caso) || undefined;
+  return { municipio, uf };
+}
+
+// CCT de referência (meta) entre as cláusulas devolvidas: a convenção cuja
+// vigência cobre a data do fato e, na falta, a mais recente. Compartilhado com
+// a tela de entrevista, que usava o PRIMEIRO resultado da busca semântica.
+export function cctDeReferencia(clausulas = [], data_fato) {
+  const fimVigencia = (c) => c?.vigencia_fim || c?.vigencia_fim_sociais || c?.vigencia_fim_economicas || '';
+  const cobreDataFato = (c) => {
+    if (!data_fato || !c?.vigencia_inicio) return false;
+    const fim = fimVigencia(c);
+    return String(c.vigencia_inicio) <= String(data_fato) && (!fim || String(data_fato) <= String(fim));
+  };
+  const porInicioDesc = (a, b) => String(b?.vigencia_inicio || '').localeCompare(String(a?.vigencia_inicio || ''));
+  const top = clausulas.filter(cobreDataFato).sort(porInicioDesc)[0]
+    || [...clausulas].sort(porInicioDesc)[0]
+    || null;
+  return top ? {
+    titulo: top.titulo,
+    ano_base: top.ano_base,
+    vigencia_inicio: top.vigencia_inicio,
+    vigencia_fim: top.vigencia_fim,
+    sindicato_laboral: top.sindicato_laboral,
+    fonte_url: top.fonte_url,
+    uf: top.uf || null,
+    cobre_data_fato: cobreDataFato(top),
+  } : null;
+}
+
 export async function enriquecerCct(caso, attrs, config, apiKey) {
   if (!config?.cct_ativo) return null;
   if (!apiKey) return null;
@@ -311,16 +351,7 @@ export async function enriquecerCct(caso, attrs, config, apiKey) {
   // semântica devolveria cláusulas de qualquer convenção e a peça as citaria.
   if (!categoria) return null;
   const data_fato = caso?.data_rescisao || caso?.data_admissao || undefined;
-  // caso.comarca não existe no contrato do caso — o campo é comarca_uf
-  // ("Cidade/UF"), de onde tiramos só a cidade.
-  const daComarca = String(caso?.comarca_uf || caso?.comarca || '').split('/')[0].trim();
-  const municipio = municipioDeLocal(caso?.local_prestacao)
-    || (daComarca.length > 2 ? daComarca : '')
-    || undefined;
-  const daComarcaUf = String(caso?.comarca_uf || '').split('/')[1]?.trim().toUpperCase() || '';
-  const uf = ufDeLocal(caso?.local_prestacao)
-    || (UFS_VALIDAS.test(daComarcaUf) ? daComarcaUf : '')
-    || undefined;
+  const { municipio, uf } = localDaCct(caso);
   const perguntas = perguntasCct(caso, attrs);
 
   const consultar = async (body) => {
