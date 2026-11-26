@@ -44,6 +44,7 @@ import {
   categoriaEntidadeCct,
   ufDoCaso,
   casoEmSP,
+  regrasVigilanciaSP,
 } from './consultas';
 
 // ============================================================
@@ -313,7 +314,7 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
     caso.tem_auxilio_alimentacao = true;
     // R$ 42/dia é o da CCT de vigilância de SP (cl. 17ª SESVESP 2026). Fora de
     // SP o valor vem da cláusula consultada ou fica para preencher.
-    if (!caso.valor_aux_alimentacao && casoEmSP(caso)) caso.valor_aux_alimentacao = 42; // padrão Vigilância SP (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
+    if (!caso.valor_aux_alimentacao && regrasVigilanciaSP(caso)) caso.valor_aux_alimentacao = 42; // padrão Vigilância SP (confirmado com peça real da especialista, CCT 2026) — NUNCA o valor do SINDEEPRES aqui, categoria diferente
   }
 
   // Cálculo 100% determinístico (a IA não faz aritmética). Passa a CCT já
