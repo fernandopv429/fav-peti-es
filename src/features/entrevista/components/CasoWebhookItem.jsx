@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp, RefreshCw, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import DadosEventoWebhook from '@/features/entrevista/components/DadosEventoWebhook';
@@ -13,6 +13,13 @@ export default function CasoWebhookItem({ caso: c, onSelecionar }) {
   const confirmado = c.status === 'pronto';
   const [aberto, setAberto] = useState(false);
   const eventoId = c.analise_json?.evento_id;
+  // Qual CCT a peça usou (nome, estado, vigência), para conferir de olho.
+  // Peças geradas antes de 26/11/2026 não têm cct_aplicada: cai no meta da
+  // consulta, quando houver.
+  const cct = c.analise_json?.cct_aplicada
+    || (c.analise_json?.dadosCct?.meta ? { nome: c.analise_json.dadosCct.meta.titulo, uf: c.analise_json.dadosCct.meta.uf || c.analise_json.dadosCct.uf, vigencia_inicio: c.analise_json.dadosCct.meta.vigencia_inicio, vigencia_fim: c.analise_json.dadosCct.meta.vigencia_fim } : null);
+  const ano = (d) => (d ? String(d).slice(0, 4) : '');
+  const vigenciaCct = cct ? [ano(cct.vigencia_inicio), ano(cct.vigencia_fim)].filter(Boolean).join('/') : '';
   // Botão "Refazer peça" (somente administradores): gera a peça de novo com os
   // dados e as CCTs atuais. O arquivo do texto anterior continua guardado.
   const [isAdmin, setIsAdmin] = useState(false);
@@ -54,6 +61,12 @@ export default function CasoWebhookItem({ caso: c, onSelecionar }) {
             <Building2 className="h-3 w-3 flex-shrink-0" />
             {c.recl1_nome || '—'}
           </p>
+          {cct?.nome && (
+            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5" title={`${cct.nome}${cct.origem ? ` (${cct.origem})` : ''}`}>
+              <Scale className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">CCT{cct.uf ? ` ${cct.uf}` : ''}{vigenciaCct ? ` ${vigenciaCct}` : ''}: {cct.nome}</span>
+            </p>
+          )}
           <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {new Date(c.created_date).toLocaleString('pt-BR')}
