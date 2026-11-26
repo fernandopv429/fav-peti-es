@@ -105,6 +105,12 @@ const RX_PORTARIA = /porteir|portaria|controlador(?:a)?\s+de\s+acesso|controle\s
 // Funções de ASSEIO E CONSERVAÇÃO (CCT SIEMACO).
 const RX_ASSEIO = /asseio|limpeza|conserva[çc]|faxin|servente|copeir|servi[çc]os\s+gerais|\basg\b|higieniza|jardin|siemaco|seac/;
 const RX_VIGILANCIA = /vigilante|vigil[âa]ncia|seevissp|sesvesp|seguran[çc]a\s+(?:patrimonial|privada)/;
+// Categorias do banco de CCTs (cct-api) além das três dos modelos. Testadas
+// ANTES da vigilância: "vigilante de carro-forte" tem convenção própria
+// (transporte de valores), não a de vigilância patrimonial. "Bombeiro" sozinho
+// NÃO entra (bombeiro hidráulico é encanador).
+const RX_CARRO_FORTE = /carro[\s-]*forte|transporte\s+de\s+valores|escolta\s+armada/;
+const RX_BOMBEIRO_CIVIL = /bombeiro\s+civil|brigadista|brigada\s+de\s+(?:inc[êe]ndio|emerg[êe]ncia)/;
 
 // Devolve a categoria de CCT do caso, ou NULL quando a função não pertence a
 // nenhuma das três convenções cadastradas.
@@ -116,10 +122,46 @@ const RX_VIGILANCIA = /vigilante|vigil[âa]ncia|seevissp|sesvesp|seguran[çc]a\s
 // Agora essas funções voltam null e quem chama trata como "sem CCT cadastrada".
 export function categoriaCct(caso = {}, attrs = {}) {
   const t = `${caso.funcao || attrs.funcao || ''} ${caso.sindicato || ''}`.toLowerCase();
+  if (RX_CARRO_FORTE.test(t)) return 'carro_forte';
+  if (RX_BOMBEIRO_CIVIL.test(t)) return 'bombeiro_civil';
   if (RX_VIGILANCIA.test(t)) return 'vigilancia';
   if (RX_ASSEIO.test(t)) return 'asseio_conservacao';
   if (RX_PORTARIA.test(t)) return 'terceirizados';
   return null;
+}
+
+// ------------------------------------------------------------------
+// ESTADO (UF) DO CASO — decide qual CCT vale.
+//
+// O banco de CCTs cobre SP, RJ, SC e PE, mas o gerador tinha SP chumbado em
+// duas camadas: a base curada (entidade CCT — só convenções de SP), escolhida
+// apenas pela categoria, e números/cláusulas da CCT de vigilância de SP no
+// código (60%, cl. 12ª/33ª/41ª/64ª, multa 3%, R$ 42/dia...). Um vigilante do RJ
+// saía com piso, auxílio e cláusulas de SP (26/11/2026).
+//
+// Fontes da UF, na mesma ordem da consulta à API: local de prestação
+// ("Cidade/UF" ou "Cidade - UF") e comarca_uf. Sem UF identificável o caso é
+// tratado como SP — é onde o escritório atua e era o comportamento anterior.
+// ------------------------------------------------------------------
+export function ufDoCaso(caso = {}) {
+  const daComarca = String(caso?.comarca_uf || '').split('/')[1]?.trim().toUpperCase() || '';
+  return ufDeLocal(caso?.local_prestacao) || (UFS_VALIDAS.test(daComarca) ? daComarca : '');
+}
+
+export function casoEmSP(caso = {}) {
+  const uf = ufDoCaso(caso);
+  return !uf || uf === 'SP';
+}
+
+// Regras próprias da CCT de VIGILÂNCIA DE SP (SESVESP): HE e art. 71 a 60%
+// (cl. 12ª), 10 minutos de descanso sentado (cl. 33ª), intervalo cl. 41ª IV,
+// desvio cl. 64ª (50%), multa 3%/cláusula, gratificação Grupo B (5%) e do
+// condutor (cl. 3ª, 10%), alimentação R$ 42/dia. Fora de SP (ou em outra
+// categoria, como carro-forte) nada disso é presumido: vale o que a CCT do
+// estado trouxer, ou o campo fica para preencher. Periculosidade NÃO entra
+// aqui: é legal (art. 193, II, da CLT), não convencional.
+export function regrasVigilanciaSP(caso = {}, attrs = {}) {
+  return categoriaCct(caso, attrs) === 'vigilancia' && casoEmSP(caso);
 }
 
 // ------------------------------------------------------------------
@@ -156,7 +198,10 @@ export function tomadoraEhPublica({ nome = '', receita = null } = {}) {
   return RX_ENTE_PUBLICO.test(String(nome || ''));
 }
 
+// A entidade CCT (base curada) só tem convenções de SP: fora de SP não há
+// registro curado aplicável, e a CCT vem do banco (cct-api) pelo estado.
 export function categoriaEntidadeCct(caso = {}, attrs = {}) {
+  if (!casoEmSP(caso)) return null;
   return CATEGORIA_ENTIDADE[categoriaCct(caso, attrs)] || null;
 }
 
