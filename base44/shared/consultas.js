@@ -120,22 +120,23 @@ const RX_BOMBEIRO_CIVIL = /bombeiro\s+civil|brigadista|brigada\s+de\s+(?:inc[êe
 // piso normativo de portaria (R$ 1.805,43), auxílio-refeição e cláusulas de uma
 // convenção que não é a deles — auditoria de 12/11/2026, ~40% das entrevistas.
 // Agora essas funções voltam null e quem chama trata como "sem CCT cadastrada".
-// A FUNÇÃO decide antes do sindicato: caso.sindicato é preenchido depois com o
-// nome da entidade da CCT consultada, e nomes de federação citam outras
+// Carro-forte e bombeiro civil: decididos pela FUNÇÃO, antes de tudo. O
+// sindicato só os indica quando nada mais casou: caso.sindicato é preenchido
+// com o nome da entidade da CCT consultada, e nomes de federação citam outras
 // categorias (a FETRAVESP, da vigilância de SP, é "...Vigilância Privada,
-// Transporte de Valores...") — lidos juntos, um vigilante viraria carro-forte.
-function categoriaDoTexto(t) {
-  if (RX_CARRO_FORTE.test(t)) return 'carro_forte';
-  if (RX_BOMBEIRO_CIVIL.test(t)) return 'bombeiro_civil';
+// Transporte de Valores..."). As três categorias dos modelos seguem lendo
+// função + sindicato juntos, como antes (porteiro do SIEMACO depende disso).
+export function categoriaCct(caso = {}, attrs = {}) {
+  const f = String(caso.funcao || attrs.funcao || '').toLowerCase();
+  const t = `${f} ${caso.sindicato || ''}`.toLowerCase();
+  if (RX_CARRO_FORTE.test(f)) return 'carro_forte';
+  if (RX_BOMBEIRO_CIVIL.test(f)) return 'bombeiro_civil';
   if (RX_VIGILANCIA.test(t)) return 'vigilancia';
   if (RX_ASSEIO.test(t)) return 'asseio_conservacao';
   if (RX_PORTARIA.test(t)) return 'terceirizados';
+  if (RX_CARRO_FORTE.test(t)) return 'carro_forte';
+  if (RX_BOMBEIRO_CIVIL.test(t)) return 'bombeiro_civil';
   return null;
-}
-
-export function categoriaCct(caso = {}, attrs = {}) {
-  return categoriaDoTexto(String(caso.funcao || attrs.funcao || '').toLowerCase())
-    || categoriaDoTexto(String(caso.sindicato || '').toLowerCase());
 }
 
 // ------------------------------------------------------------------
