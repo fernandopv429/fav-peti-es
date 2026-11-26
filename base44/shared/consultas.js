@@ -173,6 +173,16 @@ export function regrasVigilanciaSP(caso = {}, attrs = {}) {
   return categoriaCct(caso, attrs) === 'vigilancia' && casoEmSP(caso);
 }
 
+// Instrução para a IA quando o caso NÃO é de SP. Os blocos fixos do prompt
+// (engenhariaJuridica, matrizTopicos) citam cláusulas da CCT de vigilância de
+// SP (12ª, 33ª/34ª, 41ª, 64ª, 3ª) e percentuais dela; fora de SP a IA não pode
+// transportá-los. Vazio em SP (prompt idêntico ao de antes).
+export function avisoUfParaIA(caso = {}) {
+  if (casoEmSP(caso)) return '';
+  const uf = ufDoCaso(caso);
+  return `ATENÇÃO — CASO EM ${uf}: as cláusulas e percentuais citados nas diretrizes acima (cláusulas 3ª, 12ª, 33ª/34ª, 41ª e 64ª; adicional de 60%; multa de 3% ou de 50%; 10 minutos de descanso sentado) são da CCT de vigilância de SÃO PAULO e NÃO se aplicam a este caso. Use somente a convenção de ${uf} listada em CLÁUSULAS DA CCT; o que não constar dela, fundamente na CLT, sem número de cláusula nem percentual convencional.`;
+}
+
 // ------------------------------------------------------------------
 // BASE DE CCTs CADASTRADAS (entidade CCT) como fonte de valores.
 //
