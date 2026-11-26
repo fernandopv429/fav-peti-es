@@ -638,7 +638,13 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // multa 3%, Grupo B, cl. 3ª) só para vigilante de SP (26/11/2026). Fora de
   // SP: padrão legal ou "[A PREENCHER]", e o advogado completa com a CCT do
   // estado. Periculosidade continua por ehVigilante (é legal, não da CCT).
-  const vigilanciaSP = ehVigilante && regrasVigilanciaSP(caso, attrs);
+  // Reexportação de peça antiga: o cálculo gravado (analise_json.calculos) foi
+  // feito com as regras de SP. Se ele usou o adicional de 60%, o texto segue o
+  // cálculo — senão a peça diria 50% sobre valores calculados a 60% e
+  // perderia o capítulo dos 10 minutos com o valor ainda somado à causa.
+  const calculoGravadoSP = (calculos || []).some((c) => /^(Horas extras|Intervalo intrajornada)/.test(String(c?.item || ''))
+    && /\+ 60%/.test(String(c?.memoria || '')));
+  const vigilanciaSP = ehVigilante && (regrasVigilanciaSP(caso, attrs) || calculoGravadoSP);
   // Percentuais que divergem por categoria (confirmado com peça real da
   // especialista, CCT Vigilância 2026): Vigilante usa 60% convencional
   // (cláusula 12ª) tanto nas HE quanto no intervalo do art. 71; demais
