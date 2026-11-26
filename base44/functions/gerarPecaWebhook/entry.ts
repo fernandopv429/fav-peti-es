@@ -339,7 +339,7 @@ export default async function(req) {
     // desligados até o jurídico definir (26/11/2026) — o advogado completa com a
     // CCT do estado. Ver regrasVigilanciaSP (shared/consultas.js).
     if (!emSP) {
-      avisoCct.push(`CASO EM ${ufCaso}: aplicada a CCT de ${ufCaso} do banco de CCTs (a base conferida de SP NÃO foi usada). Percentuais e cláusulas próprios da CCT de vigilância de SP (HE 60%, 10 minutos da cl. 33ª, intervalo cl. 41ª, desvio cl. 64ª, multa de 3%, gratificação Grupo B/condutor) NÃO foram presumidos: CONFERIR na convenção de ${ufCaso} e completar o que couber.`);
+      avisoCct.push(`CASO EM ${ufCaso}: aplicada a CCT de ${ufCaso} do banco de CCTs (a base conferida de SP NÃO foi usada). As teses do vigilante entram, mas percentuais e cláusulas são SÓ os lidos na CCT de ${ufCaso} (adicional de HE, 10 minutos, desvio, gratificação); o que ela não trouxe saiu "a apurar" ou pelo mínimo legal. CONFERIR cada percentual e cláusula na convenção de ${ufCaso}.`);
     }
     // Qual CCT a peça usou — vai para o caso (analise_json) e para a revisão.
     const cctAplicada = cctCadastrada
