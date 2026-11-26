@@ -171,7 +171,7 @@ const CCT_PERGUNTAS_CONDICIONAIS = [
   [/ac[uú]mulo de fun/i, 'acúmulo de função e a multa convencional correspondente'],
   [/periculos/i, 'adicional de periculosidade e sua integração nas horas extras'],
   [/insalubr/i, 'adicional de insalubridade'],
-  [/10 minutos|descanso sentad/i, 'os 10 minutos de descanso sentado durante a jornada'],
+  [/10 minutos|descanso sentad|vigilan/i, 'os 10 minutos de descanso sentado durante a jornada'],
   [/12x36|escala|jornada|hora[s]? extra/i, 'compensação de jornada, escala 12x36 e prorrogação'],
   [/folga|dsr|descanso semanal|feriado/i, 'trabalho em folgas, feriados e descanso semanal remunerado'],
   [/dano moral|ass[eé]dio/i, 'garantias e direitos do trabalhador previstos na convenção'],
