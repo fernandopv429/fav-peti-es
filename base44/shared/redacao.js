@@ -11,6 +11,7 @@ import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos.js';
 import { blocoRegrasCriticas } from './regrasCriticas.js';
 import { blocoReferencias, attrsDoCaso } from './referencias.js';
 import { removerTravessoes } from './texto.js';
+import { regrasVigilanciaSP, avisoUfParaIA } from './consultas.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -110,7 +111,9 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   d.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
   d.integracao_por_fora = flag(caso.tem_integracao_por_fora);
   d.periculosidade = flag(caso.tem_periculosidade) || ehVigilante;
-  d.dez_minutos_cct = flag(caso.tem_dez_min_cct) || ehVigilante;
+  // 10 minutos (cl. 33ª) é da CCT de vigilância de SP: fora dela, só se a
+  // entrevista marcou (mesma regra de dadosTemplate.js e mathUtils.js).
+  d.dez_minutos_cct = flag(caso.tem_dez_min_cct) || (ehVigilante && regrasVigilanciaSP(caso, attrs));
   d.salarios_em_aberto = flag(caso.tem_salarios_aberto);
   d.assiduidade = flag(caso.tem_assiduidade);
   d.vale_transporte = flag(caso.tem_vale_transporte);
@@ -309,6 +312,7 @@ function montarContextoCompartilhado({ caso, calculos, dadosCct, cctCadastrada, 
     'DADOS DO CASO:', resumoCaso(caso), '',
     'VALORES CALCULADOS (determinísticos — USE ESTES, NÃO RECALCULE):', resumoCalculos(calculos), '',
     'CLÁUSULAS DA CCT (grounding — só cite estas):', resumoCct(dadosCct, cctCadastrada), '',
+    avisoUfParaIA(caso),
     // Este caminho (webhook) NÃO mandava referência nenhuma: a IA escrevia sem
     // nunca ter visto uma peça do escritório, enquanto a tela mandava um resumo.
     // Era a maior diferença de qualidade entre os dois caminhos.
@@ -522,7 +526,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
     const lista = obj.PEDIDOS_MULTAS.map((s) => (typeof s === 'string' ? sanitizarValoresIA(s.trim()) : '')).filter(Boolean);
     // Itens fixos do escritório (periculosidade, intervalo, FGTS, DSR, dano
     // moral): multasPadrao.js, a mesma regra da lista reserva.
-    const normalizada = finalizarItensMulta(lista, { ehVigilante: /vigil/i.test(caso?.funcao || '') });
+    const normalizada = finalizarItensMulta(lista, { ehVigilante: /vigil/i.test(caso?.funcao || '') && regrasVigilanciaSP(caso || {}) });
     if (normalizada.length) blocos.pedidos_multas = normalizada;
   }
   if (rescisaoIndireta && Array.isArray(obj.FALTAS_RESCISAO)) {
