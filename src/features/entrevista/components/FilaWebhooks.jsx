@@ -4,6 +4,7 @@ import { Inbox, Loader2, Search, BadgeCheck, Hourglass } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import CasoWebhookItem from '@/features/entrevista/components/CasoWebhookItem';
+import PreencherDadosCaso from '@/features/entrevista/components/PreencherDadosCaso';
 
 // Fila de petições geradas automaticamente via webhook. Lista
 // CasoTrabalhista com analise_json.origem === 'webhook':
@@ -18,6 +19,7 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
   const [loading, setLoading] = useState(false);
   const [busca, setBusca] = useState('');
   const [gerando, setGerando] = useState(null);
+  const [preenchendo, setPreenchendo] = useState(null);
 
   // Busca por nome ou CPF: só os dígitos importam no CPF, para o termo casar
   // esteja ele digitado com ou sem pontuação.
@@ -117,7 +119,7 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
         ) : aguardandoView ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              A peça destes casos não foi gerada porque a entrevista chegou sem dados essenciais. O comercial completa no Fav Sales (menu Pendências) e o caso volta sozinho para a Fila.
+              A peça destes casos não foi gerada porque a entrevista chegou sem dados essenciais. Complete aqui em "Preencher dados" ou aguarde o comercial completar no Fav Sales (menu Pendências): nos dois casos a peça é gerada e vai para a Fila.
             </p>
             {lista.map((c) => {
               const dias = diasDesde(c.analise_json?.aguardando_desde || c.updated_date);
@@ -137,6 +139,13 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
                   </div>
                   <button
                     type="button"
+                    onClick={() => setPreenchendo(c)}
+                    className="text-xs px-2.5 py-1.5 bg-primary text-primary-foreground font-semibold rounded-md hover:brightness-95"
+                  >
+                    Preencher dados
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => gerarMesmoAssim(c)}
                     disabled={gerando === c.id}
                     className="text-xs px-2.5 py-1.5 border border-border rounded-md hover:bg-muted disabled:opacity-50"
@@ -154,6 +163,7 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
           </div>
         )}
       </DialogContent>
+      <PreencherDadosCaso caso={preenchendo} onClose={() => setPreenchendo(null)} onSalvo={carregar} />
     </Dialog>
   );
 }
