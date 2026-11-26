@@ -11,7 +11,7 @@ import { BLOCO_MATRIZ_TOPICOS } from './matrizTopicos.js';
 import { blocoRegrasCriticas } from './regrasCriticas.js';
 import { blocoReferencias, attrsDoCaso } from './referencias.js';
 import { removerTravessoes } from './texto.js';
-import { regrasVigilanciaSP, avisoUfParaIA } from './consultas.js';
+import { regrasVigilanciaSP, avisoUfParaIA, categoriaCct } from './consultas.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -111,9 +111,10 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   d.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
   d.integracao_por_fora = flag(caso.tem_integracao_por_fora);
   d.periculosidade = flag(caso.tem_periculosidade) || ehVigilante;
-  // 10 minutos (cl. 33ª) é da CCT de vigilância de SP: fora dela, só se a
-  // entrevista marcou (mesma regra de dadosTemplate.js e mathUtils.js).
-  d.dez_minutos_cct = flag(caso.tem_dez_min_cct) || (ehVigilante && regrasVigilanciaSP(caso, attrs));
+  // 10 minutos: tese do vigilante em qualquer estado (decisão 26/11/2026); a
+  // cláusula citada é a da CCT do estado (33ª só em SP). Carro-forte fica de
+  // fora: é outra convenção.
+  d.dez_minutos_cct = flag(caso.tem_dez_min_cct) || (ehVigilante && (regrasVigilanciaSP(caso, attrs) || categoriaCct(caso, attrs) === 'vigilancia'));
   d.salarios_em_aberto = flag(caso.tem_salarios_aberto);
   d.assiduidade = flag(caso.tem_assiduidade);
   d.vale_transporte = flag(caso.tem_vale_transporte);
