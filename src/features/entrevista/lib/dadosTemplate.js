@@ -30,7 +30,7 @@ export function horarioComProrrogacao(jornada, prorrogTxt) {
     },
   );
 }
-import { categoriaEntidadeCct, tomadoraEhPublica } from '../../../../base44/shared/consultas.js';
+import { categoriaEntidadeCct, tomadoraEhPublica, regrasVigilanciaSP, casoEmSP } from '../../../../base44/shared/consultas.js';
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 import { enderecoUltimaTomadora } from '../../../../base44/shared/localPrestacao.js';
@@ -634,6 +634,11 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const temTomadora = flag(caso.recl2_nome || r2 || attrs.tem_tomadora);
   const escalaTxt = `${caso.escala || ''} ${caso.jornada_horario || ''}`;
   const ehVigilante = /vigilante/i.test(caso.funcao || attrs.funcao || '');
+  // Números/cláusulas da CCT de vigilância de SP (60%, cl. 12ª/33ª/41ª/64ª,
+  // multa 3%, Grupo B, cl. 3ª) só para vigilante de SP (26/11/2026). Fora de
+  // SP: padrão legal ou "[A PREENCHER]", e o advogado completa com a CCT do
+  // estado. Periculosidade continua por ehVigilante (é legal, não da CCT).
+  const vigilanciaSP = ehVigilante && regrasVigilanciaSP(caso, attrs);
   // Percentuais que divergem por categoria (confirmado com peça real da
   // especialista, CCT Vigilância 2026): Vigilante usa 60% convencional
   // (cláusula 12ª) tanto nas HE quanto no intervalo do art. 71; demais
@@ -645,17 +650,19 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // vigilância. Demais categorias: percentual ainda não definido pelo escritório.
   // Só é pendência quando a peça usa o texto (escala 12x36): fora disso o selo
   // "Peça com pendências" contava um campo que nem aparece (William, 19/11/2026).
-  dados.PERC_HE_CONV_SUBSID = ehVigilante
+  dados.PERC_HE_CONV_SUBSID = vigilanciaSP
     ? '60 por cento'
     : (/12\s*x\s*36/i.test(String(caso.escala || '')) ? '[A PREENCHER: percentual do adicional convencional de horas extras da CCT]' : '');
-  dados.PERC_ART71 = ehVigilante
+  dados.PERC_ART71 = vigilanciaSP
     ? '60% (sessenta por cento), conforme a cláusula 12ª da Convenção Coletiva da Categoria'
     : '50% (cinquenta por cento), conforme o artigo 71, §4º, da CLT';
   // Multa convencional POR CONVENÇÃO (conferido nas CCTs em 12/11/2026). Antes
   // era só vigilante × demais, e todos os não vigilantes saíam com "20% por
   // cláusula" sobre o SALÁRIO: errado no SIEMACO (a base é o salário MÍNIMO,
   // cl. 66ª/67ª) e no SINDEEPRES (2% sobre o montante devido, cl. 85ª).
-  const categoriaMulta = ehVigilante ? 'vigilante' : categoriaEntidadeCct(caso, attrs);
+  // Fora de SP categoriaEntidadeCct devolve null (a base curada é só de SP):
+  // a multa sai pelo "percentual previsto na Convenção" e o valor, a apurar.
+  const categoriaMulta = vigilanciaSP ? 'vigilante' : (ehVigilante ? null : categoriaEntidadeCct(caso, attrs));
   dados.PERC_MULTA_CONV = {
     vigilante: '3% (três por cento) sobre o salário normativo da categoria',
     porteiro_siemaco: '20% (vinte por cento) do salário mínimo federal vigente, por cláusula descumprida',
@@ -727,16 +734,18 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // Gratificação do monitoramento eletrônico/CFTV (Grupo B, 5%) tem capítulo e
   // rótulo próprios; a do vigilante-condutor (cl. 3ª, 10%) segue como antes.
   dados.gratificacao_monitor = dados.gratificacao_funcao && caso.gratificacao_tipo === 'monitor_eletronico';
-  dados.GRATIFICACAO_DESC = dados.gratificacao_monitor
-    ? '5%, Vigilante/Monitor de Segurança Eletrônica — Grupo B da CCT'
-    : '10%, cláusula 3ª';
+  dados.GRATIFICACAO_DESC = !casoEmSP(caso)
+    ? 'conforme a Convenção Coletiva da categoria'
+    : dados.gratificacao_monitor
+      ? '5%, Vigilante/Monitor de Segurança Eletrônica — Grupo B da CCT'
+      : '10%, cláusula 3ª';
   dados.escala_12x36 = /12\s*x\s*36/i.test(escalaTxt);
   dados.escala_4x2 = /\b(4\s*x\s*2|6\s*x\s*2)\b/i.test(escalaTxt);
   dados.adicional_noturno = flag(caso.tem_adic_noturno) || jornadaCruzaNoturno(caso.jornada_horario || caso.escala || '');
   dados.integracao_por_fora = flag(caso.tem_integracao_por_fora);
   // Vigilância: 10 min (cláusula 33ª) e periculosidade nas HE são padrão da categoria.
   dados.periculosidade = flag(caso.tem_periculosidade) || ehVigilante;
-  dados.dez_minutos_cct = flag(caso.tem_dez_min_cct) || ehVigilante;
+  dados.dez_minutos_cct = flag(caso.tem_dez_min_cct) || vigilanciaSP;
   dados.salarios_em_aberto = flag(caso.tem_salarios_aberto);
   dados.assiduidade = flag(caso.tem_assiduidade);
   // Os capítulos de VT e auxílio-alimentação do modelo são "NAS FOLGAS
@@ -789,7 +798,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     const clausulaDesvio = caso.cct_clausula_multa ? `cláusula ${caso.cct_clausula_multa}` : 'cláusula de desvio de função';
     dados.BLOCO_ENQUADRAMENTO =
       `Não obstante contratado para exercer a função de ${(caso.funcao || '[FUNÇÃO]').toUpperCase()}, o reclamante era compelido, por determinação da 1ª reclamada${dados.tem_tomadora ? ' e no interesse da 2ª reclamada' : ''}, a exercer, de forma habitual, ${atv}, funções de maior complexidade e responsabilidade que extrapolam as tarefas típicas da função contratada, em flagrante desvio funcional, vedado pela ${clausulaDesvio} da Convenção Coletiva de Trabalho da Categoria. ` +
-      `Portanto, requer a condenação da reclamada ao pagamento da multa convencional de 50% (cinquenta por cento) do piso salarial da categoria por mês laborado, durante todo o período contratual, com reflexos em DSR, aviso prévio, férias acrescidas de 1/3, 13º salários e FGTS + 40%.`;
+      `Portanto, requer a condenação da reclamada ao pagamento da multa convencional ${vigilanciaSP ? 'de 50% (cinquenta por cento) do piso salarial da categoria' : 'prevista na Convenção Coletiva da categoria'} por mês laborado, durante todo o período contratual, com reflexos em DSR, aviso prévio, férias acrescidas de 1/3, 13º salários e FGTS + 40%.`;
   }
 
   // Fallback da seção "DAS MULTAS CONVENCIONAIS": abertura coerente quando a
@@ -948,7 +957,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     }
     // Intervalo, FGTS, DSR e dano moral: itens fixos do escritório, no fim
     // (multasPadrao.js — a mesma regra aplicada à lista da IA).
-    dados.pedidos_multas = finalizarItensMulta(itensMulta, { ehVigilante: /vigil/i.test(caso.funcao || '') });
+    dados.pedidos_multas = finalizarItensMulta(itensMulta, { ehVigilante: vigilanciaSP });
   }
 
   // No rol, a linha das multas convencionais saía "a apurar em liquidação", sem
