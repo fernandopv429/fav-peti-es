@@ -42,7 +42,15 @@ function resolverSecoes(html, dados) {
   while (SEC.test(out) && guard < 1000) {
     guard += 1;
     out = out.replace(SEC, (m, tipo, chave, inner) => {
-      const ligado = !!dados?.[chave];
+      // Lista ({{#dano_itens}}…{{.}}…{{/dano_itens}}): repete o trecho por item,
+      // como o docxtemplater faz na exportação.
+      const val = dados?.[chave];
+      if (tipo === '#' && Array.isArray(val)) {
+        return val.map((item) => (typeof item === 'string'
+          ? inner.replace(/\{\{\s*\.\s*\}\}/g, escapeHtml(item))
+          : inner)).join('');
+      }
+      const ligado = Array.isArray(val) ? val.length > 0 : !!val;
       const manter = tipo === '#' ? ligado : !ligado;
       return manter ? inner : '';
     });
@@ -89,6 +97,8 @@ function valorParaHtml(v, highlight) {
     .join('</p><p>');
 }
 
+const OPCIONAIS_VAZIOS = new Set(['DANO_SAUDE_FRASE', 'DANO_JORNADA_MADRUGADA']);
+
 // Um valor é "pendente" quando ausente, vazio ou ainda é um marcador [ENTRE COLCHETES].
 const pendente = (v) => v == null || v === '' || /^\s*\[.*\]\s*$/.test(String(v));
 
@@ -131,6 +141,8 @@ export function preencherEsqueleto(html, dados = {}, { highlight = true } = {}) 
   // Suporte a {{CAMPO}} (docxtemplater)
   out = out.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (m, chave) => {
     const v = dados[chave];
+    // Trechos opcionais do meio da frase (dano moral, v49): vazio é válido.
+    if (v === '' && OPCIONAIS_VAZIOS.has(chave)) return '';
     if (pendente(v)) {
       const rotulo = v ? String(v) : `{{${chave}}}`;
       return highlight ? `<mark class="tpl-pending">${escapeHtml(rotulo)}</mark>` : escapeHtml(v ? String(v) : '');
