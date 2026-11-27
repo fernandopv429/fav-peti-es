@@ -13,7 +13,7 @@ import { blocoReferencias, attrsDoCaso } from './referencias.js';
 import { removerTravessoes } from './texto.js';
 import { regrasVigilanciaSP, avisoUfParaIA, categoriaCct } from './consultas.js';
 import { tipoInfortunio } from './infortunio.js';
-import { instrucaoDanoMoral } from './danoMoral.js';
+import { instrucaoDanoMoral, tesesFatoDanoMoral } from './danoMoral.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -161,7 +161,7 @@ export const ESPECIALISTAS = [
   // Modelo v49 (27/11/2026): capítulo fixo do escritório; a IA escreve só os
   // itens de fato da lista "direitos lesados" (danoMoral.js). promptFixo: o
   // prompt do EspecialistaConfig (prosa + doutrina) não vale mais.
-  { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: () => true, promptFixo: true,
+  { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: (d, c) => tesesFatoDanoMoral(d, c).length > 0 || temDanoMoralConcreto(c), promptFixo: true,
     instrucao: (d, c) => instrucaoDanoMoral(d, c),
     promptPadrao: 'Você é advogado(a) trabalhista do escritório. Escreva apenas itens de lista, um por linha começando com "- ", fiéis à entrevista.' },
   // REVERSÃO DE JUSTA CAUSA (17/11/2026): o capítulo é texto fixo do escritório
