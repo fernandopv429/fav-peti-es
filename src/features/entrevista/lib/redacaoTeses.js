@@ -9,6 +9,7 @@ import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 import { removerTravessoes } from '../../../../base44/shared/texto.js';
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { regrasVigilanciaSP, avisoUfParaIA } from '../../../../base44/shared/consultas.js';
+import { instrucaoDanoMoral } from '../../../../base44/shared/danoMoral.js';
 
 // ============================================================
 // REDAÇÃO POR IA — ANÁLISE ÚNICA (um único LLM para todos os capítulos)
@@ -166,11 +167,14 @@ export const ESPECIALISTAS = [
     numero: 'dano_moral',
     nome: 'Dano moral',
     campo: 'BLOCO_DANO_MORAL',
-    ativo: (d, c) => temDanoMoralConcreto(c),
-    instrucao:
-      'Escreva o capítulo COMPLETO da narrativa dos fatos do dano moral — parágrafos articulados em prosa jurídica fluida, persuasiva e COERENTE, com o contexto completo do caso (NÃO frases isoladas nem fragmentos soltos). Conecte TODOS os abusos concretos do caso que fundamentam o pedido — desvio/acúmulo de função exaustivo, supressão de intervalos/descansos, pagamentos por fora, descontos indevidos, perseguição/humilhação (campos dano_fatos/dano_supervisor/desvio_atividades/acumulo_atividades), o contexto em que ocorreram, a habitualidade das condutas e o impacto sobre a dignidade pessoal e a honra do autor, encadeando os fatos em uma narrativa articulada e completa. NÃO escreva a fundamentação constitucional/doutrinária (art. 5º, V/X, CF; art. 186, 927, CC) — ela já consta do template antes deste bloco. NÃO trate de jornada, rescisão nem verbas. NÃO cite valores em R$ (o pedido de 10x a maior remuneração já está fixado no rol de pedidos, calculado por código).',
+    // Modelo v49 (27/11/2026): o capítulo é texto fixo do escritório e a IA
+    // escreve só os itens de fato da lista "direitos lesados" (base44/shared/danoMoral.js).
+    // O prompt do EspecialistaConfig (prosa + doutrina) não vale mais: promptFixo.
+    ativo: () => true,
+    promptFixo: true,
+    instrucao: (d, c) => instrucaoDanoMoral(d, c),
     promptPadrao:
-      'Você é advogado(a) trabalhista especialista em dano moral. Redija o capítulo COMPLETO da narrativa dos fatos concretos do dano moral, em prosa articulada, persuasiva e coerente, com o contexto completo do caso — sem a fundamentação doutrinária (já presente no template) e sem valores em R$ (calculados por código).',
+      'Você é advogado(a) trabalhista do escritório. Escreva apenas itens de lista, um por linha começando com "- ", fiéis à entrevista.',
   },
   {
     numero: 'enquadramento',
@@ -380,7 +384,8 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
     referenciasTexto = blocoReferencias({
       modelos: modelos && modelos.length ? modelos : referencias,
       attrs: attrs || attrsDoCaso(c, d),
-      campos: ativos.map((e) => e.campo),
+      // Dano moral virou lista (v49): o exemplo antigo em prosa atrapalharia.
+      campos: ativos.map((e) => e.campo).filter((cp) => cp !== 'BLOCO_DANO_MORAL'),
     });
   } catch {
     referenciasTexto = '';
@@ -392,7 +397,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, dados, referenc
   const properties = {};
   const tarefas = ativos.map((e) => {
     const cfg = cfgPorNumero.get(e.numero);
-    const promptSistema = cfg?.prompt_sistema || e.promptPadrao;
+    const promptSistema = (!e.promptFixo && cfg?.prompt_sistema) || e.promptPadrao;
     const instrucao = typeof e.instrucao === 'function' ? e.instrucao(d, c) : e.instrucao;
     properties[e.campo] = {
       type: 'string',
