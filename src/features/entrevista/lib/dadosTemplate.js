@@ -35,6 +35,26 @@ import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 import { enderecoUltimaTomadora } from '../../../../base44/shared/localPrestacao.js';
 import { avaliarInfortunio, descricaoNaFrase } from '../../../../base44/shared/infortunio.js';
+import { itensDanoMoral, fraseSaudeDanoMoral, complementoJornadaDanoMoral } from '../../../../base44/shared/danoMoral.js';
+
+// DANO MORAL (modelo v49, 27/11/2026): lista "direitos lesados" + duas frases
+// condicionais. Recalcular sempre que o BLOCO_DANO_MORAL mudar (geração pela
+// IA, correção na revisão). `caso` opcional: sem ele, usa o que está em dados.
+export function aplicarDanoMoral(dados, caso = null) {
+  const c = caso || {
+    recl_genero: dados.RECL_GENERO,
+    acumulo_atividades: dados.ACUMULO_ATIVIDADES,
+    doenca_descricao: dados.DOENCA_DESCRICAO,
+  };
+  dados.dano_itens = itensDanoMoral(dados, c, {
+    blocoIA: dados.BLOCO_DANO_MORAL || '',
+    jornada: dados.JORNADA_HORARIOS,
+    escala: dados.ESCALA,
+  });
+  dados.DANO_SAUDE_FRASE = fraseSaudeDanoMoral(dados, c);
+  dados.DANO_JORNADA_MADRUGADA = complementoJornadaDanoMoral(dados, dados.JORNADA_HORARIOS);
+  return dados;
+}
 
 // ============================================================
 // FONTE ÚNICA DE DADOS DA PETIÇÃO
@@ -122,7 +142,7 @@ export const CAMPOS_TEMPLATE = [
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'INTERVALO_ART71', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
-  'DOENCA_DESCRICAO', 'INFORTUNIO_REF', 'INFORTUNIO_PELO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
+  'DOENCA_DESCRICAO', 'INFORTUNIO_REF', 'INFORTUNIO_PELO', 'DANO_SAUDE_FRASE', 'DANO_JORNADA_MADRUGADA', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
   'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA', 'DEZ_MIN_FUNDAMENTO', 'DESVIO_DESC',
   'PERIODO_FERIAS_PROP', 'PERIODO_13', 'PERIODO_FERIAS_VENCIDAS',
   'VALOR_SALDO_SALARIO', 'VALOR_MULTA_467',
@@ -148,7 +168,7 @@ export const FLAGS_TEMPLATE = [
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
-  'acidente_trabalho', 'acidente_risco', 'acidente_culpa',
+  'acidente_trabalho', 'acidente_risco', 'acidente_culpa', 'dano_itens',
   'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora', 'DEZ_MINUTOS_APURAR',
 ];
 
@@ -931,6 +951,15 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // o VALOR já tinha sido calculado (ex.: por desvio de função).
   if (!dados.BLOCO_DANO_MORAL && temDanoMoralConcreto(caso)) {
     dados.BLOCO_DANO_MORAL = dados.DANO_MORAL_FATO_ESPECIFICO || narrativaDanoMoral(caso);
+  }
+  // Lista do v49: só aproveita o bloco da IA (itens "- "); a narrativa acima
+  // (prosa, modelos antigos) não vira lista e cai na reserva determinística.
+  {
+    const bloco = blocos?.BLOCO_DANO_MORAL || '';
+    const salvo = dados.BLOCO_DANO_MORAL;
+    dados.BLOCO_DANO_MORAL = bloco;
+    aplicarDanoMoral(dados, caso);
+    dados.BLOCO_DANO_MORAL = bloco || salvo;
   }
 
   // Fallback da INSALUBRIDADE: narrativa determinística do ambiente insalubre.
