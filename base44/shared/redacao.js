@@ -12,6 +12,7 @@ import { blocoRegrasCriticas } from './regrasCriticas.js';
 import { blocoReferencias, attrsDoCaso } from './referencias.js';
 import { removerTravessoes } from './texto.js';
 import { regrasVigilanciaSP, avisoUfParaIA, categoriaCct } from './consultas.js';
+import { tipoInfortunio } from './infortunio.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -119,7 +120,9 @@ export function computeFlags(caso = {}, attrs = {}, dadosReceita = []) {
   d.assiduidade = flag(caso.tem_assiduidade);
   d.vale_transporte = flag(caso.tem_vale_transporte);
   d.auxilio_alimentacao = flag(caso.tem_auxilio_alimentacao);
-  d.doenca_ocupacional = flag(caso.tem_doenca);
+  // Acidente típico (art. 19) tem capítulo próprio desde 27/11/2026 (infortunio.js).
+  d.acidente_trabalho = flag(caso.tem_doenca) && tipoInfortunio(caso) === 'acidente';
+  d.doenca_ocupacional = flag(caso.tem_doenca) && !d.acidente_trabalho;
   d.insalubridade = flag(caso.tem_insalubridade);
   d.folgas_trabalhadas = flag(caso.tem_ft || caso.val_ft || caso.ft_qtd_media);
   d.tem_ferias_vencidas = flag(caso.tem_ferias_vencidas);
