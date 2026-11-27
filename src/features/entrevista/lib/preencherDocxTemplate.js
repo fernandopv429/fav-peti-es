@@ -405,6 +405,9 @@ function substituirColchetesNoXml(xml, dados) {
 const PADROES_BLOQUEIO = [
   [/\[A PREENCHER[^\]]*\]/g, 'campo não preenchido'],
   [/\[CONFIRMAR:[^\]]*\]/g, 'pendência [CONFIRMAR: ...] deixada pela IA'],
+  // ADI 6.002 (27/11/2026): a marca em vermelho do tópico "DO VALOR DOS PEDIDOS"
+  // (conferir a tese oficial e a data da ata) tem de ser apagada antes do protocolo.
+  [/\[VERMELHO:[^\]]*\]/g, 'marca em VERMELHO para conferir (ADI 6.002: tese oficial e data da ata)'],
   [/\{\s*"(?:BLOCO_|PEDIDOS_)[A-Z_0-9]*"/g, 'envelope JSON cru de capítulo da IA'],
   [/\\n|\\r/g, 'quebra de linha literal (\\n) vinda do JSON da IA'],
   [/\{\{[#/^]?[A-Za-z_0-9]+\}\}/g, 'tag do modelo não substituída'],
