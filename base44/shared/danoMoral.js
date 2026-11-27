@@ -91,6 +91,9 @@ export function itensDanoMoral(d = {}, caso = {}, { blocoIA = '', jornada = '', 
   const fatos = daIA.length ? daIA : [
     ...tesesFatoDanoMoral(d, caso).map((t) => t.base),
     ...(() => {
+      // Na reversão de justa causa o relato costuma ser a história da dispensa:
+      // não entra (a peça não narra o motivo; ônus da empresa).
+      if (d.reversao_justa_causa || caso.tipo_dispensa === 'reversao_justa_causa') return [];
       const raw = limpar(caso.dano_fatos || caso.dano_supervisor);
       return raw.length >= 40 && raw.length <= 400 ? [raw[0].toUpperCase() + raw.slice(1)] : [];
     })(),
