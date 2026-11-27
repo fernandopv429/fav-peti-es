@@ -21,7 +21,7 @@ import ComentarioTrecho from '@/features/entrevista/components/ComentarioTrecho'
 import EscolherTopico from '@/features/entrevista/components/EscolherTopico';
 import FilaWebhooks from '@/features/entrevista/components/FilaWebhooks';
 import AprovacaoEntrevista from '@/features/entrevista/components/AprovacaoEntrevista';
-import { montarDadosTemplate } from '@/features/entrevista/lib/dadosTemplate';
+import { montarDadosTemplate, aplicarDanoMoral } from '@/features/entrevista/lib/dadosTemplate';
 
 // Indicador visual de etapa (só apresentação): feito | atual | futuro.
 function Passo({ n, estado, rotulo }) {
@@ -219,7 +219,11 @@ export default function EntrevistaSession({ casoInicial = null, filaInicial = nu
   // repreenche o template (os valores determinísticos ficam intactos).
   const aplicarCorrecao = async (campo, textoNovo) => {
     const dados = { ...(ultimaGeracao?.dados || {}), [campo]: textoNovo };
-    if (campo === 'BLOCO_DANO_MORAL') dados.DANO_MORAL_FATO_ESPECIFICO = textoNovo;
+    if (campo === 'BLOCO_DANO_MORAL') {
+      dados.DANO_MORAL_FATO_ESPECIFICO = textoNovo;
+      // Modelo v49: o capítulo imprime a lista "direitos lesados" (itens "- ").
+      aplicarDanoMoral(dados);
+    }
     setUltimaGeracao((g) => ({ ...(g || {}), dados }));
     // O preview tem de ser repreenchido com a MESMA URL usada para montá-lo.
     // Usando só `templateUrl`, um caso aberto pela fila (que resolve a URL do
