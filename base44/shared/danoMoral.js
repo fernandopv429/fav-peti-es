@@ -139,6 +139,7 @@ export function instrucaoDanoMoral(d = {}, caso = {}) {
     '"Foi compelido a acumular, sem qualquer contraprestação, as funções de auxiliar de serviços gerais, com a limpeza diária de 2 (dois) banheiros utilizados por mais de 12 (doze) pessoas" e ' +
     '"Trabalhou exposto ao frio da câmara fria, ao calor do forno industrial e a produtos químicos de limpeza, com apenas 1 (uma) japona térmica para mais de 7 (sete) empregados, sem jamais receber o adicional de insalubridade". ' +
     'Se a entrevista relatar humilhação, xingamento, ameaça, perseguição, revista vexatória, assalto ou violência no trabalho, acrescente 1 item com esse fato. ' +
+    'NUNCA mencione o motivo, a acusação ou os fatos da dispensa por justa causa (provar a falta é ônus da empresa; a peça não narra nem rebate o motivo). ' +
     `Cada item: uma frase, verbo no passado, sujeito oculto (${fem(caso) ? 'a reclamante — concordância no FEMININO' : 'o reclamante — concordância no masculino'}), sem número de artigo, sem R$, sem nomes de pessoas, terminando em ";". ` +
     'Use SOMENTE fatos da entrevista: não invente quantidade, equipamento nem data; o que faltar, fique na frase-base. Sem introdução, sem conclusão, sem fundamentação.\n\nTESES:\n' + lista;
 }
