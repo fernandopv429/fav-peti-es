@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp, RefreshCw, Scale } from 'lucide-react';
+import { Loader2, User, Building2, Clock, CheckCircle2, BadgeCheck, ChevronDown, ChevronUp, RefreshCw, Scale, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import DadosEventoWebhook from '@/features/entrevista/components/DadosEventoWebhook';
@@ -8,7 +8,7 @@ import SeloCompletude from '@/features/entrevista/components/SeloCompletude';
 
 // Um caso da fila de webhooks: identificação do reclamante, CPF, reclamada,
 // data e a ação de revisar.
-export default function CasoWebhookItem({ caso: c, onSelecionar }) {
+export default function CasoWebhookItem({ caso: c, onSelecionar, onEditar }) {
   const gerando = c.status === 'em_analise';
   const confirmado = c.status === 'pronto';
   const [aberto, setAberto] = useState(false);
@@ -91,6 +91,11 @@ export default function CasoWebhookItem({ caso: c, onSelecionar }) {
         <button onClick={() => setAberto(!aberto)} className="text-[11px] text-primary-ink mt-2 flex items-center gap-1 hover:underline">
           {aberto ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           {aberto ? 'Ocultar dados recebidos' : 'Ver dados recebidos'}
+        </button>
+      )}
+      {eventoId && !gerando && onEditar && (
+        <button onClick={() => onEditar(c)} className="text-[11px] text-primary-ink mt-2 ml-3 inline-flex items-center gap-1 hover:underline" title="Preencher ou corrigir os dados da entrevista e gerar a peça de novo">
+          <Pencil className="h-3 w-3" /> Editar dados
         </button>
       )}
       {isAdmin && eventoId && !gerando && (

@@ -159,7 +159,7 @@ export default function FilaWebhooks({ open, onOpenChange, onSelecionar, modo = 
           </div>
         ) : (
           <div className="space-y-2">
-            {lista.map((c) => <CasoWebhookItem key={c.id} caso={c} onSelecionar={onSelecionar} />)}
+            {lista.map((c) => <CasoWebhookItem key={c.id} caso={c} onSelecionar={onSelecionar} onEditar={setPreenchendo} />)}
           </div>
         )}
       </DialogContent>
