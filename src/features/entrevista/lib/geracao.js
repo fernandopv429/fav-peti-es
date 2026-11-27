@@ -5,7 +5,7 @@ import { sanitizarTextoEntrevista } from './pdfSanitizer';
 import { extrairTextoPdfs } from './pdfTexto';
 import { extrairCasoDeTexto } from './parserEntrevista';
 import { extrairDeterministico } from './extracaoDeterministica';
-import { calcularVerbasCaso } from './mathUtils';
+import { calcularVerbasCaso, salarioMinimoEm } from './mathUtils';
 import { montarDadosTemplate, aplicarDanoMoral } from './dadosTemplate';
 import { avisosAdi6002 } from '../../../../base44/shared/adi6002.js';
 import { redigirTesesIA } from './redacaoTeses';
