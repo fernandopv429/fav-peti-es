@@ -5,6 +5,7 @@ import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { classificarGrupo } from '../../shared/grupoFuncao.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, pisoDaTabelaOficial, categoriaEntidadeCct, categoriaCct, ufDoCaso, casoEmSP, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
 import { computeFlags, redigirTesesIA, problemasNosBlocos } from '../../shared/redacao.js';
+import { avaliarInfortunio } from '../../shared/infortunio.js';
 
 // ============================================================
 // Geração automática de petição a partir de um WebhookEvento
@@ -353,6 +354,10 @@ export default async function(req) {
       avisosDados.push(`CCT usada (${cctAplicada.origem}): ${cctAplicada.nome || 'sem título'}${cctAplicada.uf ? ` — ${cctAplicada.uf}` : ''}${vig ? ` — vigência ${vig}` : ''}.`);
     }
     avisosDados.push(...avisoCct);
+    if (caso.tem_doenca || caso.tem_estabilidade) {
+      const inf = avaliarInfortunio(caso);
+      if (inf.aviso) avisosDados.push(inf.aviso);
+    }
     if (caso.desvio_descartado) {
       avisosDados.push(`Desvio de função NÃO pedido: a entrevista diz "${String(caso.desvio_descartado).trim().slice(0, 160)}", que é tese de porteiro/controlador, mas a função informada é vigilante. CONFERIR a função registrada na CTPS.`);
     }
