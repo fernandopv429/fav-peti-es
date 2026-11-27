@@ -783,8 +783,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.rescisao_indireta = tipo === 'rescisao_indireta';
   dados.coacao_demissao = tipo === 'nulidade_pedido_demissao';
   dados.reversao_justa_causa = tipo === 'reversao_justa_causa';
-  // Parágrafo fático do capítulo de reversão. A IA (BLOCO_REVERSAO_FATOS,
-  // redacao.js) sobrescreve com os fatos do caso; este é o texto reserva.
+  // Parágrafo fático do capítulo de reversão: só para modelos até o v49. Desde
+  // o v50 (27/11/2026) o parágrafo é fixo ("sequer sabe o motivo... ônus da
+  // reclamada") e a IA não escreve mais os fatos da justa causa.
   if (dados.reversao_justa_causa) {
     dados.BLOCO_REVERSAO_FATOS = 'No caso dos autos, a reclamada não apontou, de forma concreta e circunstanciada, o fato que teria ensejado a penalidade, nem demonstrou a prática de qualquer falta grave pelo reclamante, que jamais sofreu advertência ou suspensão durante a contratualidade. A reclamada saltou diretamente para a sanção extrema, sem qualquer apuração dos fatos e sem oportunizar ao reclamante o exercício de defesa, em nítida tentativa de se eximir do pagamento das verbas rescisórias devidas na dispensa imotivada.';
   }
