@@ -13,6 +13,7 @@ import { blocoReferencias, attrsDoCaso } from './referencias.js';
 import { removerTravessoes } from './texto.js';
 import { regrasVigilanciaSP, avisoUfParaIA, categoriaCct } from './consultas.js';
 import { tipoInfortunio } from './infortunio.js';
+import { instrucaoDanoMoral } from './danoMoral.js';
 
 // Remove valores em R$ dos capítulos (o dinheiro é determinístico e só figura
 // no rol de pedidos). PRESERVA as quebras de parágrafo: o colapso anterior de
@@ -157,9 +158,12 @@ export const ESPECIALISTAS = [
   { numero: 'jornada', nome: 'Jornada e horas extras', campo: 'BLOCO_JORNADA', ativo: () => false,
     instrucao: 'Escreva o capítulo COMPLETO de "DA JORNADA DE TRABALHO / DAS HORAS EXTRAS": (1) narre horário/escala efetivos e a prorrogação habitual sem contraprestação; (2) fundamente horas extras excedentes da 8ª diária/44ª semanal (art. 59 CLT; adicional convencional real da CCT — nunca presuma; na falta use [adicional conforme CCT]; Súmula 85); (3) jurisprudência; (4) pedido de diferenças de horas extras COM reflexos (DSR, aviso, férias+1/3, 13º, FGTS+40%) de forma qualitativa, SEM R$. NÃO escreva descaracterização da escala, art. 71, noturno, 10 minutos, periculosidade nem DSR autônomo (seções fixas do template).',
     promptPadrao: 'Você é advogado(a) trabalhista especialista em jornada e horas extras. Redija o capítulo COMPLETO em prosa argumentativa.' },
-  { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: (d, c) => temDanoMoralConcreto(c),
-    instrucao: 'Escreva a narrativa COMPLETA dos fatos do dano moral em parágrafos articulados e coerentes. Conecte TODOS os abusos concretos (desvio/acúmulo exaustivo, supressão de intervalos, pagamentos por fora, descontos indevidos, perseguição/humilhação), o contexto, a habitualidade e o impacto sobre a dignidade do autor. NÃO escreva a fundamentação constitucional/doutrinária (já no template). NÃO trate jornada/rescisão/verbas. NÃO cite R$.',
-    promptPadrao: 'Você é advogado(a) trabalhista especialista em dano moral. Redija a narrativa concreta em prosa articulada, sem fundamentação doutrinária nem valores.' },
+  // Modelo v49 (27/11/2026): capítulo fixo do escritório; a IA escreve só os
+  // itens de fato da lista "direitos lesados" (danoMoral.js). promptFixo: o
+  // prompt do EspecialistaConfig (prosa + doutrina) não vale mais.
+  { numero: 'dano_moral', nome: 'Dano moral', campo: 'BLOCO_DANO_MORAL', ativo: () => true, promptFixo: true,
+    instrucao: (d, c) => instrucaoDanoMoral(d, c),
+    promptPadrao: 'Você é advogado(a) trabalhista do escritório. Escreva apenas itens de lista, um por linha começando com "- ", fiéis à entrevista.' },
   // REVERSÃO DE JUSTA CAUSA (17/11/2026): o capítulo é texto fixo do escritório
   // no modelo (v31); a IA escreve SÓ os parágrafos dos fatos do caso (motivo
   // alegado, por que não procede, ausência de graduação e de apuração), no meio
@@ -446,7 +450,8 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
     referenciasTexto = blocoReferencias({
       modelos,
       attrs: attrs || attrsDoCaso(caso, dados),
-      campos: ativos.map((e) => e.campo),
+      // Dano moral virou lista (v49): o exemplo antigo em prosa atrapalharia.
+      campos: ativos.map((e) => e.campo).filter((cp) => cp !== 'BLOCO_DANO_MORAL'),
     });
   } catch (e) {
     referenciasTexto = '';
@@ -457,7 +462,7 @@ export async function redigirTesesIA({ caso, calculos, dadosCct, cctCadastrada, 
   const tarefaPorCampo = {};
   const tarefas = ativos.map((e) => {
     const cfg = cfgPorNumero.get(e.numero);
-    const promptSistema = cfg?.prompt_sistema || e.promptPadrao;
+    const promptSistema = (!e.promptFixo && cfg?.prompt_sistema) || e.promptPadrao;
     const instrucao = typeof e.instrucao === 'function' ? e.instrucao(dados, caso) : e.instrucao;
     properties[e.campo] = { type: 'string', description: `Capítulo: ${e.nome}. ${instrucao} Papel: ${promptSistema}` };
     const tarefa = `### ${e.campo} — ${e.nome}\nPapel: ${promptSistema}\nTarefa: ${instrucao}`;
