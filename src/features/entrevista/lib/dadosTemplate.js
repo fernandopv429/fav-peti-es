@@ -36,6 +36,7 @@ import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 import { enderecoUltimaTomadora } from '../../../../base44/shared/localPrestacao.js';
 import { avaliarInfortunio, descricaoNaFrase } from '../../../../base44/shared/infortunio.js';
 import { itensDanoMoral, fraseSaudeDanoMoral, complementoJornadaDanoMoral } from '../../../../base44/shared/danoMoral.js';
+import { REMISSAO_E, modulosEstimativa } from '../../../../base44/shared/adi6002.js';
 
 // DANO MORAL (modelo v49, 27/11/2026): lista "direitos lesados" + duas frases
 // condicionais. Recalcular sempre que o BLOCO_DANO_MORAL mudar (geração pela
@@ -142,7 +143,8 @@ export const CAMPOS_TEMPLATE = [
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'INTERVALO_ART71', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
-  'DOENCA_DESCRICAO', 'INFORTUNIO_REF', 'INFORTUNIO_PELO', 'DANO_SAUDE_FRASE', 'DANO_JORNADA_MADRUGADA', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
+  'DOENCA_DESCRICAO', 'INFORTUNIO_REF', 'INFORTUNIO_PELO', 'DANO_SAUDE_FRASE', 'DANO_JORNADA_MADRUGADA',
+  'REMISSAO_E', 'DOCUMENTOS_EXIBICAO', 'VALOR_ESTABILIDADE', 'DEZ_MIN_TITULO_CL', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
   'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA', 'DEZ_MIN_FUNDAMENTO', 'DESVIO_DESC',
   'PERIODO_FERIAS_PROP', 'PERIODO_13', 'PERIODO_FERIAS_VENCIDAS',
   'VALOR_SALDO_SALARIO', 'VALOR_MULTA_467',
@@ -168,7 +170,7 @@ export const FLAGS_TEMPLATE = [
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
-  'acidente_trabalho', 'acidente_risco', 'acidente_culpa', 'dano_itens',
+  'acidente_trabalho', 'acidente_risco', 'acidente_culpa', 'dano_itens', 'modulos_estimativa',
   'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora', 'DEZ_MINUTOS_APURAR',
 ];
 
@@ -709,6 +711,9 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // 64ª (texto que estava fixo no modelo até a v46); fora de SP, a cláusula da
   // CCT do estado gravada pelo cálculo, ou nenhuma.
   const itDez = (calculos || []).find((c) => c?.item === '10 minutos de descanso (CCT do estado)');
+  // Título do capítulo dos 10 minutos: "(CLÁUSULA 33ª)" só quando a cláusula
+  // citada é a 33ª (SP); fora de SP o título sai sem número (modelo v51).
+  dados.DEZ_MIN_TITULO_CL = (vigilanciaSP || !vigilanciaForaSP) ? ' (CLÁUSULA 33ª)' : '';
   dados.DEZ_MIN_FUNDAMENTO = (vigilanciaSP || !vigilanciaForaSP)
     ? 'o inciso I da Cláusula 33ª da Convenção Coletiva da Categoria'
     : itDez?.clausula
@@ -843,9 +848,11 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   dados.folgas_trabalhadas = flag(caso.tem_ft || caso.val_ft || caso.ft_qtd_media);
   dados.tem_ferias_vencidas = flag(caso.tem_ferias_vencidas);
 
-  // Fallback dos pedidos: tese ligada mas valor não calculado -> "a apurar em liquidação"
-  // (evita pedido em branco, ex.: folgas sem valor por folga informado).
-  const APURAR = 'a apurar em liquidação';
+  // Fallback dos pedidos: tese ligada mas valor não calculado. Era "a apurar em
+  // liquidação"; desde a ADI 6.002 (regra FAV 27/11/2026) todo pedido econômico
+  // leva valor em R$, então sai a marca para o advogado preencher (a conferência
+  // final do download avisa).
+  const APURAR = '[A PREENCHER: valor do pedido]';
   // Folgas/feriados: mesma abertura das demais verbas do rol, para o pedido ser
   // conferível (era "R$ 79.288,00 + R$ 13.214,67", dois números sem rubrica).
   // ATENÇÃO: aqui o reflexo é SÓ o DSR e a 1/6, critério atual do cálculo,
@@ -1080,7 +1087,23 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     somaCausa += totalMultas;
     dados.VALOR_CAUSA_TOTAL = brlComExtenso(round2(somaCausa));
   } else {
-    dados.VALOR_MULTAS_CONV = 'a apurar em liquidação';
+    dados.VALOR_MULTAS_CONV = '[A PREENCHER: valor das multas convencionais]';
+  }
+
+  // ESTABILIDADE ACIDENTÁRIA (ADI 6.002, decisão do Luis 27/11/2026): pedido
+  // líquido (L), 12 salários + 13º (1 salário) + férias + 1/3 + FGTS 8% sobre
+  // salários e 13º. Calculado aqui (e não no mathUtils) porque a decisão de
+  // pedir a estabilidade (prazo de 12 meses) é tomada neste arquivo.
+  if (dados.estabilidade_doenca) {
+    const s = Number(caso.salario) || 0;
+    if (s > 0) {
+      const v = round2(s * 12 + s + s * (4 / 3) + 0.08 * s * 13);
+      dados.VALOR_ESTABILIDADE = `${formatBRL(v)} (12 salários de ${formatBRL(s)}, 13º salário, férias + 1/3 e FGTS do período)`;
+      somaCausa += v;
+      dados.VALOR_CAUSA_TOTAL = brlComExtenso(round2(somaCausa));
+    } else {
+      dados.VALOR_ESTABILIDADE = '[A PREENCHER: valor da indenização da estabilidade]';
+    }
   }
 
   // RITO pelo valor da causa (decisão do jurídico, 13/11/2026): até 40 salários
@@ -1103,6 +1126,14 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
     dados.VALOR_HE_PRORROGACAO || dados.VALOR_HE_12X36 || dados.VALOR_ART71 || dados.VALOR_NOTURNO ||
     dados.VALOR_DEZ_MINUTOS || dados.VALOR_PERICULOSIDADE_HE || dados.FT_100
   );
+
+  // ADI 6.002: remissão dos pedidos estimados e tópico "DO VALOR DOS PEDIDOS".
+  dados.REMISSAO_E = REMISSAO_E;
+  {
+    const est = modulosEstimativa(dados, calculos);
+    dados.modulos_estimativa = est.modulos;
+    dados.DOCUMENTOS_EXIBICAO = est.documentos;
+  }
 
   limparTravessoesDosDados(dados);
   return dados;
