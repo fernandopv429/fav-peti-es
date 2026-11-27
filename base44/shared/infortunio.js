@@ -74,9 +74,12 @@ export function datasAfastamento(caso = {}) {
   const rRet = new RegExp(String.raw`(?:\bretorn\w*|\bvoltou|\balta\b|\bcessa\w*\s+do\s+benef\w*)[^.\n]{0,40}?${DATA}`, 'i').exec(txt);
   if (rRet) out.retorno = dataBr(rRet[1], rRet[2], rRet[3]);
 
-  // Data do fato: a primeira data perto de palavras do infortúnio.
-  const rEv = new RegExp(String.raw`(?:acident|assalt|tiro|balead|queda|caiu|afast|les[ãa]o|doen|inss|benef|cirurgi)[^\n]{0,80}?${DATA}|${DATA}[^\n]{0,40}?(?:acident|assalt|tiro|balead|queda|caiu|afast)`, 'i').exec(txt);
-  if (rEv) out.evento = rEv[1] ? dataBr(rEv[1], rEv[2], rEv[3]) : dataBr(rEv[4], rEv[5], rEv[6]);
+  // Data do fato: data na mesma frase, depois (ou, na falta, antes) de palavra
+  // do infortúnio ("o assalto ... ocorreu em 02/02/2024"; "Em 24/03/2026, foi afastada").
+  const rEv = new RegExp(String.raw`(?:acident|assalt|\btiro|balead|queda|caiu|afast|les[ãa]o|inss|cirurgi)[^.\n]{0,80}?${DATA}`, 'i').exec(txt);
+  const rEvAntes = rEv ? null : new RegExp(String.raw`${DATA}[^.\n]{0,40}?(?:acident|assalt|\btiro|balead|queda|caiu|afast)`, 'i').exec(txt);
+  const mEv = rEv || rEvAntes;
+  if (mEv) out.evento = dataBr(mEv[1], mEv[2], mEv[3]);
 
   // Duração: "afastado por 60 dias", "ficou 3 meses afastado", "60 dias de afastamento".
   const rDur = new RegExp(String.raw`afastad\w*\s+(?:pelo\s+INSS\s+)?(?:por|durante)?\s*(?:cerca\s+de\s+|aproximadamente\s+)?${NUM}\s*${UNID}`, 'i').exec(txt)
