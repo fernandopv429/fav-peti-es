@@ -76,10 +76,9 @@ function itensFixosFim(d, caso) {
 // Texto da IA -> lista de itens ("- item" por linha).
 export function itensDaIA(texto) {
   const linhas = String(texto || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  let marcadas = linhas.filter((l) => /^[-•*–]\s+/.test(l));
-  // Texto revisado à mão/IA sem marcador: cada linha curta vira item; prosa
-  // longa (bloco antigo, em parágrafos) não serve de lista -> reserva.
-  if (!marcadas.length && linhas.length >= 2 && linhas.every((l) => l.length <= 400)) marcadas = linhas;
+  // Só linhas com marcador: o bloco antigo (prosa em parágrafos, até o v48)
+  // não vira lista e cai na reserva determinística.
+  const marcadas = linhas.filter((l) => /^[-•*–]\s+/.test(l));
   if (!marcadas.length) return [];
   return marcadas.map((l) => limpar(l.replace(/^[-•*–]\s+/, ''))).filter((l) => l.length >= 10)
     .map((l) => l[0].toUpperCase() + l.slice(1));
