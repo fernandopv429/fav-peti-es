@@ -6,7 +6,7 @@ import { extrairTextoPdfs } from './pdfTexto';
 import { extrairCasoDeTexto } from './parserEntrevista';
 import { extrairDeterministico } from './extracaoDeterministica';
 import { calcularVerbasCaso } from './mathUtils';
-import { montarDadosTemplate } from './dadosTemplate';
+import { montarDadosTemplate, aplicarDanoMoral } from './dadosTemplate';
 import { redigirTesesIA } from './redacaoTeses';
 import { listarModelosAtivos, rankearModelos } from './matching';
 import { gerarFaltantesTexto } from './guiaCampos';
