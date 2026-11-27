@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
-import { calcularVerbasCaso, numeroDaClausula } from '../../shared/mathUtils.js';
+import { calcularVerbasCaso, numeroDaClausula, salarioMinimoEm } from '../../shared/mathUtils.js';
+import { avisosAdi6002 } from '../../shared/adi6002.js';
 import { mapearCasoDeWebhook } from '../../shared/mapearWebhook.js';
 import { classificarGrupo } from '../../shared/grupoFuncao.js';
 import { extrairCnpjs, extrairCeps, enriquecerCnpjs, enriquecerCeps, enriquecerCct, extrairPisoCct, pisoDaBaseCct, pisoDaTabelaOficial, categoriaEntidadeCct, categoriaCct, ufDoCaso, casoEmSP, valorDiarioDaBaseCct, auxAlimentacaoDaTabela } from '../../shared/consultas.js';
@@ -573,6 +574,18 @@ export default async function(req) {
       );
     }
     if (redacaoErro) avisos.push(`Redacao por IA: ${redacaoErro}`);
+    // ADI 6.002 (regra FAV 27/11/2026): tabela L/E/S, pedidos sem valor,
+    // vigência e alerta do sumaríssimo, para conferência do advogado.
+    try {
+      const soma = (calculos || []).reduce((s, c) => s + (c.foraDaCausa || /^Honorários/.test(c.item || '') ? 0 : (Number(c.valor) || 0)), 0);
+      const rito = soma > 0 && soma <= 40 * salarioMinimoEm(new Date()) ? 'sumaríssimo' : 'ordinário';
+      const pedidosSemValor = [];
+      if (caso.tem_pensao) pedidosSemValor.push('pensão mensal vitalícia');
+      if ((calculos || []).some((c) => /a apurar/i.test(c.item || ''))) pedidosSemValor.push('10 minutos de descanso');
+      avisos.push(...avisosAdi6002({ calculos, rito, pedidosSemValor }));
+    } catch (e) {
+      avisos.push(`ADI 6.002: falha ao montar a tabela de pedidos (${e?.message || e}).`);
+    }
 
     const ORDEM_BLOCOS = [
       ['BLOCO_ESPINHA_RESCISAO', 'DA MODALIDADE DE RESCISAO'],
