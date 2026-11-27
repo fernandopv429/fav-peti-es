@@ -46,9 +46,14 @@ function resolverSecoes(html, dados) {
       // como o docxtemplater faz na exportação.
       const val = dados?.[chave];
       if (tipo === '#' && Array.isArray(val)) {
-        return val.map((item) => (typeof item === 'string'
-          ? inner.replace(/\{\{\s*\.\s*\}\}/g, escapeHtml(item))
-          : inner)).join('');
+        return val.map((item) => {
+          if (typeof item === 'string') return inner.replace(/\{\{\s*\.\s*\}\}/g, escapeHtml(item));
+          // Lista de objetos ({{#modulos_estimativa}}{{MOD_TITULO}}…): campos do item.
+          if (item && typeof item === 'object') {
+            return inner.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (mm, k) => (k in item ? escapeHtml(String(item[k] ?? '')) : mm));
+          }
+          return inner;
+        }).join('');
       }
       const ligado = Array.isArray(val) ? val.length > 0 : !!val;
       const manter = tipo === '#' ? ligado : !ligado;
