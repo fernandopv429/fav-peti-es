@@ -34,6 +34,7 @@ import { categoriaEntidadeCct, categoriaCct, tomadoraEhPublica, regrasVigilancia
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { limparTravessoesDosDados } from '../../../../base44/shared/texto.js';
 import { enderecoUltimaTomadora } from '../../../../base44/shared/localPrestacao.js';
+import { avaliarInfortunio, descricaoNaFrase } from '../../../../base44/shared/infortunio.js';
 
 // ============================================================
 // FONTE ÚNICA DE DADOS DA PETIÇÃO
@@ -121,7 +122,7 @@ export const CAMPOS_TEMPLATE = [
   'MODO_RESCISAO', 'MOTIVO_SAIDA_RESUMIDO', 'DANO_MORAL_FATO_ESPECIFICO',
   'JORNADA_HORARIOS', 'ESCALA', 'INTERVALO_USUFRUIDO', 'INTERVALO_FRASE', 'INTERVALO_ART71', 'PRORROGACAO_JORNADA', 'FOLGAS_LABORADAS_MES',
   'ACUMULO_ATIVIDADES', 'ASSIDUIDADE_PROMETIDO', 'ASSIDUIDADE_PAGO', 'ASSIDUIDADE_DIFERENCA',
-  'DOENCA_DESCRICAO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
+  'DOENCA_DESCRICAO', 'INFORTUNIO_REF', 'INFORTUNIO_PELO', 'VALOR_POR_FORA', 'VALOR_AUX_ALIMENTACAO',
   'CCT_ANO', 'CCT_CLAUSULAS', 'CCT_CLAUSULA_MULTA', 'DEZ_MIN_FUNDAMENTO', 'DESVIO_DESC',
   'PERIODO_FERIAS_PROP', 'PERIODO_13', 'PERIODO_FERIAS_VENCIDAS',
   'VALOR_SALDO_SALARIO', 'VALOR_MULTA_467',
@@ -147,6 +148,7 @@ export const FLAGS_TEMPLATE = [
   'tem_capitulo_rescisao', 'aviso_reversao', 'aviso_normal', 'acumulo_funcao', 'escala_12x36',
   'escala_4x2', 'adicional_noturno', 'integracao_por_fora', 'periculosidade', 'assiduidade',
   'vale_transporte', 'auxilio_alimentacao', 'doenca_ocupacional', 'estabilidade_doenca',
+  'acidente_trabalho', 'acidente_risco', 'acidente_culpa',
   'pensao_vitalicia', 'folgas_trabalhadas', 'tem_ferias_vencidas', 'tem_verba_por_hora', 'DEZ_MINUTOS_APURAR',
 ];
 
@@ -603,7 +605,7 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   // qual. Desde 13/11/2026 o capítulo sai sempre que há doença (não só na
   // coação), então sem descrição fica a marca para o advogado completar, em vez
   // de "acometido de , doença ocupacional" (a IA não inventa a doença).
-  dados.DOENCA_DESCRICAO = caso.doenca_descricao
+  dados.DOENCA_DESCRICAO = descricaoNaFrase(caso.doenca_descricao)
     || (caso.tem_doenca ? '[A PREENCHER: qual doença ou lesão e como se relaciona ao trabalho]' : '');
   // O valor pago "por fora" É o valor da FT quitada em PIX/dinheiro. A regra
   // existia só no mapeamento do WEBHOOK; a mesma peça gerada pela tela de
@@ -802,8 +804,19 @@ export function montarDadosTemplate({ caso = {}, calculos = [], attrs = {}, dado
   const temFolgas = flag(caso.tem_ft || caso.val_ft || caso.ft_qtd_media);
   dados.vale_transporte = flag(caso.tem_vale_transporte) && temFolgas;
   dados.auxilio_alimentacao = flag(caso.tem_auxilio_alimentacao) && temFolgas;
-  dados.doenca_ocupacional = flag(caso.tem_doenca);
-  dados.estabilidade_doenca = flag(caso.tem_estabilidade || caso.tem_doenca);
+  // Doença (art. 20) x acidente típico (art. 19) e prazo da estabilidade
+  // (27/11/2026, caso Augusto): ver base44/shared/infortunio.js.
+  const infortunio = avaliarInfortunio(caso);
+  const ehAcidente = flag(caso.tem_doenca) && infortunio.tipo === 'acidente';
+  dados.doenca_ocupacional = flag(caso.tem_doenca) && !ehAcidente;
+  dados.acidente_trabalho = ehAcidente;
+  // Atividade de risco (Tema 932 do STF): vigilância e carro-forte.
+  const atividadeRisco = ehVigilante || ['vigilancia', 'carro_forte'].includes(categoriaCct(caso, attrs));
+  dados.acidente_risco = ehAcidente && atividadeRisco;
+  dados.acidente_culpa = ehAcidente && !atividadeRisco;
+  dados.INFORTUNIO_REF = ehAcidente ? 'do acidente de trabalho acima descrito' : 'da doença ocupacional acima descrita';
+  dados.INFORTUNIO_PELO = ehAcidente ? 'pelo acidente de trabalho' : 'pela doença ocupacional';
+  dados.estabilidade_doenca = flag(caso.tem_estabilidade || caso.tem_doenca) && infortunio.estabilidade !== false;
   dados.pensao_vitalicia = flag(caso.tem_pensao);
   dados.insalubridade = flag(caso.tem_insalubridade);
   dados.folgas_trabalhadas = flag(caso.tem_ft || caso.val_ft || caso.ft_qtd_media);
