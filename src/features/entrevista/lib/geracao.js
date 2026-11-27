@@ -7,6 +7,7 @@ import { extrairCasoDeTexto } from './parserEntrevista';
 import { extrairDeterministico } from './extracaoDeterministica';
 import { calcularVerbasCaso } from './mathUtils';
 import { montarDadosTemplate, aplicarDanoMoral } from './dadosTemplate';
+import { avisosAdi6002 } from '../../../../base44/shared/adi6002.js';
 import { redigirTesesIA } from './redacaoTeses';
 import { listarModelosAtivos, rankearModelos } from './matching';
 import { gerarFaltantesTexto } from './guiaCampos';
@@ -327,6 +328,17 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
   const faltantes = gerarFaltantesTexto(caso);
   if (faltantes) {
     notify(`⚠ ${faltantes}\nSe o documento é um PDF de imagem, tente enviar novamente — a IA de visão pode precisar de mais tempo. Você também pode informar esses dados diretamente no chat.`);
+  }
+  // ADI 6.002 (regra FAV 27/11/2026): tabela L/E/S e alertas para o advogado.
+  try {
+    const soma = calculos.reduce((s, c) => s + (c.foraDaCausa || /^Honorários/.test(c.item || '') ? 0 : (Number(c.valor) || 0)), 0);
+    const pedidosSemValor = [];
+    if (caso.tem_pensao) pedidosSemValor.push('pensão mensal vitalícia');
+    if (calculos.some((c) => /a apurar/i.test(c.item || ''))) pedidosSemValor.push('10 minutos de descanso');
+    avisosAdi6002({ calculos, rito: soma > 0 && soma <= 40 * salarioMinimoEm(new Date()) ? 'sumaríssimo' : 'ordinário', pedidosSemValor })
+      .forEach((a) => notify(`⚖ ${a}`));
+  } catch (e) {
+    console.error(e);
   }
   if (caso.data_admissao && caso.data_rescisao) {
     notify(`Contrato: ${caso.data_admissao} a ${caso.data_rescisao} (${Math.round((new Date(caso.data_rescisao) - new Date(caso.data_admissao)) / 86400000 / 30.44)} meses) — função: ${caso.funcao || 'não informada'}.`);
