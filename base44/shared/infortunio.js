@@ -71,7 +71,7 @@ export function datasAfastamento(caso = {}) {
   const out = { evento: null, dias_afastamento: null, retorno: null };
 
   // Retorno/alta explícitos.
-  const rRet = new RegExp(String.raw`(?:retorn\w*|voltou|alta|cessa\w*\s+do\s+benef\w*)[^.\n]{0,40}?${DATA}`, 'i').exec(txt);
+  const rRet = new RegExp(String.raw`(?:\bretorn\w*|\bvoltou|\balta\b|\bcessa\w*\s+do\s+benef\w*)[^.\n]{0,40}?${DATA}`, 'i').exec(txt);
   if (rRet) out.retorno = dataBr(rRet[1], rRet[2], rRet[3]);
 
   // Data do fato: a primeira data perto de palavras do infortúnio.
