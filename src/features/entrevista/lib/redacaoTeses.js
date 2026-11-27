@@ -9,7 +9,7 @@ import { formatBRL, temDanoMoralConcreto } from './mathUtils';
 import { removerTravessoes } from '../../../../base44/shared/texto.js';
 import { finalizarItensMulta } from '../../../../base44/shared/multasPadrao.js';
 import { regrasVigilanciaSP, avisoUfParaIA } from '../../../../base44/shared/consultas.js';
-import { instrucaoDanoMoral } from '../../../../base44/shared/danoMoral.js';
+import { instrucaoDanoMoral, tesesFatoDanoMoral } from '../../../../base44/shared/danoMoral.js';
 
 // ============================================================
 // REDAÇÃO POR IA — ANÁLISE ÚNICA (um único LLM para todos os capítulos)
@@ -170,7 +170,7 @@ export const ESPECIALISTAS = [
     // Modelo v49 (27/11/2026): o capítulo é texto fixo do escritório e a IA
     // escreve só os itens de fato da lista "direitos lesados" (base44/shared/danoMoral.js).
     // O prompt do EspecialistaConfig (prosa + doutrina) não vale mais: promptFixo.
-    ativo: () => true,
+    ativo: (d, c) => tesesFatoDanoMoral(d, c).length > 0 || temDanoMoralConcreto(c),
     promptFixo: true,
     instrucao: (d, c) => instrucaoDanoMoral(d, c),
     promptPadrao:
