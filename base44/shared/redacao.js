@@ -168,7 +168,10 @@ export const ESPECIALISTAS = [
   // no modelo (v31); a IA escreve SÓ os parágrafos dos fatos do caso (motivo
   // alegado, por que não procede, ausência de graduação e de apuração), no meio
   // do capítulo. Antes não havia capítulo nenhum (caso Thais Dutra Rosa).
-  { numero: 'reversao', nome: 'Reversão da justa causa (fatos)', campo: 'BLOCO_REVERSAO_FATOS', ativo: (d) => !!d.reversao_justa_causa,
+  // DESATIVADO (27/11/2026, regra do Luis): NÃO se narra nem se rebate o motivo
+  // da justa causa — o cliente "nem sabe o motivo" e provar a falta é ônus da
+  // EMPRESA. O parágrafo virou texto fixo no modelo v50 (sem {{BLOCO_REVERSAO_FATOS}}).
+  { numero: 'reversao', nome: 'Reversão da justa causa (fatos)', campo: 'BLOCO_REVERSAO_FATOS', ativo: () => false,
     instrucao: (d, c) =>
       'Escreva de 2 a 5 parágrafos com os FATOS ESPECÍFICOS deste caso que demonstram a invalidade da justa causa, na ordem: (1) qual motivo a reclamada alegou (e se o motivo mudou ao longo do tempo, aponte a oscilação); (2) por que a acusação não se sustenta, com os fatos do relato; (3) se o fato alegado for de menor gravidade, que ele não autoriza a pena máxima e caberia, no máximo, penalidade pedagógica; (4) ausência de advertências/suspensões anteriores e salto direto para a pena máxima, se o relato permitir; (5) ausência de apuração, de oitiva e de direito de defesa, com os nomes de colegas/superiores que constem do relato. ' +
       'Use SOMENTE o que está no relato: não invente fatos, datas, nomes nem provas; o que faltar, omita. Escreva em terceira pessoa, sempre "o reclamante" (o sistema ajusta o gênero). ' +
