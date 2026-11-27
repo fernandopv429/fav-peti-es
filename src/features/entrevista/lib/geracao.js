@@ -389,6 +389,8 @@ export async function gerarDadosPeca({ texto, fileUrls, attrs, onTool, redigirIA
       // redige o bloco, ele substitui o dano_fatos bruto do parser (que pode vir
       // fragmentado, ex.: "direitos lesados.") por um parágrafo rico e coerente.
       if (blocos.BLOCO_DANO_MORAL) dados.DANO_MORAL_FATO_ESPECIFICO = blocos.BLOCO_DANO_MORAL;
+      // Modelo v49: a lista "direitos lesados" sai do bloco da IA.
+      aplicarDanoMoral(dados, caso);
       if (especialistasUsados?.length) notify(`Capítulos redigidos por IA: ${especialistasUsados.join(', ')}.`);
     } catch (e) {
       notify(`Falha na redação por IA (a peça segue com o texto-padrão do template): ${e.message}`);
