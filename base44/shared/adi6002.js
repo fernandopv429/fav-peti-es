@@ -47,8 +47,8 @@ export function modulosEstimativa(d = {}, calculos = []) {
   const docs = new Set();
   const add = (titulo, texto, ds) => { mods.push({ MOD_TITULO: titulo, MOD_TEXTO: texto }); ds.forEach((x) => docs.add(x)); };
 
-  const temHe = d.VALOR_HE_PRORROGACAO || d.VALOR_HE_12X36 || d.escala_12x36 || d.escala_4x2 || true;
-  if (temHe) {
+  // Horas extras: sempre (a prorrogação de 30 min antes e depois entra em toda peça).
+  {
     add(
       d.escala_12x36 ? 'Horas extras e descaracterização da escala 12x36' : 'Horas extras',
       'A quantificação das horas extras não depende apenas da jornada narrada, mas de dados que somente os documentos da reclamada revelam: os dias efetivamente trabalhados em cada mês, descontadas faltas, férias e afastamentos; a quantidade de plantões extras, dobras e convocações em folgas; a extensão real da antecipação da entrada e da prorrogação da saída em cada jornada; a evolução da base de cálculo pelos reajustes normativos e pela integração das parcelas salariais, inclusive do adicional noturno (Orientação Jurisprudencial nº 97 da SDI-1 do C. TST); e os valores eventualmente pagos sob o mesmo título, que deverão ser abatidos, e nunca tratados como quitação (Orientação Jurisprudencial nº 415 da SDI-1 do C. TST). Esses dados constam dos controles de jornada, das escalas, dos registros de convocação, dos holerites e dos acordos de compensação e de banco de horas, com os respectivos extratos, todos em poder exclusivo da reclamada, o que atrai o artigo 324, § 1º, inciso III, do CPC. ' +
@@ -76,7 +76,7 @@ export function modulosEstimativa(d = {}, calculos = []) {
   }
   if (d.folgas_trabalhadas) {
     const vtAux = [d.vale_transporte && 'o vale-transporte', d.auxilio_alimentacao && 'o auxílio-alimentação'].filter(Boolean).join(' e ');
-    add(`Labor em folgas e feriados${vtAux ? ` e ${vtAux.replace(/^o /, '').replace(' e o ', ' e ')} correspondentes` : ''}`,
+    add(`Labor em folgas e feriados${vtAux ? ' e verbas correspondentes' : ''}`,
       `A quantidade de folgas e feriados trabalhados indicada na causa de pedir é a média que o reclamante consegue reconstituir de memória e representa o mínimo da pretensão; o número exato consta das escalas, dos registros de ponto e das convocações internas, em poder da reclamada (artigo 324, § 1º, inciso III, do CPC)${vtAux ? `, e dele dependem também ${vtAux} devidos nesses dias` : ''}. ` +
         params(calculos, /^Folgas trabalhadas/),
       [DOC_PONTO, DOC_ESCALA, DOC_HOLERITE]);
